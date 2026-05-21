@@ -78,6 +78,12 @@ SmallVector<OpFoldResult>
 getBoundarySizes(llvm::ArrayRef<int32_t> boundaryCheck, Value ptr,
                  const Location &loc, ConversionPatternRewriter &rewriter);
 
+SmallVector<OpFoldResult>
+getBoundarySizesForMakeTensorPtr(triton::MakeTensorPtrOp makeTensorPtrOp,
+                                 llvm::ArrayRef<int32_t> boundaryCheck,
+                                 Value ptr, const Location &loc,
+                                 ConversionPatternRewriter &rewriter);
+
 SmallVector<int64_t> getBroadcastDims(RankedTensorType src,
                                       RankedTensorType dst);
 

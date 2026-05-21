@@ -345,8 +345,13 @@ LoadConverter::matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
   auto boundaryCheck = op.getBoundaryCheck();
   if (!boundaryCheck.empty()) {
     auto makeTensorPtrOp = op.getPtr().getDefiningOp<triton::MakeTensorPtrOp>();
-    auto boundarySizes = mlir::ConverterUtils::getBoundarySizes(
-        boundaryCheck, /*remapped*/ ptr, loc, rewriter);
+      auto boundarySizes = makeTensorPtrOp
+               ? mlir::ConverterUtils::getBoundarySizesForMakeTensorPtr(
+                 makeTensorPtrOp, boundaryCheck, ptr, loc,
+                 rewriter)
+               : mlir::ConverterUtils::getBoundarySizes(
+                 boundaryCheck, /*remapped*/ ptr, loc,
+                 rewriter);
     // handle the padding
     auto padding = op.getPadding();
     SmallVector<OpFoldResult> srcOffsets(boundarySizes.size(), rewriter.getIndexAttr(0));
@@ -1044,8 +1049,13 @@ StoreConverter::matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
   auto boundaryCheck = op.getBoundaryCheck();
   if (!boundaryCheck.empty()) {
     auto makeTensorPtrOp = op.getPtr().getDefiningOp<triton::MakeTensorPtrOp>();
-    auto boundarySizes = mlir::ConverterUtils::getBoundarySizes(
-        boundaryCheck, /*remapped*/ ptr, loc, rewriter);
+      auto boundarySizes = makeTensorPtrOp
+               ? mlir::ConverterUtils::getBoundarySizesForMakeTensorPtr(
+                 makeTensorPtrOp, boundaryCheck, ptr, loc,
+                 rewriter)
+               : mlir::ConverterUtils::getBoundarySizes(
+                 boundaryCheck, /*remapped*/ ptr, loc,
+                 rewriter);
     SmallVector<OpFoldResult> srcOffsets;
     SmallVector<OpFoldResult> dstOffsets(boundarySizes.size(), rewriter.getIndexAttr(0));
     if (makeTensorPtrOp) {

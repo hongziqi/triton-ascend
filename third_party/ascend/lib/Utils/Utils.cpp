@@ -392,26 +392,54 @@ getBoundarySizes(llvm::ArrayRef<int32_t> boundaryCheck, Value ptr,
       curPtrOffset, fullShapeReCast.getConstifiedMixedOffset(), loc, rewriter);
 
   for (int i = 0; i < shapedType.getRank(); ++i) {
+    OpFoldResult curOffset = divOpFoldResult(
+      offsetShift, fullShapeReCast.getConstifiedMixedStrides()[i], loc,
+      rewriter);
     if (llvm::find(boundaryCheck, i) != boundaryCheck.end()) {
       auto fullShape = fullShapeReCast.getConstifiedMixedSizes()[i];
-
-      OpFoldResult curOffset = divOpFoldResult(
-          offsetShift, fullShapeReCast.getConstifiedMixedStrides()[i], loc,
-          rewriter);
       OpFoldResult curLeftSize =
           maxOpFoldResult(subOpFoldResult(fullShape, curOffset, loc, rewriter),
                           rewriter.getIndexAttr(0), loc, rewriter);
 
       boundarySize[i] =
           minOpFoldResult(boundarySize[i], curLeftSize, loc, rewriter);
-
-      offsetShift = remOpFoldResult(
-          offsetShift, fullShapeReCast.getConstifiedMixedStrides()[i], loc,
-          rewriter);
     }
+
+    offsetShift = remOpFoldResult(
+      offsetShift, fullShapeReCast.getConstifiedMixedStrides()[i], loc,
+      rewriter);
   }
 
   return boundarySize;
+}
+
+SmallVector<OpFoldResult>
+getBoundarySizesForMakeTensorPtr(triton::MakeTensorPtrOp makeTensorPtrOp,
+                                 llvm::ArrayRef<int32_t> boundaryCheck,
+                                 Value ptr, const Location &loc,
+                                 ConversionPatternRewriter &rewriter) {
+  auto shapedType = cast<ShapedType>(ptr.getType());
+  auto boundarySizes =
+      getAsIndexOpFoldResult(rewriter.getContext(), shapedType.getShape());
+
+  for (int32_t axis : boundaryCheck) {
+    if (axis < 0 || axis >= static_cast<int32_t>(shapedType.getRank()))
+      continue;
+
+    OpFoldResult fullShape =
+        getOpFoldResultOfLayoutInfo(makeTensorPtrOp.getShape()[axis], rewriter);
+    OpFoldResult curOffset = getOpFoldResultOfLayoutInfo(
+        makeTensorPtrOp.getOffsets()[axis], rewriter);
+    curOffset = maxOpFoldResult(curOffset, rewriter.getIndexAttr(0), loc,
+                                rewriter);
+    OpFoldResult curLeftSize =
+        maxOpFoldResult(subOpFoldResult(fullShape, curOffset, loc, rewriter),
+                        rewriter.getIndexAttr(0), loc, rewriter);
+    boundarySizes[axis] =
+        minOpFoldResult(boundarySizes[axis], curLeftSize, loc, rewriter);
+  }
+
+  return boundarySizes;
 }
 
 SmallVector<int64_t> getBroadcastDims(RankedTensorType src,
