@@ -1070,10 +1070,7 @@ class TritonSemantic(Generic[TensorTy]):
         # Check `boundary_check` argument
         boundary_check = self._canonicalize_boundary_check(boundary_check, dst_ty.get_block_shapes())
 
-        if boundary_check and padding is None:
-            padding = ir.PADDING_OPTION.PAD_ZERO
-
-    # Build IR
+        # Build IR
         return self.tensor(
             self.builder.create_tensor_pointer_load(ptr.handle, boundary_check, padding, cache, eviction, is_volatile),
             dst_ty)
