@@ -1072,13 +1072,35 @@ StoreConverter::matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
     } else {
       srcOffsets = dstOffsets;
     }
-    auto srcSlice = mlir::ConverterUtils::makeExtractSliceOp(
-        val, srcOffsets, boundarySizes, loc, rewriter);
     auto dstSubview = mlir::ConverterUtils::makeSubViewOp(
         ptr, dstOffsets, boundarySizes, loc, rewriter);
-    auto storeOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
-        loc, srcSlice, dstSubview);
-    storeOp.setWritable(true);
+
+    bool isCheckedAxisPrefix = !boundaryCheck.empty();
+    for (auto [expectedAxis, checkedAxis] : llvm::enumerate(boundaryCheck)) {
+      if (checkedAxis != static_cast<int32_t>(expectedAxis)) {
+        isCheckedAxisPrefix = false;
+        break;
+      }
+    }
+
+    // Keep boundary-check stores on a pure memref.copy path when the dynamic
+    // portion stays on the leading axes of a rank>1 tile.
+    if (isCheckedAxisPrefix && dstOffsets.size() > 1u) {
+      auto tensorValueType = cast<RankedTensorType>(val.getType());
+      auto valueMemRefType = MemRefType::get(tensorValueType.getShape(),
+                                             tensorValueType.getElementType());
+      Value valueMemRef =
+          rewriter.create<bufferization::ToMemrefOp>(loc, valueMemRefType, val);
+      auto srcSubview = mlir::ConverterUtils::makeSubViewOp(
+          valueMemRef, srcOffsets, boundarySizes, loc, rewriter);
+      rewriter.create<memref::CopyOp>(loc, srcSubview, dstSubview);
+    } else {
+      auto srcSlice = mlir::ConverterUtils::makeExtractSliceOp(
+          val, srcOffsets, boundarySizes, loc, rewriter);
+      auto storeOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
+          loc, srcSlice, dstSubview);
+      storeOp.setWritable(true);
+    }
     rewriter.eraseOp(op);
     return success();
   }
