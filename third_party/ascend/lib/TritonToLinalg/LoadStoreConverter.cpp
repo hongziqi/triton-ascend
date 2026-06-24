@@ -1083,9 +1083,31 @@ StoreConverter::matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
       }
     }
 
-    // Keep boundary-check stores on a pure memref.copy path when the dynamic
-    // portion stays on the leading axes of a rank>1 tile.
-    if (isCheckedAxisPrefix && dstOffsets.size() > 1u) {
+    auto hasSingleLeadingDynamicDim = [](MemRefType subviewType) {
+      if (subviewType.getRank() <= 1)
+        return false;
+      auto shape = subviewType.getShape();
+      if (!ShapedType::isDynamic(shape[0]))
+        return false;
+      for (int64_t i = 1, e = subviewType.getRank(); i < e; ++i) {
+        if (ShapedType::isDynamic(shape[i]))
+          return false;
+      }
+      return true;
+    };
+
+    bool isLoopCarriedTensorPtr =
+        isa<BlockArgument>(op.getPtr()) &&
+        isa<scf::ForOp>(op.getPtr().getParentBlock()->getParentOp());
+    bool insideScfFor = static_cast<bool>(op->getParentOfType<scf::ForOp>());
+    auto dstSubviewType = cast<MemRefType>(dstSubview.getType());
+
+    // Prefix boundary_check stores on rank>1 tiles lower to memref.copy when
+    // outside scf.for, or when the effective tile is ?xSxS... . Loop-carried
+    // tensor pointers always stay on the materialize path.
+    if (!isLoopCarriedTensorPtr &&
+        (hasSingleLeadingDynamicDim(dstSubviewType) ||
+         (isCheckedAxisPrefix && dstOffsets.size() > 1u && !insideScfFor))) {
       auto tensorValueType = cast<RankedTensorType>(val.getType());
       auto valueMemRefType = MemRefType::get(tensorValueType.getShape(),
                                              tensorValueType.getElementType());

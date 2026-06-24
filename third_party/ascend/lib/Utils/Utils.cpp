@@ -378,7 +378,49 @@ traceTensorPtrAxisInfo(Value ptr, ConversionPatternRewriter &rewriter,
       auto init = forOp.getTiedLoopInit(blockArg);
       if (!init)
         return std::nullopt;
-      return traceTensorPtrAxisInfo(init->get(), rewriter, loc);
+      auto yieldOp = dyn_cast<scf::YieldOp>(forOp.getBody()->getTerminator());
+      if (!yieldOp)
+        return std::nullopt;
+      unsigned iterArgIndex = blockArg.getArgNumber() - 1;
+      if (iterArgIndex >= yieldOp.getNumOperands())
+        return std::nullopt;
+      Value yieldedValue = yieldOp.getOperand(iterArgIndex);
+      if (yieldedValue == blockArg)
+        return traceTensorPtrAxisInfo(init->get(), rewriter, loc);
+
+      auto advanceOp = yieldedValue.getDefiningOp<triton::AdvanceOp>();
+      if (!advanceOp || advanceOp.getPtr() != blockArg)
+        return std::nullopt;
+
+      auto baseInfo = traceTensorPtrAxisInfo(init->get(), rewriter, loc);
+      if (!baseInfo ||
+          baseInfo->offsets.size() != advanceOp.getOffsets().size())
+        return std::nullopt;
+
+      Value loopLb = forOp.getLowerBound();
+      Value loopStep = forOp.getStep();
+      Value loopIv = forOp.getInductionVar();
+      Value iterDistance =
+          rewriter.createOrFold<arith::SubIOp>(loc, loopIv, loopLb);
+      Value iterCount =
+          rewriter.createOrFold<arith::DivSIOp>(loc, iterDistance, loopStep);
+
+      TensorPtrAxisInfo info;
+      info.shape = baseInfo->shape;
+      info.offsets.reserve(baseInfo->offsets.size());
+      for (auto [baseOffset, advanceOffset] :
+           llvm::zip(baseInfo->offsets, advanceOp.getOffsets())) {
+        Value iterCountTyped = iterCount;
+        if (iterCountTyped.getType() != advanceOffset.getType()) {
+          iterCountTyped = rewriter.createOrFold<arith::IndexCastOp>(
+              loc, advanceOffset.getType(), iterCountTyped);
+        }
+        Value totalAdvance = rewriter.createOrFold<arith::MulIOp>(
+            loc, iterCountTyped, advanceOffset);
+        info.offsets.push_back(
+            rewriter.createOrFold<arith::AddIOp>(loc, baseOffset, totalAdvance));
+      }
+      return info;
     }
   }
 
@@ -533,17 +575,19 @@ getBoundarySizes(llvm::ArrayRef<int32_t> boundaryCheck, Value ptr,
   for (int i = 0; i < shapedType.getRank(); ++i) {
     OpFoldResult curStride = fullShapeReCast.getConstifiedMixedStrides()[i];
     if (llvm::find(boundaryCheck, i) != boundaryCheck.end()) {
+      auto fullShape = fullShapeReCast.getConstifiedMixedSizes()[i];
       if (isZero(curStride)) {
+        boundarySize[i] =
+            minOpFoldResult(boundarySize[i], fullShape, loc, rewriter);
         emitWarning(loc)
             << "getBoundarySizes() cannot reconstruct boundary on checked "
                "zero-stride axis "
-            << i << "; keep current block size for this axis";
+            << i << "; clamp boundary to the full logical axis size";
         continue;
       }
 
       OpFoldResult curOffset = divOpFoldResult(offsetShift, curStride, loc,
                                                rewriter);
-      auto fullShape = fullShapeReCast.getConstifiedMixedSizes()[i];
       OpFoldResult curLeftSize =
           maxOpFoldResult(subOpFoldResult(fullShape, curOffset, loc, rewriter),
                           rewriter.getIndexAttr(0), loc, rewriter);
