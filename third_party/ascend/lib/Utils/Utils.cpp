@@ -320,6 +320,21 @@ std::optional<Operation *> getFullShapeOp(Value val,
   }
 }
 
+
+// Return true if `value` is `root`, or is computed from ops that (transitively)
+// use `root`. Used to detect loop-carried advance deltas that vary per-iteration.
+bool valueTransitivelyDependsOn(Value value, Value root) {
+  if (value == root)
+    return true;
+  Operation *defOp = value.getDefiningOp();
+  if (!defOp || isa<arith::ConstantOp>(defOp))
+    return false;
+  return llvm::any_of(defOp->getOperands(), [&](Value operand) {
+    return valueTransitivelyDependsOn(operand, root);
+  });
+}
+
+
 // Trace tensor-ptr axis metadata from the current SSA value back to its
 // logical source. The goal is to recover per-axis `shape` and `offsets`
 // so boundary sizes can be computed directly in logical-axis space.
@@ -333,7 +348,10 @@ std::optional<Operation *> getFullShapeOp(Value val,
 //    +-- AdvanceOp --------------> trace(base)
 //    |                               then offsets := baseOffsets + advance
 //    |
-//    +-- scf.for BlockArgument --> trace(tied loop init)
+//    +-- scf.for BlockArgument --> trace(tied loop init), or if yield is
+//    |                               advance(iter_arg, fixed_delta):
+//    |                               offsets := init + iterCount * delta
+//    |                               (nullopt if delta depends on iv)
 //    |
 //    +-- otherwise --------------> std::nullopt
 //
@@ -397,9 +415,17 @@ traceTensorPtrAxisInfo(Value ptr, ConversionPatternRewriter &rewriter,
           baseInfo->offsets.size() != advanceOp.getOffsets().size())
         return std::nullopt;
 
+      Value loopIv = forOp.getInductionVar();
+      // Only model yield advance(iter_arg, fixed_delta). Per-iteration deltas
+      // that depend on the induction variable need a different accumulation
+      // than iterCount * delta, so fall back to getBoundarySizes().
+      for (Value advanceOffset : advanceOp.getOffsets()) {
+        if (valueTransitivelyDependsOn(advanceOffset, loopIv))
+          return std::nullopt;
+      }
+
       Value loopLb = forOp.getLowerBound();
       Value loopStep = forOp.getStep();
-      Value loopIv = forOp.getInductionVar();
       Value iterDistance =
           rewriter.createOrFold<arith::SubIOp>(loc, loopIv, loopLb);
       Value iterCount =
