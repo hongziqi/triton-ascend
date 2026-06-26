@@ -246,7 +246,6 @@ def ceil(x, _semantic=None):
 
 @core.builtin
 @_add_math_3arg_docstr("fused multiply-add")
-<<<<<<< HEAD
 def fma(x, y, z, _semantic=None):
     x = _semantic.to_tensor(x)
     y = _semantic.to_tensor(y)
@@ -255,21 +254,3 @@ def fma(x, y, z, _semantic=None):
     z, x = core.binary_op_type_legalization(z, x, _semantic)
     z, y = core.binary_op_type_legalization(z, y, _semantic)
     return core.tensor(_semantic.builder.create_fma(x.handle, y.handle, z.handle), x.type)
-=======
-def fma(x, y, z, _builder=None):
-    x = semantic.to_tensor(x, _builder)
-    y = semantic.to_tensor(y, _builder)
-    z = semantic.to_tensor(z, _builder)
-    x, y = core.binary_op_type_legalization(x, y, _builder)
-    z, x = core.binary_op_type_legalization(z, x, _builder)
-    z, y = core.binary_op_type_legalization(z, y, _builder)
-    return core.tensor(_builder.create_fma(x.handle, y.handle, z.handle), x.type)
-
-@core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32"])
-@_add_math_1arg_docstr("error function")
-@core._tensor_member_fn
-def tanh(x, _builder=None):
-    x = semantic.to_tensor(x, _builder)
-    return core.tensor(_builder.create_tanh(x.handle), x.type)
->>>>>>> release-3.2.2-0625-b79d137

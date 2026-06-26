@@ -498,7 +498,6 @@ class CompiledKernel:
         if knobs.runtime.kernel_load_start_hook is not None:
             knobs.runtime.kernel_load_start_hook(self.module, self.function, self.name, self.metadata_group, self.hash)
         # TODO: n_regs, n_spills should be metadata generated when calling `ptxas`
-<<<<<<< HEAD
         self.module, self.function, self.n_regs, self.n_spills, self.n_max_threads = driver.active.utils.load_binary(
             self.metadata.kernel_name, self.kernel, self.metadata.shared, device, self.metadata.mix_mode)
         warp_size = driver.active.get_current_target().warp_size
@@ -506,10 +505,6 @@ class CompiledKernel:
             raise_(OutOfResources(self.metadata.num_warps * warp_size, self.n_max_threads, "threads"))
         if knobs.runtime.kernel_load_end_hook is not None:
             knobs.runtime.kernel_load_end_hook(self.module, self.function, self.name, self.metadata_group, self.hash)
-=======
-        self.module, self.function, self.n_regs, self.n_spills = driver.active.utils.load_binary(
-            self.metadata.kernel_name, self.kernel, self.metadata.shared, device, self.metadata.mix_mode)
->>>>>>> release-3.2.2-0625-b79d137
 
     @property
     def run(self):

@@ -36,29 +36,11 @@ class Backend:
 
 def _discover_backends() -> dict[str, Backend]:
     backends = dict()
-<<<<<<< HEAD
     for ep in entry_points().select(group="triton.backends"):
         compiler = importlib.import_module(f"{ep.value}.compiler")
         driver = importlib.import_module(f"{ep.value}.driver")
         backends[ep.name] = Backend(_find_concrete_subclasses(compiler, BaseBackend),  # type: ignore
                                     _find_concrete_subclasses(driver, DriverBase))  # type: ignore
-=======
-    root = os.path.dirname(__file__)
-    # The package does not ship the files required to load the
-    # upstream nvidia and amd backends, so skip discovering them here.
-    ignored_dirs = {"nvidia", "amd"}
-    for name in os.listdir(root):
-        if name in ignored_dirs:
-            continue
-        if not os.path.isdir(os.path.join(root, name)):
-            continue
-        if name.startswith('__'):
-            continue
-        compiler = _load_module(name, os.path.join(root, name, 'compiler.py'))
-        driver = _load_module(name, os.path.join(root, name, 'driver.py'))
-        backends[name] = Backend(_find_concrete_subclasses(compiler, BaseBackend),
-                                 _find_concrete_subclasses(driver, DriverBase))
->>>>>>> release-3.2.2-0625-b79d137
     return backends
 
 
