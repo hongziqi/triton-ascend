@@ -39,17 +39,12 @@ public:
   LogicalResult validateBlockIdsConsecutive(ModuleOp module);
   LogicalResult cloneOpsInMainLoop(scf::ForOp forOp);
   LogicalResult cleanupClonedOpsInMainLoop(scf::ForOp forOp);
-<<<<<<< HEAD
-
-  llvm::StringRef getArgument() const override { return "clone-ops"; }
-=======
   LogicalResult validateClonedOpsInVector(ModuleOp module);
 
   llvm::StringRef getArgument() const override
   {
     return "clone-ops";
   }
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createCloneOpsPass();

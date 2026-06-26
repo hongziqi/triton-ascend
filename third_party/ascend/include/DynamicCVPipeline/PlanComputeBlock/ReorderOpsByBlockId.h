@@ -28,7 +28,6 @@
 
 namespace mlir::triton {
 
-<<<<<<< HEAD
 class ReorderOpsByBlockIdPass
     : public PassWrapper<ReorderOpsByBlockIdPass, OperationPass<ModuleOp>> {
 public:
@@ -36,18 +35,10 @@ public:
 
   ReorderOpsByBlockIdPass() = default;
   void runOnOperation() override;
-=======
-class ReorderOpsByBlockIdPass : public PassWrapper<ReorderOpsByBlockIdPass, OperationPass<ModuleOp>> {
-public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ReorderOpsByBlockIdPass);
 
-    ReorderOpsByBlockIdPass() = default;
-    void runOnOperation() override;
-
-    llvm::StringRef getArgument() const final {
+  llvm::StringRef getArgument() const final {
       return "reorder-ops-by-block-id";
-    }
->>>>>>> release-3.2.2-0625-b79d137
+  }
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createReorderOpsByBlockIdPass();

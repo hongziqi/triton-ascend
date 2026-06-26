@@ -37,22 +37,6 @@ public:
 
   void runOnOperation() override;
 
-<<<<<<< HEAD
-  void setConditionInfo(ControlFlowConditionInfo *info) { this->info = info; }
-
-  llvm::StringRef getArgument() const override { return "update-for-ops"; }
-
-private:
-  LogicalResult
-  addBlockCountersAndInnerDepConds(ModuleOp module,
-                                   ControlFlowConditionInfo *info);
-
-  LogicalResult deriveBlockCountersFromIfOps(ModuleOp module,
-                                             ControlFlowConditionInfo *info);
-
-  LogicalResult insertInterCorePipeS(ModuleOp module);
-
-=======
   void setConditionInfo(ControlFlowConditionInfo *info)
   {
     this->info = info;
@@ -73,7 +57,6 @@ private:
   // Analyze the dependencies of the tensor type iter_args in the main_loop with the ssbuffer.if ops
   LogicalResult analyzeTensorIterArgDependencies(ModuleOp module, ControlFlowConditionInfo *info);
 
->>>>>>> release-3.2.2-0625-b79d137
   ControlFlowConditionInfo *info = nullptr;
 };
 
@@ -81,8 +64,4 @@ std::unique_ptr<OperationPass<ModuleOp>> createUpdateForOpsPass();
 
 } // namespace triton
 } // namespace mlir
-<<<<<<< HEAD
 #endif // TRITON_ASCEND_SSBUF_UPDATE_FOR_OPS_FOR_CONTROL_FLOW_H
-=======
-#endif // TRITON_ASCEND_SSBUF_UPDATE_FOR_OPS_FOR_CONTROL_FLOW_H
->>>>>>> release-3.2.2-0625-b79d137
