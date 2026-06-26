@@ -7,13 +7,8 @@
 
 **核心组件：**
 
-<<<<<<< HEAD
 - **`Ascend language extension`**：适配 Ascend 的 Triton 语言扩展
 - **`compiler`**：适配 Ascend 的 Triton 编译器
-=======
-- **`Ascend language extension`**：适配 Ascend 的 Triton 语言扩展  
-- **`compiler`**：适配 Ascend 的 Triton 编译器  
->>>>>>> release-3.2.2-0625-b79d137
 - **`driver`**：适配 Ascend 的设备驱动接口
 
 **组件功能：**
@@ -42,7 +37,6 @@
 > - **若修改与目标硬件无关**（target independent），应保留在 **Triton core** 部分（如language、runtime的通用修改）；
 > - **若修改与 Ascend 硬件强相关**（target affinitive），应放在 **Triton-Ascend** 中。
 
-<<<<<<< HEAD
 ### 2.2 目录结构与功能说明
 
 | 目录或文件 | 对应架构层级 | 功能说明 |
@@ -57,29 +51,6 @@
 | `third_party/ascend/include/` 和 `third_party/ascend/lib/` | compiler | Ascend 专属 MLIR Dialect、Pass 和转换实现，例如 `TritonToLinalg`、`TritonToStructured`、`DynamicCVPipeline`、`AutoBlockify` 等。 |
 | `third_party/ascend/AscendNPU-IR/` | compiler | Ascend NPU 相关 IR 与 BiSheng 编译链适配内容，是从 Triton-Ascend 编译流程继续下沉到硬件侧代码生成的重要组成部分。 |
 | `third_party/ascend/tutorials/` 和 `third_party/ascend/unittest/` | 示例与测试 | 提供 Ascend 平台上的 Triton 示例、迁移样例、Python 单元测试和 MLIR 转换测试，用于验证 Ascend 后端能力。 |
-=======
-### 2.2 目录结构与功能说明
-
-**`include/` 和 `lib/`**
-
-- **内容**：包含针对 Ascend NPU 的 **MLIR Passes**、**Dialects**（方言）以及相关工具。
-- **作用**：用于在 MLIR 编译流程中表达和优化 Ascend 特定的计算图。
-
-**`libdevice.py`**
-
-- **内容**：适配 Ascend NPU 的 `libdevice` 接口。
-- **作用**：提供适配 Ascend NPU 硬件的底层实现支持，供 Triton 算子调用。
-
-**`backend/compiler.py`**
-
-- **内容**：`triton-ascend` 编译器主入口。
-- **作用**：将 Triton 高层 DSL 代码编译为可在 Ascend NPU 上执行的**可执行二进制文件**（如 `.o`文件）。
-
-**`backend/driver.py`**
-
-- **内容**：`triton-ascend` 驱动模块。
-- **作用**：加载并启动已编译的可执行二进制。
->>>>>>> release-3.2.2-0625-b79d137
 
 ## 3. Modules
 
@@ -93,15 +64,9 @@
 | 2    | `tl.extract_slice(full, offsets, sizes, strides)`     | 按照指定的偏移量（offsets）、尺寸（sizes）和步幅（strides）参数，从另一个张量中提取一个切片张量。<br>**返回值**：切片张量。<br>**full**：源张量，从此张量中提取切片。<br>**offsets**：源张量上的偏移量（整数元组）。<br>**sizes**：切片张量的尺寸（整数元组）。<br>**strides**：源张量上的步幅（整数元组）。                        |
 | 3    | `tl.get_element(source, offset)`                      | 读取一个具有维度的张量，并返回指定偏移量处的单个元素。<br>**source**：源张量。<br>**offset**：元素提取位置的偏移量（整数元组）。   |
 
-<<<<<<< HEAD
 ### 3.2 Triton-Ascend
 
 #### 3.2.1 Compiler Options
-=======
-## 3.2 Triton-Ascend
-
-### 3.2.1 Compiler Options
->>>>>>> release-3.2.2-0625-b79d137
 
 |序号| NPUOptions                                    | 硬件平台     | 用途 |
 | --- | --------------------------------------------- | ---------- | ----- |
@@ -123,11 +88,7 @@
 | 16  | enable_nd2nz_on_vector                        | NPU        | Autotune option (CV-fused kernels only): Enable or disable the ND (n-dimensional) to NZ (non-zero) layout transformation. |
 | 17  | auto_blockify_size                            | NPU        | Autotune option: Enable or disable AutoBlockify pass. It is ignored when TRITON_ALL_BLOCKS_PARALLEL is not set |
 
-<<<<<<< HEAD
 #### 3.2.2 SIMD compiler
-=======
-### 3.2.2 SIMD compiler
->>>>>>> release-3.2.2-0625-b79d137
 
 | 序号 | Pass                   | 目的                                                                   | IR 转换                 |
 | ------ | ---------------------- |----------------------------------------------------------------------| ----------------------- |
@@ -162,11 +123,7 @@
 | 2    | triton-to-unstructured           | 将经过`discrete-mask-access-conversion`识别出的、包含离散轴（Discrete Axes）的张量操作，转换为基于显式标量循环的标量访存。 |
 | 3    | bubble-up-operation                       | 主要对`extract op/extract_slice`顺序上移优化。这可以优化数据局部性，有些场景能消除转换后产生的不必要的循环，从而提升生成代码的执行效率。 |
 
-<<<<<<< HEAD
 ###### 3.2.2.2.1 discrete-mask-access-conversion
-=======
-##### 3.2.2.2.1 discrete-mask-access-conversion
->>>>>>> release-3.2.2-0625-b79d137
 
 | 转换器名称                  | 描述|
 |----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -183,11 +140,7 @@
 | UnstructuredMemAccessConverter\<triton::AtomicRMWOp\> | 将AtomicRMWOp转化为多重循环标量Atomic操作 |
 | UnstructuredMemAccessConverter\<triton::AtomicCASOp\> | 将AtomicCASOp转化为多重循环标量Atomic操作 |
 
-<<<<<<< HEAD
 ###### 3.2.2.2.3 bubble-up-operation
-=======
-##### 3.2.2.2.3 bubble-up-operation
->>>>>>> release-3.2.2-0625-b79d137
 
 | 转换器名称 | 描述 |
 |---|---|

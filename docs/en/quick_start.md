@@ -6,33 +6,15 @@ This article takes running a vector addition example via package deployment in a
 
 ## Package Installation
 
-<<<<<<< HEAD
 ### Environment Preparation
 
 #### Hardware Requirements
-=======
-## Online Documents
-
-Complete online documents and network materials are provided, covering environment setup, operator development, optimization practices, and FAQ, to help you get started quickly. For details, see the [online documents](https://triton-ascend.readthedocs.io/zh-cn/latest/index.html).
-
-## Environment Requirements
-
-### Hardware Requirements
-
-Supported OS: Linux (AArch64/x86_64)
->>>>>>> release-3.2.2-0625-b79d137
 
 Supported operating systems: linux(aarch64/x86_64)
 
 Supported Ascend products: Atlas A2/A3/A5 series
 
-<<<<<<< HEAD
 Minimum hardware configuration: Single-card 32GB memory (recommended)
-=======
-### Software Dependency
-
-Python (Python 3.9 to Python 3.11), CANN_TOOLKIT, CANN_OPS, [requirements.txt](../../requirements.txt), and [requirements_dev.txt](../../requirements_dev.txt)
->>>>>>> release-3.2.2-0625-b79d137
 
 #### Software Dependencies
 Determine and install the Python, CANN, and torch_npu software versions. Both package installation and source code compilation installation require this step to be completed first.
@@ -42,45 +24,7 @@ Determine and install the Python, CANN, and torch_npu software versions. Both pa
 
 -   torch_npu version selection: The currently matched torch_npu version is 2.7.1.post4.
 
-<<<<<<< HEAD
 ### Implementation (Taking whl Package Installation as an Example)
-=======
-The environment variable configuration above takes effect only in the current terminal session.
-
-Users can add the command source `${HOME}/Ascend/ascend-toolkit/set_env.sh` to an environment variable configuration file (such as .bashrc) as needed.
-
-You can run the following command to install the requirements:
-
-```shell
-pip install -r requirements.txt -r requirements_dev.txt
-```
-
-## Environment Setup
-
-You can set up the Triton-Ascend environment by referring to section "Preparing the Environment" in [Installation Guide](installation_guide.md).
-
-### Obtaining the Triton-Ascend Software Package
-
-You can install the latest stable version package using the CLI.
-
-```shell
-pip install triton-ascend
-```
-
-- Note: Starting from version 3.5, Triton-Ascend mitigates the installation overwrite issue by declaring Triton as an installation dependency. When Triton-Ascend is installed, community Triton is installed first, and then Triton-Ascend overwrites the shared package directory. This helps avoid a later Triton reinstallation overwriting Triton-Ascend when other software packages that depend on Triton are installed. Different community Triton package versions are used for x86 and arm because arm installation packages are only available in the community starting from Triton 3.5: x86 depends on `triton==3.2.0`, and arm depends on `triton==3.5.0`.
-
-- Note 1: This solution mitigates the installation overwrite issue, but it does not completely eliminate the conflict caused by community Triton and Triton-Ascend sharing the same top-level `triton` package directory. If a later installation explicitly reinstalls or upgrades community Triton, the installed Triton-Ascend may still be affected. In this case, uninstall both community Triton and Triton-Ascend first, and then reinstall Triton-Ascend.
-
-You can also download the nightly package from the [download link](https://test.pypi.org/project/triton-ascend/#history) and install it locally.
-
-- Note 2: If you download the nightly package for installation, select the Python version and architecture (AArch64/x86_64) of your server when selecting the Triton-Ascend package.
-- Note 3: The nightly package is built every day. Developers submit MRs frequently. Note that if the package does not pass the stable test, function bugs may exist.
-
-## Example for Running Triton
-
-Run the [01-vector-add.py](../en/examples/01_vector_add_example.md) instance.
-
->>>>>>> release-3.2.2-0625-b79d137
 ```bash
 # Take installing triton-ascend 3.2.1 as an example
 pip install triton-ascend==3.2.1 --extra-index-url=https://triton-ascend.osinfra.cn/pypi/simple

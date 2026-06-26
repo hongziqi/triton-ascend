@@ -25,7 +25,6 @@ triton_gelu[n, 1, 1](...)  # The first parameter indicates the number of cores i
 
 By optimizing the number of cores, you can fully schedule and utilize all computing resources, thereby maximizing the degree of parallelism (DOP) and throughput. Without `auto-blockify` (see below), the number of cores in the launched grid must be less than or equal to 65,535.
 
-<<<<<<< HEAD
 ### Auto-Blockify: lifting the 65,535 logical-block limit
 
 Upstream Triton on NVIDIA GPUs treats the grid as a pure logical dimension — `n` logical blocks map 1:1 to `n` hardware blocks, and the runtime expands the work across SMs without any per-block iteration. On Ascend, the strict physical-core binding above caps the launchable grid at 65,535, which is restrictive for kernels with millions of logical work items (autotuned reduce/scan, megablocks-style sparse kernels, etc.).
@@ -43,8 +42,6 @@ Practical implications when porting a GPU Triton kernel:
 - Logical blocks must remain order-independent (the loop visits them in chunk order). Kernels that assume strict logical block-id ordering within a single launch (e.g., explicit cross-block synchronization on a particular order) need to be rewritten.
 - Per-block workspace allocations become `O(physical_core_count)` rather than `O(logical_block_count)`, because workspace is reused across iterations of the inner `scf.for`.
 
-=======
->>>>>>> release-3.2.2-0625-b79d137
 ## Single-Core Data Transfer Strategy
 
 ### Data Tiling

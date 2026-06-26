@@ -5,11 +5,7 @@
 简介：`triton.language.arange`函数用于生成一个从`start`到`end`（不包括`end`）的连续整数序列。
 
 ```python
-<<<<<<< HEAD
 triton.language.arange(start, end, _semantic=None)
-=======
-triton.language.arange(start,end, _semantic=None)
->>>>>>> release-3.2.2-0625-b79d137
 ```
 
 ## 2. OP 规格
@@ -32,13 +28,8 @@ triton.language.arange(start,end, _semantic=None)
 
 |                | uint8 | int8 | uint16 | int16 | uint32 | int32 | uint64 | int64 | fp16 | fp32 | bf16 | bool/int1 |
 | --------- | ------- | ------ | -------- | ------- | -------- | ------- | -------- | ------- | ------ | ------ | ------ | ----------- |
-<<<<<<< HEAD
 | GPU            | ×    | ×     | ×     | ×     | ×      | √      | ×      | ×     | ×    | ×    | ×    |   ×    |
 | Ascend  A2/A3 | ×    | ×     | √     | ×     | ×      | ×      | ×      | ×     | ×    | ×    | ×    |   ×    |
-=======
-| GPU            | ×    | ×     | ×     | ×     | ×      | √      | ×      | ×     | ×    | ×    | ×    | ×    | ×    |
-| Ascend  A2/A3 | ×    | ×     | √     | ×     | ×      | ×      | ×      | ×     | ×    | ×    | ×    | ×    | ×    |
->>>>>>> release-3.2.2-0625-b79d137
 
 #### 2.2.2 Shape 支持
 

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # triton.language.tensor.__not__
-=======
-# triton.language.not
->>>>>>> release-3.2.2-0625-b79d137
 
 ## 1. 函数概述
 

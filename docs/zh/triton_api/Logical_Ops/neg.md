@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # triton.language.tensor.__neg__
-=======
-# triton.language.neg
->>>>>>> release-3.2.2-0625-b79d137
 
 ## 1. 函数概述
 

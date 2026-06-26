@@ -7,13 +7,8 @@
 
 **Core components:**
 
-<<<<<<< HEAD
 - **`Ascend language extension`**: Triton language extension for Ascend
 - **`compiler`**: Triton compiler for Ascend
-=======
-- **`Ascend language extension`**: Triton language extension for Ascend 
-- **`compiler`**: Triton compiler for Ascend 
->>>>>>> release-3.2.2-0625-b79d137
 - **`driver`**: Ascend device driver API
 
 **Component functions:**
@@ -44,7 +39,6 @@ This project extends the support for Huawei Ascend NPU (using the CANN software 
 
 ### 2.2 Directory Structure and Function Description
 
-<<<<<<< HEAD
 | Directory or File | Architecture Layer | Description |
 | --- | --- | --- |
 | `python/` | Triton core | Contains the common Python implementation from standard Triton, including `triton.language`, JIT, runtime, cache, and tool entry points. Target-independent capabilities should live here first. |
@@ -57,27 +51,6 @@ This project extends the support for Huawei Ascend NPU (using the CANN software 
 | `third_party/ascend/include/` and `third_party/ascend/lib/` | compiler | Contains Ascend-specific MLIR dialects, passes, and conversions, such as `TritonToLinalg`, `TritonToStructured`, `DynamicCVPipeline`, and `AutoBlockify`. |
 | `third_party/ascend/AscendNPU-IR/` | compiler | Contains Ascend NPU IR and BiSheng compilation-chain integration used by the Triton-Ascend pipeline when lowering further toward hardware code generation. |
 | `third_party/ascend/tutorials/` and `third_party/ascend/unittest/` | Examples and tests | Provides Triton examples on Ascend, migration examples, Python unit tests, and MLIR conversion tests for validating Ascend backend capabilities. |
-=======
-**`include/` and `lib/`**
-
-- **Content**: **MLIR Passes**, **dialects**, and related tools for Ascend NPUs.
-- **Description**: Represents and optimizes Ascend-specific computational graphs in the MLIR compilation process.
-
-**`libdevice.py`**
-
-- **Content**: `libdevice` API adaptable to Ascend NPUs.
-- **Description**: Provides underlying implementation support for the Ascend NPU hardware, which is called by Triton operators.
-
-**`backend/compiler.py`**
-
-- **Content**: Main entry of the `triton-ascend` compiler.
-- **Description**: Compiles the high-level DSL code of Triton into an **executable binary file** (such as the`.o` file) that can be executed on the Ascend NPU.
-
-**`backend/driver.py`**
-
-- **Content**: `triton-ascend` driver module.
-- **Description**: Loads and starts the compiled executable binary file.
->>>>>>> release-3.2.2-0625-b79d137
 
 ## 3. Modules
 
@@ -91,15 +64,9 @@ This project extends the support for Huawei Ascend NPU (using the CANN software 
 | 2    | `tl.extract_slice(full, offsets, sizes, strides)`     | Extracts a slice tensor from another tensor according to the specified offset, size, and stride.<br>**Returns**: slice tensor.<br>**full**: source tensor. The slice is extracted from this tensor.<br>**offsets**: offset (integer tuple) on the source tensor.<br>**sizes**: size (integer tuple) of the slice tensor.<br>**strides**: stride (integer tuple) on the source tensor.                       |
 | 3    | `tl.get_element(source, offset)`                      | Reads a tensor with dimensions and returns a single element at the specified offset.<br>**source**: source tensor.<br>**offset**: offset (integer tuple) of the element to be extracted.  |
 
-<<<<<<< HEAD
 ### 3.2 Triton-Ascend
 
 #### 3.2.1 Compiler Options
-=======
-## 3.2 Triton-Ascend
-
-### 3.2.1 Compiler Options
->>>>>>> release-3.2.2-0625-b79d137
 
 |No.| NPU Option                                   | Hardware Platform    | Description|
 | --- | --------------------------------------------- | ---------- | ----- |
@@ -121,11 +88,7 @@ This project extends the support for Huawei Ascend NPU (using the CANN software 
 | 16  | enable_nd2nz_on_vector                        | NPU        | Autotune option (CV-fused kernels only). It enables or disables the ND (n-dimensional) to NZ (non-zero) layout transformation.|
 | 17  | auto_blockify_size                            | NPU        | Autotune option. It enables or disables AutoBlockify pass. It is ignored when TRITON_ALL_BLOCKS_PARALLEL is not set |
 
-<<<<<<< HEAD
 #### 3.2.2 SIMD Compiler
-=======
-### 3.2.2 SIMD Compiler
->>>>>>> release-3.2.2-0625-b79d137
 
 | No.| Pass                   | Purpose                                                                  | IR Conversion                |
 | ------ | ---------------------- |----------------------------------------------------------------------| ----------------------- |
@@ -160,11 +123,7 @@ The integer division and modulo operations in pointer expressions and mask expre
 | 2    | triton-to-unstructured           | Converts the tensor operations identified by `discrete-mask-access-conversion` and containing discrete axes into scalar memory access based on explicit scalar loops.|
 | 3    | bubble-up-operation                       | Bubbles up `extract op/extract_slice` for optimization. This can optimize data locality. In some scenarios, unnecessary loops generated after the transformation can be eliminated, thereby improving the execution efficiency of the generated code.|
 
-<<<<<<< HEAD
 ###### 3.2.2.2.1 discrete-mask-access-conversion
-=======
-##### 3.2.2.2.1 discrete-mask-access-conversion
->>>>>>> release-3.2.2-0625-b79d137
 
 | Converter                 | Description|
 |----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -181,11 +140,7 @@ The integer division and modulo operations in pointer expressions and mask expre
 | UnstructuredMemAccessConverter\<triton::AtomicRMWOp\> | Converts AtomicRMWOp into a multi-loop scalar atomic operation.|
 | UnstructuredMemAccessConverter\<triton::AtomicCASOp\> | Converts AtomicCASOp into a multi-loop scalar atomic operation.|
 
-<<<<<<< HEAD
 ###### 3.2.2.2.3 bubble-up-operation
-=======
-##### 3.2.2.2.3 bubble-up-operation
->>>>>>> release-3.2.2-0625-b79d137
 
 | Converter| Description|
 |---|---|

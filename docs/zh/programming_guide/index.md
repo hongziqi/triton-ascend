@@ -84,19 +84,11 @@ def _attn_fwd(Q, K, V, M, Out, acc, scale,
         qvk_offset = off_z.to(tl.int64) * stride_qz + off_h.to(tl.int64) * stride_qh
 ```
 
-<<<<<<< HEAD:docs/zh/programming_guide/index.md
 ## 通用单核数据搬运
 
 ### 设置合适的循环内数据分块大小（BLOCK SIZE）
 
 以add_kernel为例，变量和操作共同决定了片上内存空间的占用大，通过修改BLOCK_SIZE大小可以调整循环内数据分块和计算中间结果占用的大小。如果超过上限则算子编译时会提示预期占用大小并报错。要达到最大计算访存比，BLOCK_SIZE需要在不超出片上空间时尽可能大，这可以通过Triton-Ascend的[Autotune](../examples/06_autotune_example.md)预先设置不同的BLOCK_SIZE，运行时会自动选取最优设置。
-=======
-## 单核数据搬运
-
-### 设置合适的循环内数据分块大小（BLOCK SIZE）
-
-以add_kernel为例，变量和操作共同决定了片上内存空间的占用大，通过修改BLOCK_SIZE大小可以调整循环内数据分块和计算中间结果占用的大小。如果超过上限则算子编译时会提示预期占用大小并报错。要达到最大计算访存比，BLOCK_SIZE需要在不超出片上空间时尽可能大，这可以通过Triton-Ascend的[Autotune](#triton-autotune-自动调优)预先设置不同的BLOCK_SIZE，运行时会自动选取最优设置。
->>>>>>> release-3.2.2-0625-b79d137:docs/zh/programming_guide.md
 
 ```python
 import triton.language as tl
@@ -327,7 +319,6 @@ large or block number is more than what user expect due to multi-buffer feature 
 
 【注意】A2系列产品UB大小为192KB(1572864 bits)。
 
-<<<<<<< HEAD:docs/zh/programming_guide/index.md
 ## 通用单核数据运算
 
 ### 开发目标
@@ -343,23 +334,6 @@ large or block number is more than what user expect due to multi-buffer feature 
 2.编写核函数（kernel）
 单核运算通常对应块级的数据处理。
 单核数据运算示例：向量加法
-=======
-## 单核数据运算
-
-### 开发目标
-
-在昇腾NPU单核上实现基础数据运算算子（如加减乘除、激活函数、简单矩阵元素运算）。保证算子在单核内高效执行，为后续多核并行和分布式扩展打下基础。  
-
-### 开发步骤
-
-1.确定算子功能  
--明确输入/输出张量的形状、数据类型（float16/float32/int32 等）。  
--确认是否需要广播、边界处理。  
- 
-2.编写核函数（kernel）  
-单核运算通常对应块级的数据处理。    
-单核数据运算示例：向量加法  
->>>>>>> release-3.2.2-0625-b79d137:docs/zh/programming_guide.md
 
 ```diff
 
@@ -418,7 +392,6 @@ f'{torch.max(torch.abs(output_torch - output_triton))}')
 -边界检查：使用 mask 或 if (tid < N) 避免越界。
 
 -块大小选择：合理设置 block 和 grid
-<<<<<<< HEAD:docs/zh/programming_guide/index.md
 
 4.性能要点：
 (1)访存优化
@@ -427,16 +400,6 @@ f'{torch.max(torch.abs(output_torch - output_triton))}')
 -尽量让数据块大小对齐到 32 字节边界。
 输入输出 buffer 在分配时保证对齐，避免访存性能下降。
 例:
-=======
- 
-4.性能要点：  
-(1)访存优化  
--保证连续访问。  
--使用对齐的 stride，避免跨行/跨列跳跃式访问。  
--尽量让数据块大小对齐到 32 字节边界。  
-输入输出 buffer 在分配时保证对齐，避免访存性能下降。  
-例:  
->>>>>>> release-3.2.2-0625-b79d137:docs/zh/programming_guide.md
 
  ```diff
 BLOCK_SIZE = 256  # 256 * 4 bytes = 1024 bytes，对齐良好
@@ -477,17 +440,10 @@ def vec_add(x, y):
     return z
 ```
 
-<<<<<<< HEAD:docs/zh/programming_guide/index.md
 (2)子块划分
 -将大矩阵分解为小block，每个block在 UB 内完成计算。
 -子块划分要兼顾访存连续性和计算单元利用率。
 例：
-=======
-(2)子块划分  
--将大矩阵分解为小block，每个block在 UB 内完成计算。  
--子块划分要兼顾访存连续性和计算单元利用率。  
-例：  
->>>>>>> release-3.2.2-0625-b79d137:docs/zh/programming_guide.md
 
  ```diff
 BLOCK_M = 64   # 每个 block 处理 64 行
@@ -532,7 +488,6 @@ def matmul_kernel(
     c = C + (offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn)
     tl.store(c, acc, mask=(offs_m[:, None] < M) & (offs_n[None, :] < N))
 ```
-<<<<<<< HEAD:docs/zh/programming_guide/index.md
 
 
 ## 通用多维张量切分
@@ -614,5 +569,3 @@ def batched_matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, B, ...):
 - 每个 Batch 独立计算自己的 `a_batch_ptr` / `b_batch_ptr` / `c_batch_ptr`
 
 - 后续 M / N / K 维度的切分逻辑与二维 GEMM 一致
-=======
->>>>>>> release-3.2.2-0625-b79d137:docs/zh/programming_guide.md

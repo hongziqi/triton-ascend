@@ -6,13 +6,8 @@
 
 ```python
 triton.language.core.__lshift__(
-<<<<<<< HEAD
  input: tl.tensor,
  other: tl.tensor,
-=======
- input: tl.tensor, 
- other: tl.tensor, 
->>>>>>> release-3.2.2-0625-b79d137
  builder: ir.builder
 ) -> tl.tensor
 ```

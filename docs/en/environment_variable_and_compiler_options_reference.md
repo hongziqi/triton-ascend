@@ -1,12 +1,8 @@
-<<<<<<< HEAD:docs/en/environment_variable_and_compiler_options_reference.md
 # Environment Variables and Compiler Options
 
 This document summarizes Triton-Ascend behavior controls that developers can set explicitly, including environment variables configured before running a program and NPU compiler options passed through `triton.Config` or kernel launch meta-parameters.
 
 ## Environment Variables
-=======
-# Environment Variables
->>>>>>> release-3.2.2-0625-b79d137:docs/en/environment_variable_reference.md
 
 ### Environment Variable Usage Example
 

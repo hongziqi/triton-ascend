@@ -7,17 +7,10 @@
 
 ```python
 triton.language.histogram(
-<<<<<<< HEAD
  input,
  num_bins,
  mask=None,
  _semantic=None,
-=======
- input, 
- num_bins, 
- mask=None, 
- _semantic=None, 
->>>>>>> release-3.2.2-0625-b79d137
  _generator=None
 )
 ```

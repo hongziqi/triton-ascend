@@ -7,7 +7,6 @@
 
 ```python
 triton.language.atomic_cas(
-<<<<<<< HEAD
     pointer,
     cmp,
     val,
@@ -15,15 +14,6 @@ triton.language.atomic_cas(
     scope=None,
     _semantic=None
 ) -> pointer
-=======
- pointer,
- cmp, 
- val, 
- sem=None, 
- scope=None, 
- _semantic=None
-)→ pointer
->>>>>>> release-3.2.2-0625-b79d137
 ```
 
 可以作为tensor的成员函数调用，如`x.atomic_cas(...)`，与`atomic_cas(x, ...)`等效。

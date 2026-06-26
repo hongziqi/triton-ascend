@@ -137,11 +137,7 @@ python your_triton_program.py
 
 以示范测试用例  [01-vector-add.py](../../../third_party/ascend/tutorials/01-vector-add.py#) 举例说明编译流程：
 这是一个简单的两个tensor的加法计算，计算逻辑请参考示范用例中的注解。
-<<<<<<< HEAD
 通过TRITON_DEBUG=1开启dump文件输出，设置TRITON_DISABLE_CACHE=1禁用缓存确保重新编译，可以获取到 kernel.ttir.mlir 和 kernel.ttadapter.mlir
-=======
-通过TRITON_DEBUG=1开启dump文件输出，设置TRITON_DISABLE_CACHE=1禁用缓存确保重新编译，可以获取到 kernel.ttir.mlir 和 kernel.ttadapter.mlir 
->>>>>>> release-3.2.2-0625-b79d137
 
 - 运行用例
 
@@ -152,19 +148,11 @@ TRITON_DEBUG=1 TRITON_DISABLE_CACHE=1 python 01-vector-add.py
 运行用例后会打印dump文件路径，默认是 ~/.triton/dump，显示如下：
 
 ```python
-<<<<<<< HEAD
 Dumping intermediate results to ~/.triton/dump/xxx
 # xxx是一串hash的唯一标识符
 ```
 
 进入该dump路径，查看 kernel.ttir.mlir 和 kernel.ttadapter.mlir
-=======
-Dumping intermediate results to ~/.triton/dump/xxx 
-# xxx是一串hash的唯一标识符
-```
-
-进入该dump路径，查看 kernel.ttir.mlir 和 kernel.ttadapter.mlir 
->>>>>>> release-3.2.2-0625-b79d137
 
 #### 3.4.1 TTIR（Triton Intermediate Representation）
 
@@ -316,11 +304,7 @@ export TRITON_INTERPRET=0
 
 使用方法：
 
-<<<<<<< HEAD
 1.在 Triton kernel 中，为需要调试的常量参数添加 tl.static_print 语句
-=======
-1. 在 Triton kernel 中，为需要调试的常量参数添加 tl.static_print 语句
->>>>>>> release-3.2.2-0625-b79d137
 
 ```python
 import triton.language as tl
@@ -349,11 +333,7 @@ def triton_kernel(
     tl.store(out_ptr0 + idx, tmp2)
 ```
 
-<<<<<<< HEAD
 2.设置环境变量并运行程序进行编译
-=======
-2. 设置环境变量并运行程序进行编译
->>>>>>> release-3.2.2-0625-b79d137
 
 ```bash
 # 启用 Triton 调试输出（包含 static_print）
@@ -384,11 +364,7 @@ def triton_kernel(out_ptr0, in_ptr0, in_ptr1, XBLOCK: tl.constexpr):
     tl.store(out_ptr0 + idx, tmp2)
 ```
 
-<<<<<<< HEAD
 2.设置环境变量`TRITON_DEVICE_PRINT=1`并运行程序，窗口将打印出该变量的值。
-=======
-2. 设置环境变量`TRITON_DEVICE_PRINT=1`并运行程序，窗口将打印出该变量的值。
->>>>>>> release-3.2.2-0625-b79d137
 
 ```bash
 # 启用 Triton 调试输出（包含 device_print）

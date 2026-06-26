@@ -148,11 +148,7 @@ TRITON_DEBUG=1 python 01-vector-add.py
 After the test case is executed, the dump file path is displayed. The default path is **~/.triton/dump**. The following information is displayed:
 
 ```python
-<<<<<<< HEAD
 Dumping intermediate results to ~/.triton/dump/xxx
-=======
-Dumping intermediate results to ~/.triton/dump/xxx 
->>>>>>> release-3.2.2-0625-b79d137
 # xxx is a unique hash identifier.
 ```
 
@@ -308,11 +304,7 @@ Features:
 
 Usage:
 
-<<<<<<< HEAD
 1.In the Triton kernel, add the `tl.static_print` statement for the constant parameters to be debugged.
-=======
-1. In the Triton kernel, add the `tl.static_print` statement for the constant parameters to be debugged.
->>>>>>> release-3.2.2-0625-b79d137
 
 ```python
 import triton.language as tl
@@ -341,11 +333,7 @@ def triton_kernel(
     tl.store(out_ptr0 + idx, tmp2)
 ```
 
-<<<<<<< HEAD
 2.Set the environment variable and run the program for compilation.
-=======
-2. Set the environment variable and run the program for compilation.
->>>>>>> release-3.2.2-0625-b79d137
 
 ```bash
 # Enable Triton debugging output (including static_print).
@@ -362,11 +350,7 @@ Setting the environment variable `TRITON_DEVICE_PRINT` to `1` can enable the `tl
 
 **Usage:**
 
-<<<<<<< HEAD
 1.In the Triton kernel, add the `tl.device_print` statement for the variables to be printed.
-=======
-1. In the Triton kernel, add the `tl.device_print` statement for the variables to be printed.
->>>>>>> release-3.2.2-0625-b79d137
 
 ```python
 import triton.language as tl
@@ -381,11 +365,7 @@ def triton_kernel(out_ptr0, in_ptr0, in_ptr1, XBLOCK: tl.constexpr):
     tl.store(out_ptr0 + idx, tmp2)
 ```
 
-<<<<<<< HEAD
 2.Set the environment variable `TRITON_DEVICE_PRINT` to `1` and run the program. The window displays the value of the variable.
-=======
-2. Set the environment variable `TRITON_DEVICE_PRINT` to `1` and run the program. The window displays the value of the variable.
->>>>>>> release-3.2.2-0625-b79d137
 
 ```bash
 # Enable Triton debugging output (including device_print).

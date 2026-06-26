@@ -47,7 +47,6 @@ triton.language.clamp(x, min, max, propagate_nan: constexpr = PropagateNan.NONE,
 
 Ascend 相比 GPU 缺失 fp64 支持。
 
-<<<<<<< HEAD
 #### 2.3.1 propagate_nan 参数限制
 
 **注意：当 `propagate_nan=tl.PropagateNAN.NONE` 时，系统会自动添加 NaN 值处理逻辑，这会导致：**
@@ -60,8 +59,6 @@ Ascend 相比 GPU 缺失 fp64 支持。
 - 如果输入数据不包含 NaN 值，或不需要严格的 NaN 处理语义，建议使用默认值或根据实际需求选择合适的 `propagate_nan` 参数值
 - 在 UB 空间紧张的场景下，应特别注意此参数的选择，避免因 UB 空间不足导致编译失败
 
-=======
->>>>>>> release-3.2.2-0625-b79d137
 ### 2.4 使用方法
 
 以下示例实现了对输入张量 `x` 做截断计算：

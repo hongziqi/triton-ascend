@@ -7,13 +7,8 @@
 
 ```python
 triton.language.semantic.less_than(
-<<<<<<< HEAD
  input: tl.tensor,
  other: tl.tensor,
-=======
- input: tl.tensor, 
- other: tl.tensor, 
->>>>>>> release-3.2.2-0625-b79d137
  builder: ir.builder
 ) -> tl.tensor
 ```
@@ -42,11 +37,7 @@ triton.language.semantic.less_than(
 | GPU          | √ | √ | √ | √ | √ | √ | √ | √ | √ | √ | √ | √ | √ |
 | Ascend A2/A3 | √ | √ | √ | × | × | × | × | √ | √ | √ | × | √ | √ |
 
-<<<<<<< HEAD
 结论：Triton-Ascend 对比 GPU 缺失 uint8/uint16/uint32/uint64、fp64 的支持能力。
-=======
-结论：Triton-Ascend 对比 GPU 缺失uint, fp64, fp8的支持能力。
->>>>>>> release-3.2.2-0625-b79d137
 
 #### 2.2.2 Shape 支持
 

@@ -5,15 +5,9 @@
 简介：**计算以缩放格式表示两个矩阵块的矩阵乘积**
 
 ```python
-<<<<<<< HEAD
 triton.language.dot_scaled(lhs, lhs_scale, lhs_format, rhs, rhs_scale, rhs_format,
     acc=None, lhs_k_pack=True, rhs_k_pack=True,
     out_dtype=triton.language.float32, _semantic=None)
-=======
-triton.language.dot_scaled(lhs, lhs_scale, lhs_format, rhs, rhs_scale, rhs_format, 
-      acc=None, lhs_k_pack=True, rhs_k_pack=True,    
-       out_dtype=triton.language.float32, _semantic=None)
->>>>>>> release-3.2.2-0625-b79d137
 ```
 
 ## 2. OP 规格

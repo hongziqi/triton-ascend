@@ -123,8 +123,5 @@ We attach great importance to the information security of developers using Trito
 The code and documents of this project are released under the [MIT License](./LICENSE).
 
 ## Community and Contribution
-<<<<<<< HEAD
 
-=======
->>>>>>> release-3.2.2-0625-b79d137
 You are welcome to participate in the development and code contribution of Triton-Ascend. For details, see [Contribution Guide](./CONTRIBUTING.md).

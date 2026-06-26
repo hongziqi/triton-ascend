@@ -84,19 +84,11 @@ def _attn_fwd(Q, K, V, M, Out, acc, scale,
         qvk_offset = off_z.to(tl.int64) * stride_qz + off_h.to(tl.int64) * stride_qh
 ```
 
-<<<<<<< HEAD:docs/en/programming_guide/index.md
 ## Common Single-Core Data Transfer
 
 ### Setting the Proper Data Block Size (BLOCK SIZE)
 
 Take **add_kernel** as an example. The variables and operations determine the on-chip memory usage. You can change the value of **BLOCK_SIZE** to adjust the size of the data block in the loop and the size of the intermediate result. If the upper limit is exceeded, the expected usage size is displayed and an error is reported during operator compilation. To achieve the maximum compute-to-memory ratio, **BLOCK_SIZE** needs to be as large as possible without exceeding the on-chip space. You can set different **BLOCK_SIZE** values in advance by using [autotune](../examples/06_autotune_example.md) of Triton-Ascend. The optimal setting is automatically selected during running.
-=======
-## Single-Core Data Transfer
-
-### Setting the Proper Data Block Size (BLOCK SIZE)
-
-Take **add_kernel** as an example. The variables and operations determine the on-chip memory usage. You can change the value of **BLOCK_SIZE** to adjust the size of the data block in the loop and the size of the intermediate result. If the upper limit is exceeded, the expected usage size is displayed and an error is reported during operator compilation. To achieve the maximum compute-to-memory ratio, **BLOCK_SIZE** needs to be as large as possible without exceeding the on-chip space. You can set different **BLOCK_SIZE** values in advance by using [autotune](#triton-autotune) of Triton-Ascend. The optimal setting is automatically selected during running.
->>>>>>> release-3.2.2-0625-b79d137:docs/en/programming_guide.md
 
 ```python
 import triton.language as tl
@@ -327,7 +319,6 @@ large or block number is more than what user expect due to multi-buffer feature 
 
 [Note] The UB size of the A2 series products is 192 KB (1,572,864 bits).
 
-<<<<<<< HEAD:docs/en/programming_guide/index.md
 ## Common Single-Core Data Computation
 
 ### R&D Goals
@@ -343,23 +334,6 @@ Implement basic data operation operators (such as addition, subtraction, multipl
 2.Write kernel functions.
 Single-kernel computation corresponds to block-level data processing.
 Single-kernel data computation example: vector addition
-=======
-## Single-Core Data Computation
-
-### R&D Goals
-
-Implement basic data operation operators (such as addition, subtraction, multiplication, division, activation functions, and simple matrix element operations) on the Ascend NPU single core. Ensure that operators are efficiently executed on a single core, laying a foundation for subsequent multi-core parallel processing and distributed expansion. 
-
-### Development Procedure
-
-1. Determine the operator function. 
--Determine the shapes and data types (such as float16, float32, and int32) of the input and output tensors. 
--Check whether broadcast and boundary processing are required. 
- 
-2. Write kernel functions. 
-Single-kernel computation corresponds to block-level data processing.   
-Single-kernel data computation example: vector addition 
->>>>>>> release-3.2.2-0625-b79d137:docs/en/programming_guide.md
 
 ```diff
 
@@ -411,17 +385,12 @@ f'{torch.max(torch.abs(output_torch - output_triton))}')
 # The maximum difference between torch and triton is 0.0
 ```
 
-<<<<<<< HEAD:docs/en/programming_guide/index.md
 3.Key points of single-kernel computation
-=======
-3. Key points of single-kernel computation
->>>>>>> release-3.2.2-0625-b79d137:docs/en/programming_guide.md
 -Block-level data processing: Each computing block is responsible for a small segment of data, ensuring parallelism.
 
 -Boundary check: Use **mask** or **if (tid < N)** to avoid out-of-bounds access.
 
 -Block size selection: Properly set the block and grid.
-<<<<<<< HEAD:docs/en/programming_guide/index.md
 
 4.Performance points
 (1) Memory access optimization
@@ -430,16 +399,6 @@ f'{torch.max(torch.abs(output_torch - output_triton))}')
 -Align the data block size to the 32-byte boundary.
 Ensure that the input and output buffers are aligned during allocation to avoid memory access performance deterioration.
 Example:
-=======
- 
-4. Performance points 
-(1) Memory access optimization 
--Ensure sequential access. 
--Use the aligned stride to avoid cross-row/cross-column jump access. 
--Align the data block size to the 32-byte boundary. 
-Ensure that the input and output buffers are aligned during allocation to avoid memory access performance deterioration. 
-Example: 
->>>>>>> release-3.2.2-0625-b79d137:docs/en/programming_guide.md
 
  ```diff
 BLOCK_SIZE = 256 # 256 x 4 bytes = 1024 bytes, which are well-aligned.
@@ -480,17 +439,10 @@ def vec_add(x, y):
     return z
 ```
 
-<<<<<<< HEAD:docs/en/programming_guide/index.md
 (2) Sub-block division
 -Divide a large matrix into small blocks. Each block is computed in the UB.
 -Sub-block division should ensure both memory access continuity and computing unit utilization.
 Example:
-=======
-(2) Sub-block division 
--Divide a large matrix into small blocks. Each block is computed in the UB. 
--Sub-block division should ensure both memory access continuity and computing unit utilization. 
-Example: 
->>>>>>> release-3.2.2-0625-b79d137:docs/en/programming_guide.md
 
  ```diff
 BLOCK_M = 64   # Each block processes 64 rows.

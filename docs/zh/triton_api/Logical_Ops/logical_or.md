@@ -1,23 +1,11 @@
-<<<<<<< HEAD
 # triton.language.tensor.logical_or
-=======
-# triton.language.semantic.logical_or
->>>>>>> release-3.2.2-0625-b79d137
 
 ## 1. OP 概述
 
 简介：用于对两个张量进行逐元素逻辑或运算
 
 ```python
-<<<<<<< HEAD
 x.logical_or(y)
-=======
-triton.language.semantic.logical_or(
- input: tl.tensor, 
- other: tl.tensor, 
- builder: ir.builder
-) -> tl.tensor
->>>>>>> release-3.2.2-0625-b79d137
 ```
 
 作为`tensor`的成员函数调用, 如`x0.logical_or(x1)`。

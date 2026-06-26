@@ -7,19 +7,11 @@
 
 ```python
 triton.language.get_element(
-<<<<<<< HEAD
     src,
     indice,
     _builder=None,
     _generator=None
 ) -> scalar
-=======
- src, 
- indice, 
- _builder=None, 
- _generator=None
-)→ scalar
->>>>>>> release-3.2.2-0625-b79d137
 ```
 
 可以作为tensor的成员函数调用，如`x.get_element(...)`，与`get_element(x, ...)`等效。

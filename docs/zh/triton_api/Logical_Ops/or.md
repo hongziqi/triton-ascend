@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # triton.language.tensor.__or__
-=======
-# triton.language.or
->>>>>>> release-3.2.2-0625-b79d137
 
 ## 1. 函数概述
 

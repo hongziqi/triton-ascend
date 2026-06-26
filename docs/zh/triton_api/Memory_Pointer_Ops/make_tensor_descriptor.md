@@ -7,21 +7,12 @@
 
 ```python
 triton.language.make_tensor_descriptor(
-<<<<<<< HEAD
     base: tensor,
     shape: List[tensor],
     strides: List[tensor],
     block_shape: List[constexpr],
     _semantic=None
 ) -> tensor_descriptor
-=======
- base: tensor,
- shape: List[tensor],
- strides: List[tensor],
- block_shape: List[constexpr],
- _semantic=None
-) → tensor_descriptor
->>>>>>> release-3.2.2-0625-b79d137
 ```
 
 ## 2. OP 规格
@@ -46,11 +37,7 @@ triton.language.make_tensor_descriptor(
 || uint8 | int8 | uint16 | int16 | uint32 | int32 | uint64 | int64 | fp16 | fp32 | bf16 | bool/int1 |
 |---| ------- | ------ | -------- | ------- | -------- | ------- | -------- | ------- | ------ | ------ | ------ | ----------- |
 |GPU| √ | √ | √ | √ | √ | √ | √ | √ | √ | √ | √ | × |
-<<<<<<< HEAD
 |Ascend A2/A3| √ | √ | × | √ | × | √ | × | √ | √ | √ | √ | × |
-=======
-|Ascend A2/A3| √ | √ | x | √ | × | √ | × | √ | √ | √ | √ | × |
->>>>>>> release-3.2.2-0625-b79d137
 
 #### 2.2.2 Shape 支持
 
