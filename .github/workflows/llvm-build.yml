@@ -4,19 +4,13 @@ on:
   push:
     paths:
       - cmake/llvm-hash.txt
-<<<<<<< HEAD
       - third_party/ascend/llvm_patch/**
-=======
->>>>>>> release-3.2.2-0625-b79d137
       - .github/workflows/llvm-build.yml
       - .github/workflows/llvm-build/**
   pull_request:
     paths:
       - cmake/llvm-hash.txt
-<<<<<<< HEAD
       - third_party/ascend/llvm_patch/**
-=======
->>>>>>> release-3.2.2-0625-b79d137
       - .github/workflows/llvm-build.yml
       - .github/workflows/llvm-build/**
   workflow_dispatch:
@@ -63,7 +57,6 @@ jobs:
         echo "Short LLVM commit hash: ${SHORT_LLVM_COMMIT_HASH}"
         echo "short_llvm_commit_hash=${SHORT_LLVM_COMMIT_HASH}" >> ${GITHUB_ENV}
 
-<<<<<<< HEAD
     - name: Compute Patch Hash
       shell: bash
       run: |
@@ -84,12 +77,6 @@ jobs:
         echo "patch_hash=${PATCH_HASH}" >> ${GITHUB_ENV}
 
         INSTALL_DIR="llvm-${{ env.short_llvm_commit_hash }}-${PATCH_HASH}-${{ matrix.config.target-os }}-${{ matrix.config.arch }}"
-=======
-    - name: Compute Install Dir
-      shell: bash
-      run: |
-        INSTALL_DIR="llvm-${{ env.short_llvm_commit_hash }}-${{ matrix.config.target-os }}-${{ matrix.config.arch }}"
->>>>>>> release-3.2.2-0625-b79d137
         echo "LLVM installation directory name: ${INSTALL_DIR}"
         echo "llvm_install_dir=${INSTALL_DIR}" >> ${GITHUB_ENV}
 
@@ -216,7 +203,6 @@ jobs:
         path: |
           ${{ github.workspace }}/llvm-*-${{ matrix.config.target-os }}-${{ matrix.config.arch }}.tar.gz
 
-<<<<<<< HEAD
     - name: Setup obsutil and upload to OBS
       if: github.event_name == 'push' && github.repository == 'triton-lang/triton-ascend'
       shell: bash
@@ -237,19 +223,6 @@ jobs:
         mv obsutil_linux_* obsutil
 
         obsutil/obsutil config -i="${AK}" -k="${SK}" -e=https://obs.cn-southwest-2.myhuaweicloud.com
-=======
-    - name: Setup obsutil
-      if: github.event_name == 'push' && github.repository == 'triton-lang/triton-ascend'
-      uses: ./llvm-build/.github/actions/setup-obsutil
-      with:
-        ak: ${{ secrets.OBS_AK }}
-        sk: ${{ secrets.OBS_SK }}
-        arch: ${{ matrix.config.arch == 'x64' && 'amd64' || 'arm64' }}
-
-    - name: Upload LLVM Artifacts to OBS
-      if: github.event_name == 'push' && github.repository == 'triton-lang/triton-ascend'
-      run: |
->>>>>>> release-3.2.2-0625-b79d137
         obsutil/obsutil cp -u "${{ env.llvm_install_dir }}.tar.gz" obs://triton-ascend-artifacts/llvm-builds/
 
     - name: Dump Sccache Statistics

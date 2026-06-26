@@ -38,12 +38,6 @@ jobs:
   runner-preparation:
     uses: ./.github/workflows/runner-preparation.yml
 
-<<<<<<< HEAD
-=======
-  # pre-commit:
-  #   uses: ./.github/workflows/pre-commit.yml
-
->>>>>>> release-3.2.2-0625-b79d137
   integration-tests-ascend:
     needs: runner-preparation
     if: needs.runner-preparation.outputs.matrix-ASCEND != ''
