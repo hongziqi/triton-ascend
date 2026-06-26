@@ -223,11 +223,7 @@ def rab_time_backward_triton(rab_time_grad: torch.Tensor, bucket_timestamps: tor
     torch.npu.synchronize()
 
     def grid(meta):
-<<<<<<< HEAD
         return (triton.cdiv(index_len, meta["BLOCK_SIZE"]), )
-=======
-        return (triton.cdiv(index_len, meta["BLOCK_SIZE"]),)
->>>>>>> release-3.2.2-0625-b79d137
 
     CORE_NUM = get_npu_properties()["num_vectorcore"]
     BLOCK_SIZE = math.ceil(index_len / CORE_NUM)

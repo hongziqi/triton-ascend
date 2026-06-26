@@ -17,7 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 """
 Fused Softmax
 =============
@@ -29,9 +28,6 @@ import torch_npu
 import triton
 import triton.language as tl
 
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_softmax_mindspore.py
-pytestmark = pytest.mark.backend("mindspore")
-=======
 
 def naive_softmax(x):
     """Compute row-wise softmax of X using native pytorch
@@ -51,7 +47,6 @@ def naive_softmax(x):
     ret = numerator / denominator[:, None]
     # in total: read 5MN + 2M elements ; wrote 3MN + 2M elements
     return ret
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/unittest/pytest_ut/test_02_fused_softmax.py
 
 
 @triton.jit
@@ -108,21 +103,6 @@ def softmax(x):
     return y
 
 
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_softmax_mindspore.py
-@pytest.mark.parametrize('param_list', [
-    ['float32', (1823, 781)],
-    ['float16', (1823, 781)],
-])
-def test_softmax_mindspore(param_list):
-    os.environ["TRITON_BACKEND"] = "mindspore"
-    dtype, shape = param_list
-    mindspore.set_seed(0)
-    x = mindspore.ops.randn(shape, dtype=eval('mindspore.' + dtype))
-    output_triton = softmax(x)
-    output_mindspore = mindspore.ops.softmax(x, axis=1)
-    assert np.allclose(output_triton.asnumpy(), output_mindspore.asnumpy(), rtol=1e-3, atol=1e-3)
-    del os.environ["TRITON_BACKEND"]
-=======
 @pytest.mark.parametrize(
     "shape",
     [
@@ -139,4 +119,3 @@ def test_fused_softmax(shape, dtype):
     y_torch = torch.softmax(x, axis=1)
 
     torch.testing.assert_close(y_triton, y_torch, atol=1e-4, rtol=1e-4)
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/unittest/pytest_ut/test_02_fused_softmax.py

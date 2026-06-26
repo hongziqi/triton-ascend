@@ -19,7 +19,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
 """
 Vector Addition - Pytest Version
 """
@@ -29,14 +28,6 @@ import torch_npu
 
 import triton
 import triton.language as tl
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_add_mindspore.py
-import numpy as np
-import mindspore
-import pytest
-
-pytestmark = pytest.mark.backend("mindspore")
-=======
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/unittest/pytest_ut/test_01_vector_add.py
 
 
 @triton.jit
@@ -83,22 +74,6 @@ def add(x: torch.Tensor, y: torch.Tensor):
     return output
 
 
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_add_mindspore.py
-def add_mindspore(x, y):
-    return x + y
-
-
-@pytest.mark.parametrize('param_list', [
-    ['float32', (2, 4096, 8)],
-    ['float16', (2, 4096, 8)],
-])
-def test_add_mindspore(param_list):
-    os.environ["TRITON_BACKEND"] = "mindspore"
-    dtype, shape = param_list
-    mindspore.set_seed(0)
-    x = mindspore.ops.randn(shape, dtype=eval('mindspore.' + dtype))
-    y = mindspore.ops.randn(shape, dtype=eval('mindspore.' + dtype))
-=======
 # %%
 # We can now use the above function to compute the element-wise sum of two `torch.tensor` objects and test its correctness:
 def test_vector_addition():
@@ -107,6 +82,5 @@ def test_vector_addition():
     x = torch.rand(size, device='npu')
     y = torch.rand(size, device='npu')
     output_torch = x + y
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/unittest/pytest_ut/test_01_vector_add.py
     output_triton = add(x, y)
     torch.testing.assert_close(output_triton, output_torch)

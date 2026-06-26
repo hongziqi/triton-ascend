@@ -48,13 +48,9 @@ def get_npu_properties():
     ], key=["M", "N", "K"])
 @triton.jit
 def matmul_kernel(
-<<<<<<< HEAD
     mat_a,
     mat_b,
     mat_c,
-=======
-    mat_a, mat_b, mat_c,
->>>>>>> release-3.2.2-0625-b79d137
     M: tl.constexpr,
     N: tl.constexpr,
     K: tl.constexpr,
@@ -110,40 +106,24 @@ def matmul_kernel(
     NUM_BLOCKS = NUM_BLOCKS_M * NUM_BLOCKS_N
     # 当任务量较多时，可以使能对角线分核策略进行优化
     if NUM_BLOCKS_M >= BLOCK_TRESHHOLD and NUM_BLOCKS_N >= BLOCK_TRESHHOLD:
-<<<<<<< HEAD
         for block_idx in range(pid, NUM_BLOCKS, num_cores):
             # 8 * 8 对角线分核代码实现
             curThresholdM = BLOCK_TRESHHOLD if block_idx < (
                 NUM_BLOCKS_M // BLOCK_TRESHHOLD * BLOCK_TRESHHOLD) * NUM_BLOCKS_N else NUM_BLOCKS_M % BLOCK_TRESHHOLD
-=======
-        for block_idx in range(
-                pid, NUM_BLOCKS, num_cores
-        ):
-            # 8 * 8 对角线分核代码实现
-            curThresholdM = BLOCK_TRESHHOLD if block_idx < (NUM_BLOCKS_M // BLOCK_TRESHHOLD * BLOCK_TRESHHOLD) * NUM_BLOCKS_N else NUM_BLOCKS_M % BLOCK_TRESHHOLD
->>>>>>> release-3.2.2-0625-b79d137
             curThresholdM_thresholdN = curThresholdM * BLOCK_TRESHHOLD
             curThresholdN = BLOCK_TRESHHOLD if block_idx % (NUM_BLOCKS_N * BLOCK_TRESHHOLD) < (
                 curThresholdM *
                 NUM_BLOCKS_N) // curThresholdM_thresholdN * curThresholdM_thresholdN else NUM_BLOCKS_N % BLOCK_TRESHHOLD
             localRelativeBlock = block_idx % (BLOCK_TRESHHOLD * NUM_BLOCKS_N) % (BLOCK_TRESHHOLD * curThresholdM)
-<<<<<<< HEAD
             task_m_idx = localRelativeBlock % curThresholdM + block_idx // (BLOCK_TRESHHOLD *
                                                                             NUM_BLOCKS_N) * BLOCK_TRESHHOLD
-=======
-            task_m_idx = localRelativeBlock % curThresholdM + block_idx // (BLOCK_TRESHHOLD * NUM_BLOCKS_N) * BLOCK_TRESHHOLD
->>>>>>> release-3.2.2-0625-b79d137
             # 求最小公倍数，方便求基本块的坐标
             x, y = curThresholdM, curThresholdN if curThresholdM > curThresholdN else curThresholdN, curThresholdM
             while y != 0:
                 x, y = y, x % y
             lcm = curThresholdM * curThresholdN // x
-<<<<<<< HEAD
             task_n_idx = (localRelativeBlock + (localRelativeBlock // lcm)) % curThresholdN + block_idx % (
                 BLOCK_TRESHHOLD * NUM_BLOCKS_N) // curThresholdM_thresholdN * BLOCK_TRESHHOLD
-=======
-            task_n_idx = (localRelativeBlock + (localRelativeBlock // lcm)) % curThresholdN + block_idx % (BLOCK_TRESHHOLD * NUM_BLOCKS_N) // curThresholdM_thresholdN * BLOCK_TRESHHOLD
->>>>>>> release-3.2.2-0625-b79d137
 
             m_start = task_m_idx * BLOCK_M
             n_start = task_n_idx * BLOCK_N
@@ -153,7 +133,6 @@ def matmul_kernel(
                 mat_a_offset = (
                     (m_start + tl.arange(0, BLOCK_M)) * K)[:, None] + (k_start + tl.arange(0, BLOCK_K))[None, :]
                 mat_a_mask = ((m_start + tl.arange(0, BLOCK_M)) < M)[:, None] & (
-<<<<<<< HEAD
                     (k_start + tl.arange(0, BLOCK_K)) < K)[None, :]
                 mat_a_block = tl.load(mat_a + mat_a_offset, mask=mat_a_mask, other=0.0)
                 extension.compile_hint(mat_a_block, "dot_pad_only_k")
@@ -161,39 +140,16 @@ def matmul_kernel(
                     (k_start + tl.arange(0, BLOCK_K)) * N)[:, None] + (n_start + tl.arange(0, BLOCK_N))[None, :]
                 mat_b_mask = ((k_start + tl.arange(0, BLOCK_K)) < K)[:, None] & (
                     (n_start + tl.arange(0, BLOCK_N)) < N)[None, :]
-=======
-                    (k_start + tl.arange(0, BLOCK_K)) < K
-                )[None, :]
-                mat_a_block = tl.load(mat_a + mat_a_offset, mask=mat_a_mask, other=0.0)
-                extension.compile_hint(mat_a_block, "dot_pad_only_k")
-                mat_b_offset = ((k_start + tl.arange(0, BLOCK_K)) * N)[:, None] + (
-                    n_start + tl.arange(0, BLOCK_N)
-                )[None, :]
-                mat_b_mask = ((k_start + tl.arange(0, BLOCK_K)) < K)[:, None] & (
-                    (n_start + tl.arange(0, BLOCK_N)) < N
-                )[None, :]
->>>>>>> release-3.2.2-0625-b79d137
                 mat_b_block = tl.load(mat_b + mat_b_offset, mask=mat_b_mask, other=0.0)
                 extension.compile_hint(mat_b_block, "dot_pad_only_k")
                 mat_c_block = tl.dot(mat_a_block, mat_b_block, mat_c_block)
             mat_c_offset = ((m_start + tl.arange(0, BLOCK_M)) * N)[:, None] + (n_start + tl.arange(0, BLOCK_N))[None, :]
             mat_c_mask = ((m_start + tl.arange(0, BLOCK_M)) < M)[:, None] & (
-<<<<<<< HEAD
                 (n_start + tl.arange(0, BLOCK_N)) < N)[None, :]
             tl.store(mat_c + mat_c_offset, mat_c_block.to(tl.bfloat16), mask=mat_c_mask)
     else:
         # 传统顺序分核
         for block_idx in range(pid, NUM_BLOCKS, num_cores):
-=======
-                (n_start + tl.arange(0, BLOCK_N)) < N
-            )[None, :]
-            tl.store(mat_c + mat_c_offset, mat_c_block.to(tl.bfloat16), mask=mat_c_mask)
-    else:
-        # 传统顺序分核
-        for block_idx in range(
-                pid, NUM_BLOCKS, num_cores
-        ):
->>>>>>> release-3.2.2-0625-b79d137
             task_m_idx = block_idx // NUM_BLOCKS_N
             task_n_idx = block_idx % NUM_BLOCKS_N
             m_start = task_m_idx * BLOCK_M
@@ -204,7 +160,6 @@ def matmul_kernel(
                 mat_a_offset = (
                     (m_start + tl.arange(0, BLOCK_M)) * K)[:, None] + (k_start + tl.arange(0, BLOCK_K))[None, :]
                 mat_a_mask = ((m_start + tl.arange(0, BLOCK_M)) < M)[:, None] & (
-<<<<<<< HEAD
                     (k_start + tl.arange(0, BLOCK_K)) < K)[None, :]
                 mat_a_block = tl.load(mat_a + mat_a_offset, mask=mat_a_mask, other=0.0)
                 extension.compile_hint(mat_a_block, "dot_pad_only_k")
@@ -212,44 +167,23 @@ def matmul_kernel(
                     (k_start + tl.arange(0, BLOCK_K)) * N)[:, None] + (n_start + tl.arange(0, BLOCK_N))[None, :]
                 mat_b_mask = ((k_start + tl.arange(0, BLOCK_K)) < K)[:, None] & (
                     (n_start + tl.arange(0, BLOCK_N)) < N)[None, :]
-=======
-                    (k_start + tl.arange(0, BLOCK_K)) < K
-                )[None, :]
-                mat_a_block = tl.load(mat_a + mat_a_offset, mask=mat_a_mask, other=0.0)
-                extension.compile_hint(mat_a_block, "dot_pad_only_k")
-                mat_b_offset = ((k_start + tl.arange(0, BLOCK_K)) * N)[:, None] + (
-                    n_start + tl.arange(0, BLOCK_N)
-                )[None, :]
-                mat_b_mask = ((k_start + tl.arange(0, BLOCK_K)) < K)[:, None] & (
-                    (n_start + tl.arange(0, BLOCK_N)) < N
-                )[None, :]
->>>>>>> release-3.2.2-0625-b79d137
                 mat_b_block = tl.load(mat_b + mat_b_offset, mask=mat_b_mask, other=0.0)
                 extension.compile_hint(mat_b_block, "dot_pad_only_k")
                 mat_c_block = tl.dot(mat_a_block, mat_b_block, mat_c_block)
             mat_c_offset = ((m_start + tl.arange(0, BLOCK_M)) * N)[:, None] + (n_start + tl.arange(0, BLOCK_N))[None, :]
             mat_c_mask = ((m_start + tl.arange(0, BLOCK_M)) < M)[:, None] & (
-<<<<<<< HEAD
                 (n_start + tl.arange(0, BLOCK_N)) < N)[None, :]
-=======
-                (n_start + tl.arange(0, BLOCK_N)) < N
-            )[None, :]
->>>>>>> release-3.2.2-0625-b79d137
             tl.store(mat_c + mat_c_offset, mat_c_block.to(tl.bfloat16), mask=mat_c_mask)
 
 
 def triton_matmul(
-        mat_a,
-        mat_b,
+    mat_a,
+    mat_b,
 ):
     m = mat_a.shape[0]
     k = mat_a.shape[1]
     n = mat_b.shape[1]
     mat_c = torch.empty(m, n, dtype=mat_a.dtype, device=mat_a.device)
-<<<<<<< HEAD
-=======
-
->>>>>>> release-3.2.2-0625-b79d137
     '''
     NPU芯片更加亲和512B对齐场景,如下分块通用性能较好,可以使用autotune选取最优
     BLOCK_M = 128
@@ -259,19 +193,7 @@ def triton_matmul(
 
     num_cores = get_npu_properties()["num_aicore"]
 
-<<<<<<< HEAD
     matmul_kernel[(num_cores, )](mat_a, mat_b, mat_c, m, n, k, num_cores)
-=======
-    matmul_kernel[(num_cores,)](
-        mat_a,
-        mat_b,
-        mat_c,
-        m,
-        n,
-        k,
-        num_cores
-    )
->>>>>>> release-3.2.2-0625-b79d137
     return mat_c
 
 
@@ -288,11 +210,7 @@ def test_matmul_extension():
     golden = torch.matmul(mat_a, mat_b)
 
     mask = golden.abs() < 1.0
-<<<<<<< HEAD
     tmpatol = tmprtol = 2**-6
-=======
-    tmpatol = tmprtol = 2 ** -6
->>>>>>> release-3.2.2-0625-b79d137
 
     torch.testing.assert_close(result[mask], golden[mask], atol=tmpatol, rtol=0)
     torch.testing.assert_close(result[~mask], golden[~mask], atol=0, rtol=tmprtol)

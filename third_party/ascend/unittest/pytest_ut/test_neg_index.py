@@ -18,11 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_general_cat.py
-=======
-
-import pytest
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/unittest/pytest_ut/test_neg_index.py
 import triton
 import triton.language as tl
 import time
@@ -41,7 +36,7 @@ def triton_neg_index_load_kernel(in_ptr, out_ptr, BLOCK_SIZE: tl.constexpr, NEG_
 
 def triton_neg_index_load(in_tensor, index):
     out_tensor = torch.zeros(in_tensor.shape, device=in_tensor.device, dtype=in_tensor.dtype)
-    triton_neg_index_load_kernel[(1,)](in_tensor, out_tensor, in_tensor.numel(), index)
+    triton_neg_index_load_kernel[(1, )](in_tensor, out_tensor, in_tensor.numel(), index)
     return out_tensor
 
 
@@ -50,29 +45,8 @@ def torch_neg_index_load(in_tensor, index):
     out[index:] = in_tensor[:index]
     return out
 
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_general_cat.py
-    tl.store(output_ptr + oidx, ret)
-
-
-# The CAT operator in the Triton community also does not support boolean types.
-@pytest.mark.parametrize('shape', TestUtils.test_shape1d)  #triton only support 1D cat
-@pytest.mark.parametrize('dtype', ['float32', 'float16', 'bfloat16', 'int32', 'int16', 'int8', 'int64'])
-def test_cat(shape, dtype):
-    m = shape[0]
-    x = torch.full((m, ), 100, dtype=eval("torch." + dtype)).npu()
-    y = torch.full((m, ), 30, dtype=eval("torch." + dtype)).npu()
-
-    output = torch.randint(1, (m * 2, ), dtype=eval("torch." + dtype)).npu()
-
-    ans = torch.cat((x, y), dim=0)
-
-    fn_npu_[1, 1, 1](output, x, y, m)
-
-    test_common.validate_cmp(dtype, ans, output)
-=======
 
 def test_neg_index_load():
     input_data = torch.arange(12, device="npu", dtype=torch.float32)
     triton_out = triton_neg_index_load(input_data, 6)
     torch_out = torch_neg_index_load(input_data, 6)
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/unittest/pytest_ut/test_neg_index.py

@@ -42,20 +42,11 @@ def run_add(x0, x1):
 
     # 2. 定义 Triton kernel（在 NPU/GPU 上执行）
     @triton.jit
-<<<<<<< HEAD
     def triton_kernel_add(out_ptr0,  # 输出指针：结果存储位置
                           in_ptr0,  # 输入指针0：x0 的起始地址
                           in_ptr1,  # 输入指针1：x1 的起始地址
                           XS: tl.constexpr  # constexpr 参数：向量长度，在编译时确定
                           ):
-=======
-    def triton_kernel_add(
-        out_ptr0,  # 输出指针：结果存储位置
-        in_ptr0,  # 输入指针0：x0 的起始地址
-        in_ptr1,  # 输入指针1：x1 的起始地址
-        XS: tl.constexpr  # constexpr 参数：向量长度，在编译时确定
-    ):
->>>>>>> release-3.2.2-0625-b79d137
         # 生成 [0, 1, 2, ..., XS-1] 的索引数组
         idx = tl.arange(0, XS)
         # 从 in_ptr0 + idx 处加载 x0 的值
@@ -140,7 +131,6 @@ def accuracy_comparison(y_cal, y_ref):
 def test_all_dtypes(dtype_name, dtype, low, high):
     N = 1024
     if dtype == torch.bool:
-<<<<<<< HEAD
         x0 = torch.randint(low=low, high=high, size=(N, )).bool().npu()
         x1 = torch.randint(low=low, high=high, size=(N, )).bool().npu()
     elif dtype.is_floating_point:
@@ -149,16 +139,6 @@ def test_all_dtypes(dtype_name, dtype, low, high):
     else:
         x0 = torch.randint(low=low, high=high, size=(N, ), dtype=dtype).npu()
         x1 = torch.randint(low=low, high=high, size=(N, ), dtype=dtype).npu()
-=======
-        x0 = torch.randint(low=low, high=high, size=(N,)).bool().npu()
-        x1 = torch.randint(low=low, high=high, size=(N,)).bool().npu()
-    elif dtype.is_floating_point:
-        x0 = torch.rand((N,), dtype=dtype).npu()
-        x1 = torch.rand((N,), dtype=dtype).npu()
-    else:
-        x0 = torch.randint(low=low, high=high, size=(N,), dtype=dtype).npu()
-        x1 = torch.randint(low=low, high=high, size=(N,), dtype=dtype).npu()
->>>>>>> release-3.2.2-0625-b79d137
 
     print(f"Running test for {dtype_name}...")
     run_add(x0, x1)

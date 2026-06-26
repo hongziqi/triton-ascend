@@ -191,11 +191,7 @@ def generate_inputs(index_shape, table_shape, dtype):
 @pytest.mark.parametrize("table_cols", [16, 17, 31, 32, 63, 64, 128, 256, 819, 512, 1024, 8192, 1001, 2003, 17000])
 @pytest.mark.parametrize("index_num", [19, 123, 4321, 54321, 100, 200, 819, 500, 700, 1000])
 def test_gather_sorted(table_rows, table_cols, index_num):
-<<<<<<< HEAD
     table, sorted_indices, aux_indices = generate_inputs((index_num, ), (table_rows, table_cols), torch.float)
-=======
-    table, sorted_indices, aux_indices = generate_inputs((index_num,), (table_rows, table_cols), torch.float)
->>>>>>> release-3.2.2-0625-b79d137
 
     expect = torch_gather_sorted(table, sorted_indices, aux_indices).cpu()
     torch.npu.synchronize()

@@ -49,57 +49,6 @@ case_4d = [
 # ----------------------------------------------------------
 @triton.jit
 def addptr_implicit_perm_load_2d(
-<<<<<<< HEAD
-=======
-    ptr,
-    out,
-    ynumel,
-    xnumel,
-    stride_y,
-    stride_x,
-    out_stride_x,
-    out_stride_y,
-    YBLOCK: tl.constexpr,
-    XBLOCK: tl.constexpr,
-):
-    x = tl.program_id(0) * XBLOCK + tl.arange(0, XBLOCK)[:, None]
-    y = tl.program_id(1) * YBLOCK + tl.arange(0, YBLOCK)[None, :]
-    mask = (x < xnumel) & (y < ynumel)
-
-    offset = x * stride_x + y * stride_y
-    val = tl.load(ptr + offset, mask=mask)
-
-    out_offset = x * out_stride_x + y * out_stride_y
-    tl.store(out + out_offset, val, mask=mask)
-
-
-@triton.jit
-def addptr_implicit_perm_store_2d(
-    ptr,
-    out,
-    ynumel,
-    xnumel,
-    in_stride_x,
-    in_stride_y,
-    stride_y,
-    stride_x,
-    YBLOCK: tl.constexpr,
-    XBLOCK: tl.constexpr,
-):
-    x = tl.program_id(0) * XBLOCK + tl.arange(0, XBLOCK)[:, None]
-    y = tl.program_id(1) * YBLOCK + tl.arange(0, YBLOCK)[None, :]
-    mask = (x < xnumel) & (y < ynumel)
-
-    in_offset = x * in_stride_x + y * in_stride_y
-    val = tl.load(ptr + in_offset, mask=mask)
-
-    out_offset = x * stride_x + y * stride_y
-    tl.store(out + out_offset, val, mask=mask)
-
-
-@triton.jit
-def addptr_implicit_perm_load_store_2d_static_stride(
->>>>>>> release-3.2.2-0625-b79d137
     ptr,
     out,
     ynumel,
@@ -335,79 +284,6 @@ def addptr_implicit_perm_load_store_4d(
 # ----------------------------------------------------------
 # Triton kernel: make_tensor_ptr with implicit permute kernels
 # ----------------------------------------------------------
-<<<<<<< HEAD
-=======
-@triton.jit
-def make_tensor_ptr_implicit_perm_load_2d(
-    ptr,
-    out,
-    ynumel,
-    xnumel,
-    STRIDE_Y,
-    STRIDE_X,
-    OUT_STRIDE_X,
-    OUT_STRIDE_Y,
-    YBLOCK: tl.constexpr,
-    XBLOCK: tl.constexpr,
-):
-    y0 = tl.program_id(1) * YBLOCK
-    x0 = tl.program_id(0) * XBLOCK
-    y = y0 + tl.arange(0, YBLOCK)[None, :]
-    x = x0 + tl.arange(0, XBLOCK)[:, None]
-    xmask = x < xnumel
-    ymask = y < ynumel
-    mask = xmask & ymask
-
-    tptr = tl.make_block_ptr(
-        base=ptr,
-        shape=(xnumel, ynumel),
-        strides=(STRIDE_X, STRIDE_Y),
-        offsets=(x0, y0),
-        block_shape=(XBLOCK, YBLOCK),
-        order=(0, 1),
-    )
-
-    val = tl.load(tptr)
-    out_offset = x * OUT_STRIDE_X + y * OUT_STRIDE_Y
-    tl.store(out + out_offset, val, mask=mask)
-
-
-@triton.jit
-def make_tensor_ptr_implicit_perm_store_2d(
-    ptr,
-    out,
-    ynumel,
-    xnumel,
-    IN_STRIDE_X,
-    IN_STRIDE_Y,
-    STRIDE_Y,
-    STRIDE_X,
-    YBLOCK: tl.constexpr,
-    XBLOCK: tl.constexpr,
-):
-    y0 = tl.program_id(1) * YBLOCK
-    x0 = tl.program_id(0) * XBLOCK
-    y = y0 + tl.arange(0, YBLOCK)[None, :]
-    x = x0 + tl.arange(0, XBLOCK)[:, None]
-    xmask = x < xnumel
-    ymask = y < ynumel
-    mask = xmask & ymask
-
-    in_offset = x * IN_STRIDE_X + y * IN_STRIDE_Y
-    val = tl.load(ptr + in_offset, mask=mask)
-
-    tptr = tl.make_block_ptr(
-        base=out,
-        shape=(xnumel, ynumel),
-        strides=(STRIDE_X, STRIDE_Y),
-        offsets=(x0, y0),
-        block_shape=(XBLOCK, YBLOCK),
-        order=(0, 1),
-    )
-    tl.store(tptr, val, boundary_check=(0, 1))
-
-
->>>>>>> release-3.2.2-0625-b79d137
 @triton.jit
 def make_tensor_ptr_implicit_perm_load_2d(
     ptr,
@@ -732,13 +608,7 @@ def _assert_row_major_4d(A, X, Y, Z, W):
 # ----------------------------------------------------------
 @pytest.mark.parametrize("X, Y, XBLOCK, YBLOCK", case_2d)
 @pytest.mark.parametrize("dtype, sigtype", types_all)
-<<<<<<< HEAD
 def test_addptr_implicit_perm_load_2d(X, Y, XBLOCK, YBLOCK, dtype, sigtype):
-=======
-def test_addptr_implicit_perm_load_2d(
-    X, Y, XBLOCK, YBLOCK, dtype, sigtype
-):
->>>>>>> release-3.2.2-0625-b79d137
     A = test_common.generate_tensor(shape=(X, Y), dtype=sigtype).npu()
     _assert_row_major_2d(A, X, Y)
 
@@ -774,13 +644,7 @@ def test_addptr_implicit_perm_load_2d(
 
 @pytest.mark.parametrize("X, Y, XBLOCK, YBLOCK", case_2d)
 @pytest.mark.parametrize("dtype, sigtype", types_all)
-<<<<<<< HEAD
 def test_addptr_implicit_perm_store_2d(X, Y, XBLOCK, YBLOCK, dtype, sigtype):
-=======
-def test_addptr_implicit_perm_store_2d(
-    X, Y, XBLOCK, YBLOCK, dtype, sigtype
-):
->>>>>>> release-3.2.2-0625-b79d137
     """
     Test goal:
       - Real memory layout: A[X, Y], row-major (stride = (Y, 1))
@@ -1127,13 +991,7 @@ def test_addptr_implicit_perm_load_store_4d(X, Y, Z, W, XBLOCK, YBLOCK, ZBLOCK, 
 # ----------------------------------------------------------
 @pytest.mark.parametrize("X, Y, XBLOCK, YBLOCK", case_2d)
 @pytest.mark.parametrize("dtype, sigtype", types_all)
-<<<<<<< HEAD
 def test_make_tensor_ptr_implicit_perm_load_2d(X, Y, XBLOCK, YBLOCK, dtype, sigtype):
-=======
-def test_make_tensor_ptr_implicit_perm_load_2d(
-    X, Y, XBLOCK, YBLOCK, dtype, sigtype
-):
->>>>>>> release-3.2.2-0625-b79d137
     """
     Test goal:
       - Real memory layout: A[X, Y], row-major (stride = (Y, 1))
@@ -1178,13 +1036,7 @@ def test_make_tensor_ptr_implicit_perm_load_2d(
 
 @pytest.mark.parametrize("X, Y, XBLOCK, YBLOCK", case_2d)
 @pytest.mark.parametrize("dtype, sigtype", types_all)
-<<<<<<< HEAD
 def test_make_tensor_ptr_implicit_perm_store_2d(X, Y, XBLOCK, YBLOCK, dtype, sigtype):
-=======
-def test_make_tensor_ptr_implicit_perm_store_2d(
-    X, Y, XBLOCK, YBLOCK, dtype, sigtype
-):
->>>>>>> release-3.2.2-0625-b79d137
     """
     Test goal:
       - Real memory layout: A[X, Y], row-major (stride = (Y, 1))
@@ -1229,13 +1081,7 @@ def test_make_tensor_ptr_implicit_perm_store_2d(
 
 @pytest.mark.parametrize("X, Y, XBLOCK, YBLOCK", case_2d)
 @pytest.mark.parametrize("dtype, sigtype", types_all)
-<<<<<<< HEAD
 def test_make_tensor_ptr_implicit_perm_load_store_2d_static_stride(X, Y, XBLOCK, YBLOCK, dtype, sigtype):
-=======
-def test_make_tensor_ptr_implicit_perm_load_store_2d_static_stride(
-    X, Y, XBLOCK, YBLOCK, dtype, sigtype
-):
->>>>>>> release-3.2.2-0625-b79d137
     """
     Test goal matches addptr_2d_static_stride, but uses tl.make_block_ptr + tl.load(tptr).
     Real layout: A[X,Y] row-major stride=(Y,1)

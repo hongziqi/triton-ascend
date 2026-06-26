@@ -40,17 +40,9 @@ def single_disc_mask_atomic_add_kernel(
 def test_single_discrete_mask_atomic_add(BLOCK_N):
     in_tensor = torch.arange(BLOCK_N, dtype=torch.float16, device='npu')
     expected = in_tensor.clone()
-<<<<<<< HEAD
     single_disc_mask_atomic_add_kernel[(1, )](in_tensor, BLOCK_N=BLOCK_N)
-=======
-    single_disc_mask_atomic_add_kernel[(1,)](in_tensor, BLOCK_N=BLOCK_N)
->>>>>>> release-3.2.2-0625-b79d137
 
     half = BLOCK_N // 2
     expected[:half] += 1
     assert torch.allclose(in_tensor, expected), \
-<<<<<<< HEAD
         f"Expected:\n{expected.cpu()}\nGot:\n{in_tensor.cpu()}"
-=======
-        f"Expected:\n{expected.cpu()}\nGot:\n{in_tensor.cpu()}"
->>>>>>> release-3.2.2-0625-b79d137

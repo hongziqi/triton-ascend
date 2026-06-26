@@ -97,49 +97,25 @@ def triton_linearize_mask_broadcast(in_tensor, BLOCK_SIZE):
     N = in_tensor.shape[1]
 
     triton_output = torch.zeros_like(in_tensor)
-<<<<<<< HEAD
     grid = (ceil_div(2 * M * N, BLOCK_SIZE), )
 
     linearize_mask_broadcast_kernel[grid](in_tensor, triton_output, N=N, M=M, BLOCK_SIZE_N=BLOCK_SIZE,
                                           optimize_dynamic_offset=True)
-=======
-    grid = (ceil_div(2 * M * N, BLOCK_SIZE),)
-    
-    linearize_mask_broadcast_kernel[grid](
-        in_tensor,
-        triton_output,
-        N=N,
-        M=M,
-        BLOCK_SIZE_N=BLOCK_SIZE,
-        optimize_dynamic_offset=True
-    )
->>>>>>> release-3.2.2-0625-b79d137
 
 
 @triton.jit
 def rem_kernel(in_ptr0, in_ptr1, out_ptr, N: tl.constexpr, BLOCK_SIZE: tl.constexpr):
     pid = tl.program_id(0)
     x = tl.arange(0, BLOCK_SIZE)
-<<<<<<< HEAD
 
     base_offset = pid * BLOCK_SIZE + x
 
-=======
-    
-    base_offset = pid * BLOCK_SIZE + x
-    
->>>>>>> release-3.2.2-0625-b79d137
     rem_result = base_offset % 128
     mask = rem_result < 64
 
     tmp0 = tl.load(in_ptr0 + base_offset, mask=mask, other=0.0)
     tmp1 = tl.load(in_ptr1 + base_offset, mask=mask, other=0.0)
     tmp2 = tmp0 + tmp1
-<<<<<<< HEAD
-
-=======
-    
->>>>>>> release-3.2.2-0625-b79d137
     tl.store(out_ptr + base_offset, tmp2, mask=mask)
 
 
@@ -147,16 +123,11 @@ def test_linearize_mask_rem():
     N = 1024
     BLOCK_SIZE = 256
     dtype = 'float32'
-<<<<<<< HEAD
     shape = (N, )
-=======
-    shape = (N,)
->>>>>>> release-3.2.2-0625-b79d137
 
     x0 = test_common.generate_tensor(shape, dtype).npu()
     x1 = test_common.generate_tensor(shape, dtype).npu()
     triton_res = torch.zeros(shape).npu()
-<<<<<<< HEAD
 
     grid = (ceil_div(N, BLOCK_SIZE), )
     rem_kernel[grid](x0, x1, triton_res, N, BLOCK_SIZE=BLOCK_SIZE)
@@ -169,20 +140,6 @@ def test_linearize_mask_rem():
     torch_res[mask_bool] = x0[mask_bool] + x1[mask_bool]
 
     test_common.validate_cmp(dtype, triton_res, torch_res)
-=======
-    
-    grid = (ceil_div(N, BLOCK_SIZE),)
-    rem_kernel[grid](x0, x1, triton_res, N, BLOCK_SIZE=BLOCK_SIZE)
-    
-    base_offsets = torch.arange(N).npu()
-    rem_results = base_offsets % 128
-    mask_bool = rem_results < 64
-    
-    torch_res = torch.zeros((N,)).npu()
-    torch_res[mask_bool] = x0[mask_bool] + x1[mask_bool]
-    
-    test_common.validate_cmp(dtype, triton_res, torch_res)    
->>>>>>> release-3.2.2-0625-b79d137
 
 
 def profile_performance_test(M, N, dtype, BLOCK_SIZE):

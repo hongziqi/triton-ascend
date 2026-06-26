@@ -139,12 +139,7 @@ def test_dot_2(restore_npu_hf32_setting, sigtype, B, C, D):
 
 
 @pytest.mark.xfail(
-<<<<<<< HEAD
     reason="Temporarily disabled: TA backend does not support allow_tf32 yet. Will be fixed in follow-up.")
-=======
-    reason="Temporarily disabled: TA backend does not support allow_tf32 yet. Will be fixed in follow-up."
-)
->>>>>>> release-3.2.2-0625-b79d137
 @pytest.mark.parametrize("B, C, D", testlist2)
 @pytest.mark.parametrize("sigtype", typelist)
 def test_dot_2_allow_tf32(restore_npu_hf32_setting, sigtype, B, C, D):

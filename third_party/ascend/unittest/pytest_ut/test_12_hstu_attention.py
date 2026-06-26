@@ -245,7 +245,6 @@ def _hstu_attn_fwd(  # noqa C901
         off_head = (start_m - seq_start * head_num // 2) // (seq_len // 2)
         start_m_1 = (start_m - seq_start * head_num // 2) % (seq_len // 2)
         start_m_2 = seq_len - start_m_1 - BLOCK_M
-<<<<<<< HEAD
         _hstu_attn_fwd_compute(
             Q,
             K,
@@ -308,20 +307,6 @@ def _hstu_attn_fwd(  # noqa C901
             mask_block=mask_block,
             bias=bias,
         )
-=======
-        _hstu_attn_fwd_compute(Q, K, V, seq_offsets, Out, stride_qm, stride_qh, stride_kn, stride_kh,
-                               stride_vn, stride_vh, stride_om, stride_oh, alpha, head_num, MAX_SEQ_LEN, off_batch, off_head,
-                               start_m_1, seq_start, seq_len, CAUSAL, HAS_BIAS, head_dim, head_dim, BLOCK_M, BLOCK_N,
-                               mask_block=mask_block,
-                               bias=bias,
-                               )
-        _hstu_attn_fwd_compute(Q, K, V, seq_offsets, Out, stride_qm, stride_qh, stride_kn, stride_kh,
-                               stride_vn, stride_vh, stride_om, stride_oh, alpha, head_num, MAX_SEQ_LEN, off_batch, off_head,
-                               start_m_2, seq_start, seq_len, CAUSAL, HAS_BIAS, head_dim, head_dim, BLOCK_M, BLOCK_N,
-                               mask_block=mask_block,
-                               bias=bias,
-                               )
->>>>>>> release-3.2.2-0625-b79d137
 
 
 @triton.jit
@@ -599,7 +584,6 @@ def triton_hstu_attention_fwd(
     core_num = get_npu_properties('num_aicore')
     tasks = total_seq * head_num // BLOCK_M // 2
     grid = (core_num, 1, 1)
-<<<<<<< HEAD
     _hstu_attn_fwd[grid](
         q,
         k,
@@ -628,12 +612,6 @@ def triton_hstu_attention_fwd(
         mask,
         bias,
     )
-=======
-    _hstu_attn_fwd[grid](q, k, v, seq_offsets, out, q.stride(0), q.stride(1), k.stride(0), k.stride(1),
-                         v.stride(0), v.stride(1), out.stride(0), out.stride(1), alpha, batch, head_num, max_seq_len, head_dim,
-                         causal, has_bias, core_num, tasks, BLOCK_M, BLOCK_N, mask, bias,
-                         )
->>>>>>> release-3.2.2-0625-b79d137
     return out
 
 
@@ -656,7 +634,6 @@ def triton_hstu_attention_bwd(
     batch = seq_offsets.numel() - 1
     _, head_num, head_dim = q.shape
     has_bias = bias is not None
-<<<<<<< HEAD
     grid = (
         batch * head_num,
         1,
@@ -689,14 +666,6 @@ def triton_hstu_attention_bwd(
         BLOCK_BWD,
         bias,
     )
-=======
-    grid = (batch * head_num, 1,)
-    _hstu_attn_bwd[grid](q, k, v, grad, dq, dk, dv,
-                         q.stride(0), q.stride(1), k.stride(0), k.stride(1), v.stride(0), v.stride(1),
-                         grad.stride(0), grad.stride(1), seq_offsets, alpha, batch, head_num, max_seq_len, head_dim,
-                         causal, has_bias, BLOCK_BWD, BLOCK_BWD, bias,
-                         )
->>>>>>> release-3.2.2-0625-b79d137
     return dq, dk, dv
 
 
@@ -707,11 +676,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, dataType)
         seq_lens[np.random.randint(0, batch_size)] = max_seq_len
     seq_lens_tensor = torch.from_numpy(seq_lens).to(dtype=torch.int64)
     seq_offset = torch.concat((
-<<<<<<< HEAD
         torch.zeros((1, ), dtype=torch.int64, device=seq_lens_tensor.device),
-=======
-        torch.zeros((1,), dtype=torch.int64, device=seq_lens_tensor.device),
->>>>>>> release-3.2.2-0625-b79d137
         torch.cumsum(seq_lens_tensor, axis=0),
     )).numpy()
     max_seq_len = np.max(seq_lens)

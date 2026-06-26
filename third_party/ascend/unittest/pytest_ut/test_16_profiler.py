@@ -32,7 +32,6 @@ def profiler_wrapper(fn, *args):
     stream = torch.npu.current_stream()
     experimental_config = torch_npu.profiler._ExperimentalConfig(
         aic_metrics=torch_npu.profiler.AiCMetrics.PipeUtilization,
-<<<<<<< HEAD
         profiler_level=torch_npu.profiler.ProfilerLevel.Level1, l2_cache=False, data_simplification=False)
     with torch_npu.profiler.profile(
             activities=[torch_npu.profiler.ProfilerActivity.CPU, torch_npu.profiler.ProfilerActivity.NPU],
@@ -40,25 +39,6 @@ def profiler_wrapper(fn, *args):
                                                  skip_first=skip_first),
             on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(result_path), record_shapes=True,
             profile_memory=False, with_stack=False, with_flops=False, with_modules=False,
-=======
-        profiler_level=torch_npu.profiler.ProfilerLevel.Level1,
-        l2_cache=False,
-        data_simplification=False
-    )
-    with torch_npu.profiler.profile(
-            activities=[
-                torch_npu.profiler.ProfilerActivity.CPU,
-                torch_npu.profiler.ProfilerActivity.NPU
-            ],
-            schedule=torch_npu.profiler.schedule(wait=wait, warmup=warmup, active=active, repeat=repeat,
-                                                 skip_first=skip_first),
-            on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(result_path),
-            record_shapes=True,
-            profile_memory=False,
-            with_stack=False,
-            with_flops=False,
-            with_modules=False,
->>>>>>> release-3.2.2-0625-b79d137
             experimental_config=experimental_config) as prof:
         stream.synchronize()
         for _ in range(skip_first + (wait + warmup + active) * repeat):
@@ -113,30 +93,17 @@ def test_elementwise_ops(dtype, low, high):
     test_case_is_inductor = False
 
     if dtype == torch.bool:
-<<<<<<< HEAD
         x0 = torch.randint(low=low, high=high, size=(N, )).bool().npu()
         x1 = torch.randint(low=low, high=high, size=(N, )).bool().npu()
-=======
-        x0 = torch.randint(low=low, high=high, size=(N,)).bool().npu()
-        x1 = torch.randint(low=low, high=high, size=(N,)).bool().npu()
->>>>>>> release-3.2.2-0625-b79d137
         triton_cal = triton_or_func(x0, x1, N)
         ref = x0 | x1
     else:
         if dtype.is_floating_point:
-<<<<<<< HEAD
             x0 = torch.rand((N, ), dtype=dtype).npu()
             x1 = torch.rand((N, ), dtype=dtype).npu()
         else:
             x0 = torch.randint(low=low, high=high, size=(N, ), dtype=dtype).npu()
             x1 = torch.randint(low=low, high=high, size=(N, ), dtype=dtype).npu()
-=======
-            x0 = torch.rand((N,), dtype=dtype).npu()
-            x1 = torch.rand((N,), dtype=dtype).npu()
-        else:
-            x0 = torch.randint(low=low, high=high, size=(N,), dtype=dtype).npu()
-            x1 = torch.randint(low=low, high=high, size=(N,), dtype=dtype).npu()
->>>>>>> release-3.2.2-0625-b79d137
 
         triton_cal = triton_add_func(x0, x1, N)
         ref = x0 + x1
@@ -145,8 +112,5 @@ def test_elementwise_ops(dtype, low, high):
 
     def wrapper():
         _ = triton_add_func(x0, x1, N) if dtype != torch.bool else triton_or_func(x0, x1, N)
-<<<<<<< HEAD
 
-=======
->>>>>>> release-3.2.2-0625-b79d137
     profiler_wrapper(wrapper)
