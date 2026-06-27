@@ -22,13 +22,9 @@
 
 #include "ascend/include/Utils/Utils.h"
 
-<<<<<<< HEAD
-#include "bishengir/Dialect/Annotation/IR/Annotation.h"
-=======
 #include "ascend/include/Dialect/TritonAscend/IR/TritonAscendDialect.h"
 #include "bishengir/Dialect/Annotation/IR/Annotation.h"
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
->>>>>>> release-3.2.2-0625-b79d137
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -1401,17 +1397,10 @@ FailureOr<TypedAttr> specializeTypelessValueToAttr(TypelessValue value,
   llvm::APFloat halfMax = llvm::APFloat::getInf(llvm::APFloat::IEEEhalf());
   llvm::APFloat halfMin =
       llvm::APFloat::getInf(llvm::APFloat::IEEEhalf(), true);
-<<<<<<< HEAD
   llvm::APFloat bfloatZero = llvm::APFloat::getZero(llvm::APFloat::BFloat());
   llvm::APFloat bfloatOne(llvm::APFloat::BFloat(), 1);
   llvm::APFloat bfloatMax = llvm::APFloat::getInf(llvm::APFloat::BFloat());
   llvm::APFloat bfloatMin =
-=======
-    llvm::APFloat bfloatZero = llvm::APFloat::getZero(llvm::APFloat::BFloat());
-    llvm::APFloat bfloatOne(llvm::APFloat::BFloat(), 1);
-    llvm::APFloat bfloatMax = llvm::APFloat::getInf(llvm::APFloat::BFloat());
-    llvm::APFloat bfloatMin =
->>>>>>> release-3.2.2-0625-b79d137
       llvm::APFloat::getInf(llvm::APFloat::BFloat(), true);
   llvm::APFloat floatZero = llvm::APFloat::getZero(llvm::APFloat::IEEEsingle());
   llvm::APFloat floatOne(llvm::APFloat::IEEEsingle(), 1);
@@ -1420,69 +1409,63 @@ FailureOr<TypedAttr> specializeTypelessValueToAttr(TypelessValue value,
       llvm::APFloat::getInf(llvm::APFloat::IEEEsingle(), true);
   auto toPtr = [](mlir::Type ty) { return ty.getAsOpaquePointer(); };
 
-<<<<<<< HEAD
   std::map<std::pair<TypelessValue, const void *>,
-           std::variant<int8_t, int16_t, int32_t, int64_t, uint32_t, uint64_t,
-                        llvm::APFloat>>
-=======
-    std::map<std::pair<TypelessValue, const void *>,
-         std::variant<llvm::APInt, llvm::APFloat>>
->>>>>>> release-3.2.2-0625-b79d137
-      initMap = {
-          {{TypelessValue::Zero, toPtr(f16Ty)}, halfZero},
-          {{TypelessValue::Zero, toPtr(bf16Ty)}, bfloatZero},
-          {{TypelessValue::Zero, toPtr(f32Ty)}, floatZero},
-          {{TypelessValue::Zero, toPtr(i8TySL)}, llvm::APInt(8, 0, true)},
-          {{TypelessValue::Zero, toPtr(i8TyS)}, llvm::APInt(8, 0, true)},
-          {{TypelessValue::Zero, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
-          {{TypelessValue::Zero, toPtr(i16TySL)}, llvm::APInt(16, 0, true)},
-          {{TypelessValue::Zero, toPtr(i16TyS)}, llvm::APInt(16, 0, true)},
-          {{TypelessValue::Zero, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
-          {{TypelessValue::Zero, toPtr(i32TySL)}, llvm::APInt(32, 0, true)},
-          {{TypelessValue::Zero, toPtr(i32TyS)}, llvm::APInt(32, 0, true)},
-          {{TypelessValue::Zero, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
-          {{TypelessValue::Zero, toPtr(i64TySL)}, llvm::APInt(64, 0, true)},
-          {{TypelessValue::Zero, toPtr(i64TyS)}, llvm::APInt(64, 0, true)},
-          {{TypelessValue::Zero, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
-          {{TypelessValue::Min, toPtr(f16Ty)}, halfMin},
-          {{TypelessValue::Min, toPtr(bf16Ty)}, bfloatMin},
-          {{TypelessValue::Min, toPtr(f32Ty)}, floatMin},
-          {{TypelessValue::Min, toPtr(i8TySL)}, llvm::APInt(8, -128, true)},
-          {{TypelessValue::Min, toPtr(i8TyS)}, llvm::APInt(8, -128, true)},
-          {{TypelessValue::Min, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
-          {{TypelessValue::Min, toPtr(i16TySL)}, llvm::APInt(16, -32768, true)},
-          {{TypelessValue::Min, toPtr(i16TyS)}, llvm::APInt(16, -32768, true)},
-          {{TypelessValue::Min, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
-          {{TypelessValue::Min, toPtr(i32TySL)},
-           llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
-          {{TypelessValue::Min, toPtr(i32TyS)},
-           llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
-          {{TypelessValue::Min, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
-          {{TypelessValue::Min, toPtr(i64TySL)},
-           llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
-          {{TypelessValue::Min, toPtr(i64TyS)},
-           llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
-          {{TypelessValue::Min, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
-          {{TypelessValue::Max, toPtr(f16Ty)}, halfMax},
-          {{TypelessValue::Max, toPtr(bf16Ty)}, bfloatMax},
-          {{TypelessValue::Max, toPtr(f32Ty)}, floatMax},
-          {{TypelessValue::Max, toPtr(i8TySL)}, llvm::APInt(8, 127, true)},
-          {{TypelessValue::Max, toPtr(i8TyS)}, llvm::APInt(8, 127, true)},
-          {{TypelessValue::Max, toPtr(i8TyU)}, llvm::APInt::getAllOnes(8)},
-          {{TypelessValue::Max, toPtr(i16TySL)}, llvm::APInt(16, 32767, true)},
-          {{TypelessValue::Max, toPtr(i16TyS)}, llvm::APInt(16, 32767, true)},
-          {{TypelessValue::Max, toPtr(i16TyU)}, llvm::APInt::getAllOnes(16)},
-          {{TypelessValue::Max, toPtr(i32TySL)},
-           llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
-          {{TypelessValue::Max, toPtr(i32TyS)},
-           llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
-          {{TypelessValue::Max, toPtr(i32TyU)}, llvm::APInt::getAllOnes(32)},
-          {{TypelessValue::Max, toPtr(i64TySL)},
-           llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
-          {{TypelessValue::Max, toPtr(i64TyS)},
-           llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
-          {{TypelessValue::Max, toPtr(i64TyU)}, llvm::APInt::getAllOnes(64)},
-      };
+        std::variant<llvm::APInt, llvm::APFloat>>
+    initMap = {
+        {{TypelessValue::Zero, toPtr(f16Ty)}, halfZero},
+        {{TypelessValue::Zero, toPtr(bf16Ty)}, bfloatZero},
+        {{TypelessValue::Zero, toPtr(f32Ty)}, floatZero},
+        {{TypelessValue::Zero, toPtr(i8TySL)}, llvm::APInt(8, 0, true)},
+        {{TypelessValue::Zero, toPtr(i8TyS)}, llvm::APInt(8, 0, true)},
+        {{TypelessValue::Zero, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
+        {{TypelessValue::Zero, toPtr(i16TySL)}, llvm::APInt(16, 0, true)},
+        {{TypelessValue::Zero, toPtr(i16TyS)}, llvm::APInt(16, 0, true)},
+        {{TypelessValue::Zero, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
+        {{TypelessValue::Zero, toPtr(i32TySL)}, llvm::APInt(32, 0, true)},
+        {{TypelessValue::Zero, toPtr(i32TyS)}, llvm::APInt(32, 0, true)},
+        {{TypelessValue::Zero, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
+        {{TypelessValue::Zero, toPtr(i64TySL)}, llvm::APInt(64, 0, true)},
+        {{TypelessValue::Zero, toPtr(i64TyS)}, llvm::APInt(64, 0, true)},
+        {{TypelessValue::Zero, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
+        {{TypelessValue::Min, toPtr(f16Ty)}, halfMin},
+        {{TypelessValue::Min, toPtr(bf16Ty)}, bfloatMin},
+        {{TypelessValue::Min, toPtr(f32Ty)}, floatMin},
+        {{TypelessValue::Min, toPtr(i8TySL)}, llvm::APInt(8, -128, true)},
+        {{TypelessValue::Min, toPtr(i8TyS)}, llvm::APInt(8, -128, true)},
+        {{TypelessValue::Min, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
+        {{TypelessValue::Min, toPtr(i16TySL)}, llvm::APInt(16, -32768, true)},
+        {{TypelessValue::Min, toPtr(i16TyS)}, llvm::APInt(16, -32768, true)},
+        {{TypelessValue::Min, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
+        {{TypelessValue::Min, toPtr(i32TySL)},
+          llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
+        {{TypelessValue::Min, toPtr(i32TyS)},
+          llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
+        {{TypelessValue::Min, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
+        {{TypelessValue::Min, toPtr(i64TySL)},
+          llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
+        {{TypelessValue::Min, toPtr(i64TyS)},
+          llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
+        {{TypelessValue::Min, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
+        {{TypelessValue::Max, toPtr(f16Ty)}, halfMax},
+        {{TypelessValue::Max, toPtr(bf16Ty)}, bfloatMax},
+        {{TypelessValue::Max, toPtr(f32Ty)}, floatMax},
+        {{TypelessValue::Max, toPtr(i8TySL)}, llvm::APInt(8, 127, true)},
+        {{TypelessValue::Max, toPtr(i8TyS)}, llvm::APInt(8, 127, true)},
+        {{TypelessValue::Max, toPtr(i8TyU)}, llvm::APInt::getAllOnes(8)},
+        {{TypelessValue::Max, toPtr(i16TySL)}, llvm::APInt(16, 32767, true)},
+        {{TypelessValue::Max, toPtr(i16TyS)}, llvm::APInt(16, 32767, true)},
+        {{TypelessValue::Max, toPtr(i16TyU)}, llvm::APInt::getAllOnes(16)},
+        {{TypelessValue::Max, toPtr(i32TySL)},
+          llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
+        {{TypelessValue::Max, toPtr(i32TyS)},
+          llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
+        {{TypelessValue::Max, toPtr(i32TyU)}, llvm::APInt::getAllOnes(32)},
+        {{TypelessValue::Max, toPtr(i64TySL)},
+          llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
+        {{TypelessValue::Max, toPtr(i64TyS)},
+          llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
+        {{TypelessValue::Max, toPtr(i64TyU)}, llvm::APInt::getAllOnes(64)},
+    };
 
   std::pair<TypelessValue, const void *> key =
       std::make_pair(value, toPtr(type));
@@ -1605,29 +1588,18 @@ RankedTensorType getExtractSlicedType(ArrayRef<OpFoldResult> shape,
   return RankedTensorType::get(targetShape, elemType);
 }
 
-<<<<<<< HEAD
-bool checkStructureAnnotated(Operation *op, RewriterBase &rewriter) {
-  return llvm::any_of(op->getUsers(), [&rewriter](Operation *user) {
-    auto annotationOp = dyn_cast<annotation::MarkOp>(user);
-    if (annotationOp &&
-        annotationOp->hasAttr(ConverterUtils::continuousAttrName)) {
-=======
 bool checkStructureAnnotated(Operation* op, RewriterBase& rewriter) {
   return llvm::any_of(op->getUsers(), [&rewriter](Operation *user) {
     auto annotationOp = dyn_cast<annotation::MarkOp>(user);
     if (annotationOp && annotationOp->hasAttr(ConverterUtils::continuousAttrName)) {
->>>>>>> release-3.2.2-0625-b79d137
       rewriter.eraseOp(annotationOp);
       return true;
     }
     return false;
   });
 }
-<<<<<<< HEAD
-=======
 
 bool isDistributedTypeCustomOp(Operation* op){
     return op->hasAttr("hivm.is_distributed") && (llvm::isa<hivm::CustomOp>(op) || llvm::isa<hivm::CustomMacroOp>(op));
 }
->>>>>>> release-3.2.2-0625-b79d137
 } // namespace mlir
