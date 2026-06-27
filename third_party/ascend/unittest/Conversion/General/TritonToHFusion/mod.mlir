@@ -8,8 +8,4 @@ module {
         %0 = ascend.mod %arg0, %arg1 : tensor<1xf32> tensor<1xf32> -> tensor<1xf32>
         tt.return %0 : tensor<1xf32>
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

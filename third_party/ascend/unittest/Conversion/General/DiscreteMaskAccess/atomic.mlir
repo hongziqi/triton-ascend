@@ -3,11 +3,7 @@
 // CHECK-LABEL: tt.func @atomic_add_i32
 // CHECK: %[[default:.*]] = arith.constant dense<0> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw add, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw add, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_add_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -27,11 +23,7 @@ tt.func @atomic_add_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_fadd_f32
 // CHECK: %[[default:.*]] = arith.constant dense<0.000000e+00> : tensor<1024xf32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw fadd, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw fadd, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_fadd_f32(%arg0: !tt.ptr<f32>, %arg1: !tt.ptr<f32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -51,11 +43,7 @@ tt.func @atomic_fadd_f32(%arg0: !tt.ptr<f32>, %arg1: !tt.ptr<f32>) {
 // CHECK-LABEL: tt.func @atomic_max_i32
 // CHECK: %[[default:.*]] = arith.constant dense<-2147483648> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw max, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw max, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_max_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -75,11 +63,7 @@ tt.func @atomic_max_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_umax_i32
 // CHECK: %[[default:.*]] = arith.constant dense<0> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw umax, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw umax, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_umax_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -99,11 +83,7 @@ tt.func @atomic_umax_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_min_i32
 // CHECK: %[[default:.*]] = arith.constant dense<2147483647> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw min, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw min, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_min_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -123,11 +103,7 @@ tt.func @atomic_min_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_umin_i32
 // CHECK: %[[default:.*]] = arith.constant dense<2147483647> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw umin, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw umin, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_umin_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -147,11 +123,7 @@ tt.func @atomic_umin_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_and_i32
 // CHECK: %[[default:.*]] = arith.constant dense<2147483647> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw and, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw and, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_and_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -171,11 +143,7 @@ tt.func @atomic_and_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_or_i32
 // CHECK: %[[default:.*]] = arith.constant dense<0> : tensor<1024xi32>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw or, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw or, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_or_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -195,11 +163,7 @@ tt.func @atomic_or_i32(%arg0: !tt.ptr<i32>, %arg1: !tt.ptr<i32>) {
 // CHECK-LABEL: tt.func @atomic_max_i16
 // CHECK: %[[default:.*]] = arith.constant dense<-32768> : tensor<1024xi16>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw max, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw max, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_max_i16(%arg0: !tt.ptr<i16>, %arg1: !tt.ptr<i16>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -219,11 +183,7 @@ tt.func @atomic_max_i16(%arg0: !tt.ptr<i16>, %arg1: !tt.ptr<i16>) {
 // CHECK-LABEL: tt.func @atomic_max_f16
 // CHECK: %[[default:.*]] = arith.constant dense<0xFC00> : tensor<1024xf16>
 // CHECK: %[[value:.*]] = arith.select %[[mask:.*]], %[[origin:.*]], %[[default]]
-<<<<<<< HEAD
 // CHECK: %[[result:.*]] = tt.atomic_rmw max, acq_rel, gpu, %[[ptr:.*]], %[[value]]
-=======
-// CHECK: %[[result:.*]] = tt.atomic_rmw max, acq_rel, gpu, %[[ptr:.*]], %[[value]] 
->>>>>>> release-3.2.2-0625-b79d137
 tt.func @atomic_max_f16(%arg0: !tt.ptr<f16>, %arg1: !tt.ptr<f16>) {
   %cst = arith.constant dense<200> : tensor<1024xi32>
   %cst_0 = arith.constant dense<400> : tensor<1024xi32>
@@ -238,8 +198,4 @@ tt.func @atomic_max_f16(%arg0: !tt.ptr<f16>, %arg1: !tt.ptr<f16>) {
   %8 = tt.load %7 : tensor<1024x!tt.ptr<f16>>
   %9 = tt.atomic_rmw max, acq_rel, gpu, %5, %8, %3 : (tensor<1024x!tt.ptr<f16>>, tensor<1024xf16>, tensor<1024xi1>) -> tensor<1024xf16>
   tt.return
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

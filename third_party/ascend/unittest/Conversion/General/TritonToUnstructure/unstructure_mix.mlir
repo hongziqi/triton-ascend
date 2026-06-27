@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 // RUN: triton-opt --triton-to-unstructure %s | FileCheck %s
-=======
-// RUN: triton-opt --triton-to-unstructure %s | FileCheck %s 
->>>>>>> release-3.2.2-0625-b79d137
 
 tt.func public @indirect_mix_kernel(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<i64> {tt.divisibility = 16 : i32}, %arg2: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg3: i32 {tt.divisibility = 16 : i32}) attributes {noinline = false} {
     %cst = arith.constant dense<16> : tensor<1x8xi32>
@@ -83,8 +79,4 @@ tt.func public @indirect_mix_kernel(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : 
 // CHECK:           %[[VAL_43:.*]] = tt.addptr %[[VAL_42]], %[[VAL_41]] : tensor<16x8x!tt.ptr<f32>>, tensor<16x8xi32>
 // CHECK:           tt.store %[[VAL_43]], %[[VAL_35]] : tensor<16x8x!tt.ptr<f32>>
 // CHECK:           tt.return
-<<<<<<< HEAD
 // CHECK:         }
-=======
-// CHECK:         }
->>>>>>> release-3.2.2-0625-b79d137

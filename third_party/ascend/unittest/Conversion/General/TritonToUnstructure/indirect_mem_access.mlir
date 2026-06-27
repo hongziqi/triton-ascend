@@ -1,11 +1,7 @@
 // RUN: triton-opt %s --triton-to-unstructure | FileCheck %s
 // RUN: triton-opt %s '--triton-to-unstructure=force-scalarize-mode=True' | FileCheck %s
 // RUN: triton-opt %s '--triton-to-unstructure=compile-on-910-95=True' | FileCheck %s
-<<<<<<< HEAD
-// RUN: triton-opt %s '--triton-to-unstructure=compile-mode=simt_template' | FileCheck %s
-=======
 // RUN: triton-opt %s '--triton-to-unstructure=force-simt-template=True' | FileCheck %s
->>>>>>> release-3.2.2-0625-b79d137
 
 
 // CHECK-LABEL: tt.func @triton_indirect_load
@@ -76,8 +72,8 @@ tt.func @triton_indirect_atomic_add(
     %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32},
     %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32},
 =======
-    %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, 
-    %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, 
+    %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32},
+    %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32},
 >>>>>>> release-3.2.2-0625-b79d137
     %arg2: !tt.ptr<i64> {tt.divisibility = 16 : i32}
 ) attributes {noinline = false} {
@@ -100,8 +96,8 @@ tt.func @triton_indirect_atomic_add_with_discret_mask(
     %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32},
     %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32},
 =======
-    %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, 
-    %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, 
+    %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32},
+    %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32},
 >>>>>>> release-3.2.2-0625-b79d137
     %arg2: !tt.ptr<i64> {tt.divisibility = 16 : i32}
 ) attributes {noinline = false} {
@@ -113,8 +109,8 @@ tt.func @triton_indirect_atomic_add_with_discret_mask(
     %cst_true = tt.splat %c1 : f32 -> tensor<4096xf32>
     %cst_false = tt.splat %c0 : f32 -> tensor<4096xf32>
 =======
-    %cst_true = tt.splat %c1 : f32 -> tensor<4096xf32> 
-    %cst_false = tt.splat %c0 : f32 -> tensor<4096xf32> 
+    %cst_true = tt.splat %c1 : f32 -> tensor<4096xf32>
+    %cst_false = tt.splat %c0 : f32 -> tensor<4096xf32>
 >>>>>>> release-3.2.2-0625-b79d137
     %0 = tt.make_range {end = 4096 : i32, start = 0 : i32} : tensor<4096xi32>
     %1 = tt.splat %arg2 : !tt.ptr<i64> -> tensor<4096x!tt.ptr<i64>>
@@ -135,8 +131,8 @@ tt.func @triton_indirect_atomic_cas(
     %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32},
     %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32},
 =======
-    %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, 
-    %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, 
+    %arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32},
+    %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32},
 >>>>>>> release-3.2.2-0625-b79d137
     %arg2: !tt.ptr<i64> {tt.divisibility = 16 : i32}
 ) attributes {noinline = false} {

@@ -17,8 +17,4 @@ module attributes {hacc.target = #hacc.target<"Ascend910B2">} {
     tt.store %store_ptr, %data {boundaryCheck = array<i32>} : !tt.ptr<tensor<4x32xf32>>
     tt.return
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

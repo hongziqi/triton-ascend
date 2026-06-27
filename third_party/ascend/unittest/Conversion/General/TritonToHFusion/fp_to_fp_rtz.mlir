@@ -15,8 +15,4 @@ tt.func @test_fp32_to_fp16_rtz_fail(%arg0: tensor<1024xf32>) -> tensor<1024xf16>
   %0 = tt.fp_to_fp %arg0, rounding = rtne : tensor<1024xf32> -> tensor<1024xf16>
   // CHECK: %{{.*}} = tt.fp_to_fp %arg0, rounding = rtne : tensor<1024xf32> -> tensor<1024xf16>
   tt.return %0 : tensor<1024xf16>
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

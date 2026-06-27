@@ -124,8 +124,4 @@ tt.func @test_slice_all_bubbleup(%i: index, %c: f32) -> tensor<128xi32> {
     %0 = tt.make_range {start = 0 : i32, end = 128 : i32} : tensor<128xi32>
     %1 = tensor.extract_slice %0[0][128][1] : tensor<128xi32> to tensor<128xi32>
     tt.return %1 : tensor<128xi32>
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

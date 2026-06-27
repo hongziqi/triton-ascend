@@ -31,8 +31,4 @@ module attributes {hacc.target = #hacc.target<"Ascend910B2">} {
     tt.store %1, %val_10, %mask_3 : tensor<8x!tt.ptr<f32>>
     tt.return
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

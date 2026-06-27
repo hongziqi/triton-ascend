@@ -11,8 +11,4 @@ tt.func @test_unstructure_splatandloadscenario(%base: !tt.ptr<f32>) -> tensor<12
     %ptr = tt.addptr %base_tensor, %offset_tensor : tensor<128x!tt.ptr<f32>>, tensor<128xi64>
     %val = tt.load %ptr : tensor<128x!tt.ptr<f32>>
     tt.return %val : tensor<128xf32>
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> release-3.2.2-0625-b79d137

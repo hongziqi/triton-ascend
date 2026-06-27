@@ -17,8 +17,4 @@ tt.func @triton_func() {
 // CHECK: hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_MTE2>] flag = 2
 // CHECK: hivm.hir.sync_block[<ALL_CUBE>, 1 : i16] tcube_pipe = <PIPE_FIX>
 // CHECK: hivm.hir.sync_block[<ALL_VECTOR>, 1 : i16] tvector_pipe = <PIPE_MTE3>
-<<<<<<< HEAD
 // CHECK: hivm.hir.sync_block[<ALL>, 1 : i16] tcube_pipe = <PIPE_FIX> tvector_pipe = <PIPE_MTE3>
-=======
-// CHECK: hivm.hir.sync_block[<ALL>, 1 : i16] tcube_pipe = <PIPE_FIX> tvector_pipe = <PIPE_MTE3>
->>>>>>> release-3.2.2-0625-b79d137

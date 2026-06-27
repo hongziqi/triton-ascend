@@ -201,8 +201,4 @@ tt.func public @test_kernel2(%arg0: !tt.ptr<i32> {tt.divisibility = 16 : i32}, %
 // CHECK:             scf.yield %[[VAL_70]]#3, %[[VAL_69]], %[[VAL_71]], %[[VAL_72]] : tensor<128xi32>, tensor<128xi32>, tensor<128xi64>, tensor<128xi64>
 // CHECK:           }
 // CHECK:           tt.return
-<<<<<<< HEAD
 // CHECK:         }
-=======
-// CHECK:         }
->>>>>>> release-3.2.2-0625-b79d137
