@@ -971,11 +971,7 @@ def get_default_version():
     version_file = Path(__file__).parent / "version.txt"
     if version_file.exists():
         return version_file.read_text().strip()
-<<<<<<< HEAD:setup.py
     return "3.5.0"
-=======
-    return "3.2.2"
->>>>>>> release-3.2.2-0625-b79d137:python/setup.py
 
 
 def get_version():
@@ -1004,11 +1000,7 @@ ARCHITECTURE_ALIASES = {
 }
 
 ARCHITECTURE_DEPENDENCIES = {
-<<<<<<< HEAD:setup.py
     "x86_64": ["triton==3.5.0"],
-=======
-    "x86_64": ["triton==3.2.0"],
->>>>>>> release-3.2.2-0625-b79d137:python/setup.py
     "arm": ["triton==3.5.0"],
 }
 
