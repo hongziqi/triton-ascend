@@ -308,10 +308,6 @@ def UnstructuredLoadOp : TT_Ascend_Op<"unstructured_load", [
     analysis, enabling LinalgPass to generate hfusion.gather_load or SIMT
     template calls without re-analyzing the pointer chain.
 
-<<<<<<< HEAD
-    The base pointer is a scalar !tt.ptr<T>, which the LinalgPass TypeConverter
-    automatically converts to memref<?xT>.
-=======
     Load values from global memory based on per-element offsets. If `mask`
     is provided, false lanes return `other`.
 
@@ -322,7 +318,6 @@ def UnstructuredLoadOp : TT_Ascend_Op<"unstructured_load", [
     - other (optional): if mask[idx] is false, return other[idx]
     - isVolatile: defaults to true. Set to false only when analysis proves
       the source pointer has no prior possible writes.
->>>>>>> release-3.2.2-0625-b79d137
   }];
 
   let arguments = (
@@ -331,13 +326,7 @@ def UnstructuredLoadOp : TT_Ascend_Op<"unstructured_load", [
         DenseI64ArrayAttr:$unstructuredDims,
         Optional<TT_BoolLike>:$mask,
         Optional<TT_Type>:$other,
-<<<<<<< HEAD
-        OptionalAttr<TT_CacheModifierAttr>:$cache,
-        OptionalAttr<TT_EvictionPolicyAttr>:$evict,
-        OptionalAttr<BoolAttr>:$isVolatile
-=======
         DefaultValuedAttr<BoolAttr, "true">:$isVolatile
->>>>>>> release-3.2.2-0625-b79d137
   );
 
   let results = (outs TT_Tensor:$result);
