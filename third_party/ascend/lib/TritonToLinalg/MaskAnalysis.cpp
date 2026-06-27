@@ -67,24 +67,14 @@ std::optional<MaskState> runMaskAnalysisImpl(MemAccOpTy op,
 
 OpFoldResult MaskState::clampToNonNegativeIndex(const OpFoldResult value,
                                                 const Location &loc,
-<<<<<<< HEAD
                                                 OpBuilder &builder) const {
-=======
-                                                OpBuilder &builder) const
-{
->>>>>>> release-3.2.2-0625-b79d137
   if (auto cst = getConstantIntValue(value)) {
     return builder.getIndexAttr(std::max<int64_t>(0, *cst));
   }
 
-<<<<<<< HEAD
   // For non-constant value, we could generate max(value, 0) to ensure the value
   // is non-negative. But this caused error in atomic max/min ut test. We need
   // to investigate more on this.
-=======
-  // For non-constant value, we could generate max(value, 0) to ensure the value is non-negative.
-  // But this caused error in atomic max/min ut test. We need to investigate more on this.
->>>>>>> release-3.2.2-0625-b79d137
   return value;
 }
 
@@ -371,12 +361,8 @@ LogicalResult MaskState::parseConstant(arith::ConstantOp constOp,
     assert(attr.isSplat() && isa<IntegerType>(elementType) &&
            "All elements must share a single integer constant value");
 
-<<<<<<< HEAD
     if (elementType.isInteger(1) &&
         isa<ShapedType>(constOp.getValue().getType())) {
-=======
-    if (elementType.isInteger(1) && isa<ShapedType>(constOp.getValue().getType())) {
->>>>>>> release-3.2.2-0625-b79d137
       auto shapedType = cast<ShapedType>(constOp.getValue().getType());
       auto shape = shapedType.getShape();
       for (size_t i = 0; i < shape.size(); i++) {
@@ -742,7 +728,6 @@ LogicalResult MaskState::parseExpandDims(triton::ExpandDimsOp expandDimsOp,
 }
 
 LogicalResult MaskState::parseInsert(tensor::InsertOp insertOp,
-<<<<<<< HEAD
                                      const Location &loc, OpBuilder &builder) {
   if (auto tensorType = dyn_cast<RankedTensorType>(insertOp.getType())) {
     if (llvm::all_of(tensorType.getShape(),
@@ -755,17 +740,6 @@ LogicalResult MaskState::parseInsert(tensor::InsertOp insertOp,
                                                 builder.getIndexAttr(0));
       this->dims = SmallVector<OpFoldResult>(tensorType.getRank(),
                                              builder.getIndexAttr(1));
-=======
-                                     const Location &loc,
-                                     OpBuilder &builder)
-{
-  if (auto tensorType = dyn_cast<RankedTensorType>(insertOp.getType())) {
-    if (llvm::all_of(tensorType.getShape(), [](int64_t dim) { return dim == 1; })) {
-      SmallVector<Value> indices(tensorType.getRank(), builder.create<arith::ConstantIndexOp>(loc, 0));
-      auto scalarlizeTensor = builder.create<tensor::ExtractOp>(loc, insertOp, indices).getResult();
-      this->offsets = SmallVector<OpFoldResult>(tensorType.getRank(), builder.getIndexAttr(0));
-      this->dims = SmallVector<OpFoldResult>(tensorType.getRank(), builder.getIndexAttr(1));
->>>>>>> release-3.2.2-0625-b79d137
       this->scalar = getOpFoldResultOfLayoutInfo(scalarlizeTensor, builder);
       return success();
     }

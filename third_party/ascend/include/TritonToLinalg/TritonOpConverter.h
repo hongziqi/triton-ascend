@@ -718,10 +718,6 @@ private:
   static constexpr llvm::StringRef funcNameBase = "triton_indirect_load";
 };
 
-<<<<<<< HEAD
-class UnstructuredStoreConverter
-    : public OpConversionPattern<triton::ascend::UnstructuredStoreOp> {
-=======
 class StrideLoadConverter
     : public OpConversionPattern<triton::ascend::StrideLoadOp> {
 public:
@@ -746,8 +742,8 @@ private:
   static constexpr llvm::StringRef funcNameBase = "triton_stride_store";
 };
 
-class IndirectStoreConverter : public OpConversionPattern<triton::ascend::IndirectStoreOp> {
->>>>>>> release-3.2.2-0625-b79d137
+class IndirectStoreConverter
+    : public OpConversionPattern<triton::ascend::IndirectStoreOp> {
 public:
   using OpConversionPattern<
       triton::ascend::UnstructuredStoreOp>::OpConversionPattern;
