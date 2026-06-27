@@ -207,19 +207,12 @@ struct TritonConv1dToHFusionConversion
 } // namespace
 
 namespace {
-<<<<<<< HEAD
-struct TritonToHFusionPass
-    : public mlir::triton::impl::TritonToHFusionBase<TritonToHFusionPass> {
-  void runOnOperation() override;
-};
-=======
     struct TritonToHFusionPass
         : public mlir::triton::impl::TritonToHFusionBase<
             TritonToHFusionPass> {
     bool compileOn91095 = false;
     void runOnOperation() override;
     };
->>>>>>> release-3.2.2-0625-b79d137
 } // namespace
 
 void TritonToHFusionPass::runOnOperation() {
@@ -245,14 +238,8 @@ void TritonToHFusionPass::runOnOperation() {
   }
 }
 
-<<<<<<< HEAD
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::triton::createTritonToHFusionPass() {
-  return std::make_unique<TritonToHFusionPass>();
-=======
 std::unique_ptr<OperationPass<ModuleOp>> mlir::triton::createTritonToHFusionPass(bool compileOn91095) {
   auto pass = std::make_unique<TritonToHFusionPass>();
   pass->compileOn91095 = compileOn91095;
   return pass;
->>>>>>> release-3.2.2-0625-b79d137
 }
