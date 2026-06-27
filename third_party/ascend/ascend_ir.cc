@@ -55,12 +55,8 @@ struct AscendNPUIROpBuilder : public TritonOpBuilder {
   explicit AscendNPUIROpBuilder(MLIRContext *context, std::string target = "")
       : TritonOpBuilder(context), target(target) {}
 
-<<<<<<< HEAD
-  bool is_910_95() const {
-=======
   bool is_910_95() const
   {
->>>>>>> release-3.2.2-0625-b79d137
     // TODO: Use enum instead of strings after enabling HACC in satandalone
     // build
     constexpr size_t kLen910 = sizeof(kTarget910_95) - 1;
@@ -667,15 +663,6 @@ void init_ascend_ir(py::module &&m) {
              return self.getBuilder().getAttr<hivm::VFModeAttr>(mode);
            })
       .def("get_iterator_types_attr",
-<<<<<<< HEAD
-           [](AscendNPUIROpBuilder &self,
-              const std::vector<hivm::IteratorType> &array) {
-             auto attrs = llvm::to_vector(
-                 llvm::map_range(array, [&self](hivm::IteratorType type) {
-                   return cast<Attribute>(
-                       self.getBuilder().getAttr<hivm::IteratorTypeAttr>(type));
-                 }));
-=======
           [](AscendNPUIROpBuilder &self, const std::vector<hivm::IteratorType>& array) {
           auto attrs = llvm::to_vector(llvm::map_range(array, [&self](hivm::IteratorType type) {
                 return cast<Attribute>(self.getBuilder().getAttr<hivm::IteratorTypeAttr>(type));
@@ -684,7 +671,6 @@ void init_ascend_ir(py::module &&m) {
           })
       .def("get_array_attr",
            [](AscendNPUIROpBuilder &self, const std::vector<Attribute> &attrs) -> Attribute {
->>>>>>> release-3.2.2-0625-b79d137
              return self.getBuilder().getArrayAttr(attrs);
            })
       .def("get_t_core_type_attr_name",

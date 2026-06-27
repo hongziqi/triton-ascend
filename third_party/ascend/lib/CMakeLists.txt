@@ -12,11 +12,6 @@ add_subdirectory(TritonToUnstructure)
 add_subdirectory(TritonToLLVM)
 add_subdirectory(TritonToStructured)
 add_subdirectory(DynamicCVPipeline)
-<<<<<<< HEAD
-# todo: this code will be removed in version 530.
-add_subdirectory(TritonAffinityOpt)
-=======
->>>>>>> release-3.2.2-0625-b79d137
 
 if(TRITON_ENABLE_COVERAGE_HITEST)
   set(_instrument_targets
