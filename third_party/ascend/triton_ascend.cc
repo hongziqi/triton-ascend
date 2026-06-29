@@ -72,65 +72,81 @@ void init_triton_ascend_ir(py::module &&m) {
       [](TritonOpBuilder &self, Value &ful, std::vector<Value> &offs_vec,
         std::vector<int> &sizs_vec, std::vector<int> &strd_vec) -> Value {
         llvm::SmallVector<Value> offsets;
+        llvm::SmallVector<int64_t> staticOffsets;
         for (const auto &o : offs_vec) {
           auto oTy = o.getType();
           if (!oTy.isIndex()) {
             auto v = self.create<arith::IndexCastOp>(
-              self.getBuilder().getIndexType(), o);
+                self.getBuilder().getIndexType(), o);
             offsets.push_back(v);
           } else {
             offsets.push_back(o);
           }
+          staticOffsets.push_back(ShapedType::kDynamic);
         }
         llvm::SmallVector<Value> sizes;
+        llvm::SmallVector<int64_t> staticSizes;
         llvm::SmallVector<int64_t> retSizes;
         for (const auto &s : sizs_vec) {
-          auto v = self.create<arith::ConstantIndexOp>(s);
-          sizes.push_back(v);
+          // auto v = self.create<arith::ConstantIndexOp>(s);
+          // sizes.push_back(v);
+          staticSizes.push_back(s);
           retSizes.push_back(s);
         }
         llvm::SmallVector<Value> strides;
+        llvm::SmallVector<int64_t> staticStrides;
         for (const auto &s : strd_vec) {
           auto v = self.create<arith::ConstantIndexOp>(s);
           strides.push_back(v);
+          staticStrides.push_back(ShapedType::kDynamic);
         }
-        auto retTy = RankedTensorType::get(retSizes,
-          cast<RankedTensorType>(ful.getType()).getElementType());
+        auto retTy = RankedTensorType::get(
+            retSizes,
+            cast<RankedTensorType>(ful.getType()).getElementType());
 
-        return self.create<tensor::ExtractSliceOp>(retTy, ful, offsets, sizes, strides);
+        return self.create<tensor::ExtractSliceOp>(
+            retTy, ful, offsets, sizes, strides, staticOffsets,
+            staticSizes, staticStrides);
       })
     .def("create_insert_slice",
       [](TritonOpBuilder &self, Value &ful, Value &sub,
         std::vector<Value> &offs_vec, std::vector<int> &sizs_vec,
         std::vector<int> &strd_vec) -> Value {
         llvm::SmallVector<Value> offsets;
+        llvm::SmallVector<int64_t> staticOffsets;
         for (const auto &o : offs_vec) {
           auto oTy = o.getType();
           if (!oTy.isIndex()) {
             auto v = self.create<arith::IndexCastOp>(
-              self.getBuilder().getIndexType(), o);
+                self.getBuilder().getIndexType(), o);
             offsets.push_back(v);
           } else {
             offsets.push_back(o);
           }
+          staticOffsets.push_back(ShapedType::kDynamic);
         }
         llvm::SmallVector<Value> sizes;
+        llvm::SmallVector<int64_t> staticSizes;
         llvm::SmallVector<int64_t> retSizes;
         for (const auto &s : sizs_vec) {
-          auto v = self.create<arith::ConstantIndexOp>(s);
-          sizes.push_back(v);
+          // auto v = self.create<arith::ConstantIndexOp>(s);
+          // sizes.push_back(v);
+          staticSizes.push_back(s);
           retSizes.push_back(s);
         }
         llvm::SmallVector<Value> strides;
+        llvm::SmallVector<int64_t> staticStrides;
         for (const auto &s : strd_vec) {
           auto v = self.create<arith::ConstantIndexOp>(s);
           strides.push_back(v);
+          staticStrides.push_back(ShapedType::kDynamic);
         }
         auto retTy = RankedTensorType::get(
-          retSizes,
-          cast<RankedTensorType>(ful.getType()).getElementType());
-        auto ret = self.create<tensor::InsertSliceOp>(sub, ful, offsets,
-                                                      sizes, strides);
+            retSizes,
+            cast<RankedTensorType>(ful.getType()).getElementType());
+        auto ret = self.create<tensor::InsertSliceOp>(
+            sub, ful, offsets, sizes, strides, staticOffsets, staticSizes,
+            staticStrides);
         return ret;
       })
     .def("create_custom_op_for_inter_core_sync",
@@ -276,6 +292,30 @@ void init_triton_ascend_ir(py::module &&m) {
             startOffset
           );
       })
+    // conv1d operation
+    .def("create_conv1d",
+      [](TritonOpBuilder &self, Value input, Value weight, py::object bias,
+        int64_t stride, int64_t padding_size, int64_t dilation,
+        int64_t groups, Type output_type) -> Value {
+          Value biasValue;
+          if (!bias.is_none()) {
+            biasValue = bias.cast<Value>();
+          } else {
+            biasValue = Value();
+          }
+          auto &builder = self.getBuilder();
+          auto strideAttr = builder.getI64IntegerAttr(stride);
+          auto paddingSizeAttr = builder.getI64IntegerAttr(padding_size);
+          auto dilationAttr = builder.getI64IntegerAttr(dilation);
+          auto groupsAttr = builder.getI64IntegerAttr(groups);
+          auto op = self.create<triton::ascend::Conv1dOp>(
+              output_type, input, weight, biasValue, strideAttr,
+              paddingSizeAttr, dilationAttr, groupsAttr);
+          return op.getResult();
+        },
+        py::arg("input"), py::arg("weight"), py::arg("bias"),
+        py::arg("stride"), py::arg("padding_size"), py::arg("dilation"),
+        py::arg("groups"), py::arg("output_type"))
     // Add sort
     .def("create_sort",
       [](TritonOpBuilder &self, Value src, int64_t dim, bool descending) -> Value {
