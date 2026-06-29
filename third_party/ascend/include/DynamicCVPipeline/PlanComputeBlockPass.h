@@ -31,18 +31,6 @@ namespace mlir {
 namespace triton {
 
 // PlanComputeBlockPass for partitioning operations into compute blocks
-<<<<<<< HEAD
-class PlanComputeBlockPass
-    : public PassWrapper<PlanComputeBlockPass, OperationPass<ModuleOp>> {
-public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PlanComputeBlockPass)
-
-  // Constructor
-  PlanComputeBlockPass() = default;
-
-  // Run the pass
-  void runOnOperation() override;
-=======
 class PlanComputeBlockPass : public PassWrapper<PlanComputeBlockPass, OperationPass<ModuleOp>> {
 public:
     MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PlanComputeBlockPass)
@@ -58,17 +46,13 @@ public:
     ::llvm::StringRef getArgument() const override { return "plan-compute-block"; }
     ::llvm::StringRef getDescription() const override { return "Plan compute blocks for for dynamic CV pipeline"; }
     ::llvm::StringRef getName() const override { return "PlanComputeBlockPass"; }
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 // Create the pass
 std::unique_ptr<OperationPass<ModuleOp>> createPlanComputeBlockPass();
 
-<<<<<<< HEAD
-=======
 void registerPlanComputeBlockPasses();
 
->>>>>>> release-3.2.2-0625-b79d137
 } // namespace triton
 } // namespace mlir
 

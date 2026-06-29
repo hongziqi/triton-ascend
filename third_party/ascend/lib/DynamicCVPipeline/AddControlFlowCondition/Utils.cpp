@@ -21,25 +21,16 @@
  */
 
 #include "ascend/include/DynamicCVPipeline/AddControlFlowCondition/Utils.h"
-<<<<<<< HEAD
-=======
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include <optional>
->>>>>>> release-3.2.2-0625-b79d137
 
 using namespace mlir;
 using namespace llvm;
 
 // Collect all nested ops within an operation's regions
-<<<<<<< HEAD
-LogicalResult
-triton::collectAllNestedOps(Operation *op,
-                            llvm::DenseSet<Operation *> &regionOps) {
-=======
 LogicalResult triton::collectAllNestedOps(Operation *op, llvm::DenseSet<Operation *> &regionOps)
 {
->>>>>>> release-3.2.2-0625-b79d137
   if (!op) {
     return failure();
   }
@@ -63,18 +54,11 @@ LogicalResult triton::collectAllNestedOps(Operation *op, llvm::DenseSet<Operatio
 }
 
 // Group operations by their block_id attribute
-<<<<<<< HEAD
-LogicalResult triton::collectOpsByBlockId(
-    scf::ForOp forOp, llvm::DenseMap<int, SmallVector<Operation *>> &blockOps) {
-  for (Operation &op : forOp.getBody()->without_terminator()) {
-    if (auto attr = op.getAttrOfType<IntegerAttr>("ssbuffer.block_id")) {
-=======
 LogicalResult triton::collectOpsByBlockId(scf::ForOp forOp,
                                           llvm::DenseMap<int, SmallVector<Operation *>> &blockOps)
 {
   for (Operation &op : forOp.getBody()->without_terminator()) {
     if (auto attr = op.getAttrOfType<IntegerAttr>(CVPipeline::kBlockId)) {
->>>>>>> release-3.2.2-0625-b79d137
       blockOps[attr.getInt()].push_back(&op);
     } else {
       return failure();
@@ -85,14 +69,6 @@ LogicalResult triton::collectOpsByBlockId(scf::ForOp forOp,
 }
 
 // DFS for topological sort - returns failure if cycle detected
-<<<<<<< HEAD
-static LogicalResult
-dfsTopologicalSort(Operation *op, llvm::DenseSet<Operation *> &visited,
-                   llvm::DenseSet<Operation *> &inStack,
-                   const llvm::DenseSet<Operation *> &ops,
-                   llvm::DenseMap<Operation *, int> *opOrder,
-                   SmallVectorImpl<Operation *> &sorted) {
-=======
 static LogicalResult dfsTopologicalSort(
     Operation *op, llvm::DenseSet<Operation *> &visited,
     llvm::DenseSet<Operation *> &inStack,
@@ -100,7 +76,6 @@ static LogicalResult dfsTopologicalSort(
     llvm::DenseMap<Operation *, int> *opOrder,
     SmallVectorImpl<Operation *> &sorted)
 {
->>>>>>> release-3.2.2-0625-b79d137
   if (!op) {
     return success();
   }
@@ -124,22 +99,11 @@ static LogicalResult dfsTopologicalSort(
   }
 
   if (opOrder && !opOrder->empty()) {
-<<<<<<< HEAD
-    llvm::sort(deps, [&](Operation *a, Operation *b) {
-      return (*opOrder)[a] < (*opOrder)[b];
-    });
-  }
-
-  for (Operation *dep : deps) {
-    if (failed(
-            dfsTopologicalSort(dep, visited, inStack, ops, opOrder, sorted))) {
-=======
     llvm::sort(deps, [&](Operation *a, Operation *b) { return (*opOrder)[a] < (*opOrder)[b]; });
   }
 
   for (Operation *dep : deps) {
     if (failed(dfsTopologicalSort(dep, visited, inStack, ops, opOrder, sorted))) {
->>>>>>> release-3.2.2-0625-b79d137
       return failure();
     }
   }
@@ -152,45 +116,26 @@ static LogicalResult dfsTopologicalSort(
 // Topological sort of operations based on operand dependencies
 LogicalResult triton::topologicalSort(llvm::DenseSet<Operation *> &ops,
                                       llvm::DenseMap<Operation *, int> *opOrder,
-<<<<<<< HEAD
-                                      SmallVectorImpl<Operation *> &sorted) {
-=======
                                       SmallVectorImpl<Operation *> &sorted)
 {
->>>>>>> release-3.2.2-0625-b79d137
   llvm::DenseSet<Operation *> visited;
   llvm::DenseSet<Operation *> inStack;
 
   SmallVector<Operation *> opList(ops.begin(), ops.end());
   if (opOrder && !opOrder->empty()) {
-<<<<<<< HEAD
-    llvm::sort(opList, [&](Operation *a, Operation *b) {
-      return (*opOrder)[a] < (*opOrder)[b];
-    });
-  }
-
-  for (Operation *op : opList) {
-    if (failed(
-            dfsTopologicalSort(op, visited, inStack, ops, opOrder, sorted))) {
-=======
     llvm::sort(opList, [&](Operation *a, Operation *b) { return (*opOrder)[a] < (*opOrder)[b]; });
   }
 
   for (Operation *op : opList) {
     if (failed(dfsTopologicalSort(op, visited, inStack, ops, opOrder, sorted))) {
->>>>>>> release-3.2.2-0625-b79d137
       return failure();
     }
   }
   return success();
 }
 
-<<<<<<< HEAD
-LogicalResult triton::topologicalSort(SmallVector<Operation *> &ops) {
-=======
 LogicalResult triton::topologicalSort(SmallVector<Operation *> &ops)
 {
->>>>>>> release-3.2.2-0625-b79d137
   llvm::DenseSet<Operation *> opSet(ops.begin(), ops.end());
   SmallVector<Operation *> sorted;
 
@@ -202,21 +147,13 @@ LogicalResult triton::topologicalSort(SmallVector<Operation *> &ops)
 }
 
 // Get block_ids in order of appearance in for loop body
-<<<<<<< HEAD
-SmallVector<int> triton::getBlockIdsInOrder(scf::ForOp forOp) {
-=======
 SmallVector<int> triton::getBlockIdsInOrder(scf::ForOp forOp)
 {
->>>>>>> release-3.2.2-0625-b79d137
   SmallVector<int> idsInOrder;
   llvm::DenseSet<int> seenIds;
 
   for (Operation &op : forOp.getBody()->without_terminator()) {
-<<<<<<< HEAD
-    if (auto blockIdAttr = op.getAttrOfType<IntegerAttr>("ssbuffer.block_id")) {
-=======
     if (auto blockIdAttr = op.getAttrOfType<IntegerAttr>(CVPipeline::kBlockId)) {
->>>>>>> release-3.2.2-0625-b79d137
       int id = blockIdAttr.getInt();
       if (seenIds.insert(id).second) {
         idsInOrder.push_back(id);
@@ -225,8 +162,6 @@ SmallVector<int> triton::getBlockIdsInOrder(scf::ForOp forOp)
   }
   return idsInOrder;
 }
-<<<<<<< HEAD
-=======
 
 // Get the block_id of the immediate child of scf.for that contains op
 // For nested ops inside scf.if/scf.for, returns the block_id of the immediate child of scf.for
@@ -286,4 +221,3 @@ LogicalResult triton::getScopeType(Operation *scopeOp, bool &isCube, bool &isVec
 
   return success();
 }
->>>>>>> release-3.2.2-0625-b79d137

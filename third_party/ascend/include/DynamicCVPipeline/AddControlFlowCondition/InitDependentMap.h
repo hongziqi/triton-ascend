@@ -23,15 +23,9 @@
 #ifndef TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H
 #define TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H
 
-<<<<<<< HEAD
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/Pass.h"
-#include "third_party/ascend/include/DynamicCVPipeline/AddControlFlowCondition.h"
-=======
 #include "third_party/ascend/include/DynamicCVPipeline/AddControlFlowCondition.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
->>>>>>> release-3.2.2-0625-b79d137
 
 namespace mlir {
 namespace triton {
@@ -52,8 +46,4 @@ std::unique_ptr<OperationPass<ModuleOp>> createInitDependentMapPass();
 } // namespace triton
 } // namespace mlir
 
-<<<<<<< HEAD
 #endif // TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H
-=======
-#endif // TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H
->>>>>>> release-3.2.2-0625-b79d137

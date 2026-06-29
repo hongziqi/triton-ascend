@@ -33,34 +33,6 @@ class PreserveControlAttrsCanonicalizePass
     : public PassWrapper<PreserveControlAttrsCanonicalizePass,
                          OperationPass<ModuleOp>> {
 public:
-<<<<<<< HEAD
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
-      PreserveControlAttrsCanonicalizePass)
-
-  PreserveControlAttrsCanonicalizePass() = default;
-
-  void runOnOperation() override;
-
-  static constexpr ::llvm::StringRef getArgumentName() {
-    return "preserve-control-attrs-canonicalize";
-  }
-
-  ::llvm::StringRef getArgument() const override {
-    return "preserve-control-attrs-canonicalize";
-  }
-
-  ::llvm::StringRef getDescription() const override {
-    return "Canonicalize while preserving selected control-flow attrs";
-  }
-
-  ::llvm::StringRef getName() const override {
-    return "PreserveControlAttrsCanonicalizePass";
-  }
-};
-
-std::unique_ptr<OperationPass<ModuleOp>>
-createPreserveControlAttrsCanonicalizePass();
-=======
     MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
         PreserveControlAttrsCanonicalizePass)
 
@@ -90,15 +62,10 @@ createPreserveControlAttrsCanonicalizePass();
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createPreserveControlAttrsCanonicalizePass();
->>>>>>> release-3.2.2-0625-b79d137
 
 void registerPreserveControlAttrsCanonicalizePasses();
 
 } // namespace triton
 } // namespace mlir
 
-<<<<<<< HEAD
 #endif // TRITON_ADAPTER_PRESERVE_CONTROL_ATTRS_CANONICALIZE_H
-=======
-#endif // TRITON_ADAPTER_PRESERVE_CONTROL_ATTRS_CANONICALIZE_H
->>>>>>> release-3.2.2-0625-b79d137

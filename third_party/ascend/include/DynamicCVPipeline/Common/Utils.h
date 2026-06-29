@@ -1,9 +1,5 @@
 /*
-<<<<<<< HEAD
- * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-=======
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved. 
->>>>>>> release-3.2.2-0625-b79d137
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,43 +22,17 @@
 
 #ifndef ADD_AUTO_SCHEDULING_COMMON_UTILS_H
 #define ADD_AUTO_SCHEDULING_COMMON_UTILS_H
-<<<<<<< HEAD
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/Value.h"
-#include "llvm/ADT/StringRef.h"
-#include <string_view>
-=======
 #include <string_view>
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/Value.h"
 #include "llvm/ADT/StringRef.h"
->>>>>>> release-3.2.2-0625-b79d137
 
 namespace mlir {
 namespace CVPipeline {
 
 inline constexpr llvm::StringLiteral kCoreType = "ssbuffer.core_type";
 inline constexpr llvm::StringLiteral kBlockId = "ssbuffer.block_id";
-<<<<<<< HEAD
-
-enum CoreType {
-  UNDETERMINED = 0,
-  VECTOR_ONLY = 1 << 0,
-  CUBE_ONLY = 1 << 1,
-  CUBE_AND_VECTOR = VECTOR_ONLY | CUBE_ONLY,
-};
-
-inline constexpr CoreType fromStrCoreType(std::string_view s) {
-  if (s == "VECTOR") {
-    return CoreType::VECTOR_ONLY;
-  }
-  if (s == "CUBE") {
-    return CoreType::CUBE_ONLY;
-  }
-
-  return CoreType::UNDETERMINED;
-=======
 inline constexpr llvm::StringLiteral kTransferId = "ssbuffer.transfer_id";
 inline constexpr llvm::StringLiteral kMatmulADep = "ssbuffer.adep";
 inline constexpr llvm::StringLiteral kMatmulBDep = "ssbuffer.bdep";
@@ -100,16 +70,10 @@ inline constexpr CoreType fromStrCoreType(std::string_view s)
     }
 
     return CoreType::UNDETERMINED;
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 // Functions for managing core types
 CoreType getOpCoreType(Operation *op);
-<<<<<<< HEAD
-
-llvm::LogicalResult verifyOpBlockId(Operation *op);
-std::optional<int64_t> getOpBlockId(Operation *op);
-=======
 std::optional<int64_t> getOpBlockId(Operation *op);
 llvm::LogicalResult verifyOpBlockId(Operation *op);
 int getAvailableBlockId(ModuleOp module);
@@ -122,7 +86,6 @@ inline bool isCubeOp(Operation *op)
 }
 
 bool isVectorOnlyOp(Operation *op);
->>>>>>> release-3.2.2-0625-b79d137
 
 } // namespace CVPipeline
 } // namespace mlir

@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  *
@@ -23,7 +21,6 @@
  */
 
 
->>>>>>> release-3.2.2-0625-b79d137
 #ifndef TRITON_DYNAMIC_CV_PIPELINE_ADDMULTIBUFFERCONTROL_BUFFER_COUNT_MANAGER_H
 #define TRITON_DYNAMIC_CV_PIPELINE_ADDMULTIBUFFERCONTROL_BUFFER_COUNT_MANAGER_H
 
@@ -39,28 +36,6 @@ namespace triton {
 
 class BufferCountManager {
 public:
-<<<<<<< HEAD
-  static BufferCountManager &getInstance();
-
-  enum class DepType { IntraCore, InterCore, LoadStore };
-
-  void setBufferCount(DepType type, int count);
-
-  void
-  buildBufferCountMap(llvm::DenseMap<Value, std::vector<Value>> &depValueMap,
-                      llvm::DenseMap<Value, int> &bufferCountMap, DepType type);
-
-  int getBufferCountByType(DepType type) const;
-
-private:
-  BufferCountManager();
-  BufferCountManager(const BufferCountManager &) = delete;
-  BufferCountManager &operator=(const BufferCountManager &) = delete;
-
-  int intraBufferCount_;
-  int interCoreBufferCount_;
-  int loadStoreBufferCount_;
-=======
     static BufferCountManager& getInstance();
 
     enum class DepType { IntraCore, InterCore, LoadStore };
@@ -82,7 +57,6 @@ private:
     int intraBufferCount_;
     int interCoreBufferCount_;
     int loadStoreBufferCount_;
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 #define BUFFER_COUNT (BufferCountManager::getInstance())
@@ -90,8 +64,4 @@ private:
 } // namespace triton
 } // namespace mlir
 
-<<<<<<< HEAD
 #endif // TRITON_DYNAMIC_CV_PIPELINE_ADDMULTIBUFFERCONTROL_BUFFER_COUNT_MANAGER_H
-=======
-#endif // TRITON_DYNAMIC_CV_PIPELINE_ADDMULTIBUFFERCONTROL_BUFFER_COUNT_MANAGER_H
->>>>>>> release-3.2.2-0625-b79d137

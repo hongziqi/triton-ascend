@@ -30,13 +30,7 @@ namespace mlir {
 namespace triton {
 
 /// Sub-pipeline pass that separates memory from compute operations.
-<<<<<<< HEAD
-class SeparateMemoryFromComputePass
-    : public PassWrapper<SeparateMemoryFromComputePass,
-                         OperationPass<ModuleOp>> {
-=======
 class SeparateMemoryFromComputePass : public PassWrapper<SeparateMemoryFromComputePass, OperationPass<ModuleOp>> {
->>>>>>> release-3.2.2-0625-b79d137
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SeparateMemoryFromComputePass)
 

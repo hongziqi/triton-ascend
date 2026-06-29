@@ -34,33 +34,6 @@ namespace triton {
 
 // Rewrites GM load operations inside scf.for loops into a multi-buffer
 // producer/consumer structure to overlap memory transfers with compute.
-<<<<<<< HEAD
-class AddMultiBufferToGMLoadPass
-    : public PassWrapper<AddMultiBufferToGMLoadPass, OperationPass<ModuleOp>> {
-public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AddMultiBufferToGMLoadPass)
-
-  StringRef getArgument() const override { return "gm-load-multi-buffer"; }
-  void runOnOperation() override;
-
-private:
-  // Step 1: Collect marked ops and group by enclosing forOp
-  void collectAndGroupMarkedOps();
-
-  // Step 2: Sort contexts inner-first
-  void sortContextsInnerFirst();
-
-  // Step 3: Transform each for loop with multi-buffer logic
-  LogicalResult applyMultiBufferToGMLoadLoops();
-
-  // Step 4: Cleanup transformed IR
-  void cleanupTransformedIR();
-
-  // Shared state between steps
-  llvm::SmallVector<gmload::MarkedLoad> markedOps_;
-  llvm::SmallVector<gmload::ForBufferCtx, 0> contexts_;
-  llvm::DenseSet<Operation *> allCtxForOps_;
-=======
 class AddMultiBufferToGMLoadPass : public PassWrapper<AddMultiBufferToGMLoadPass, OperationPass<ModuleOp>> {
 public:
     MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AddMultiBufferToGMLoadPass)
@@ -85,7 +58,6 @@ private:
     llvm::SmallVector<gmload::MarkedLoad> markedOps_;
     llvm::SmallVector<gmload::ForBufferCtx, 0> contexts_;
     llvm::DenseSet<Operation *> allCtxForOps_;
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 // Create the pass

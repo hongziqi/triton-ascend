@@ -37,23 +37,6 @@ public:
 
   void runOnOperation() override;
 
-<<<<<<< HEAD
-  void setConditionInfo(ControlFlowConditionInfo *info) { this->info = info; }
-
-  LogicalResult computeYieldValues(
-      scf::ForOp forOp,
-      const llvm::DenseMap<int, SmallVector<Operation *>> &blockOps,
-      llvm::DenseMap<int, SmallVector<Value>> &thenYieldValues,
-      llvm::DenseMap<int, SmallVector<Value>> &elseYieldValues);
-
-  LogicalResult createIfInMainLoop(
-      scf::ForOp forOp,
-      const llvm::DenseMap<int, SmallVector<Operation *>> &blockOps,
-      const llvm::DenseMap<int, SmallVector<Value>> &thenYieldValues,
-      const llvm::DenseMap<int, SmallVector<Value>> &elseYieldValues);
-
-  llvm::StringRef getArgument() const override { return "create-if-ops"; }
-=======
   void setConditionInfo(ControlFlowConditionInfo *info)
   {
     this->info = info;
@@ -73,7 +56,6 @@ public:
   {
     return "create-if-ops";
   }
->>>>>>> release-3.2.2-0625-b79d137
 
 private:
   ControlFlowConditionInfo *info = nullptr;

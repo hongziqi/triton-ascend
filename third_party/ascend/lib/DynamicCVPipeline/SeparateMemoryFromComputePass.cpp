@@ -21,18 +21,11 @@
  */
 
 #include "ascend/include/DynamicCVPipeline/SeparateMemoryFromComputePass.h"
-<<<<<<< HEAD
-#include "ascend/include/DynamicCVPipeline/SeparateMemoryFromCompute/AddMultiBufferToGMLoadPass.h"
-#include "ascend/include/DynamicCVPipeline/SeparateMemoryFromCompute/AsyncLoadHoistingPass.h"
-#include "mlir/Pass/PassManager.h"
-#include "llvm/Support/Debug.h"
-=======
 #include "mlir/Pass/PassManager.h"
 #include "llvm/Support/Debug.h"
 #include "ascend/include/DynamicCVPipeline/Common/BufferCountManager.h"
 #include "ascend/include/DynamicCVPipeline/SeparateMemoryFromCompute/AddMultiBufferToGMLoadPass.h"
 #include "ascend/include/DynamicCVPipeline/SeparateMemoryFromCompute/AsyncLoadHoistingPass.h"
->>>>>>> release-3.2.2-0625-b79d137
 
 static constexpr const char *DEBUG_TYPE = "separate-memory-from-compute";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
@@ -41,20 +34,11 @@ static constexpr const char *DEBUG_TYPE = "separate-memory-from-compute";
 using namespace mlir;
 using namespace triton;
 
-<<<<<<< HEAD
-static constexpr int kDefaultBufferDepth = 2;
-
-void SeparateMemoryFromComputePass::runOnOperation() {
-  ModuleOp module = getOperation();
-
-  int depth = kDefaultBufferDepth;
-=======
 void SeparateMemoryFromComputePass::runOnOperation()
 {
   ModuleOp module = getOperation();
 
   int depth = BufferCountManager::getInstance().getBufferCountByType(BufferCountManager::DepType::LoadStore);
->>>>>>> release-3.2.2-0625-b79d137
 
   if (depth <= 1) {
     LDBG("Buffer depth <= 1, skip multi-buffer transformation");
@@ -81,18 +65,10 @@ void SeparateMemoryFromComputePass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-<<<<<<< HEAD
-std::unique_ptr<OperationPass<ModuleOp>> createSeparateMemoryFromComputePass() {
-=======
 std::unique_ptr<OperationPass<ModuleOp>> createSeparateMemoryFromComputePass()
 {
->>>>>>> release-3.2.2-0625-b79d137
   return std::make_unique<SeparateMemoryFromComputePass>();
 }
 
 } // namespace triton
-<<<<<<< HEAD
 } // namespace mlir
-=======
-} // namespace mlir
->>>>>>> release-3.2.2-0625-b79d137

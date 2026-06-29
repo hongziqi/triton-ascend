@@ -25,76 +25,25 @@
 #include "llvm/Support/raw_ostream.h"
 
 static constexpr const char *DEBUG_TYPE = "BufferCountManager";
-<<<<<<< HEAD
-#define LOG_DEBUG(...)                                                         \
-  LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << __VA_ARGS__)
-
-constexpr int kDefaultIntraBufferCount = 2;
-constexpr int kDefaultInterBufferCount = 1;
-constexpr int kDefaultLoadBufferCount = 2;
-=======
 #define LOG_DEBUG(...) LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << __VA_ARGS__)
 
 constexpr int kDefaultIntraBufferCount = 2;
 constexpr int kDefaultInterBufferCount = 1;
 constexpr int kDefaultLoadBufferCount = 1;
->>>>>>> release-3.2.2-0625-b79d137
 constexpr int kBufferCountWarningThreshold = 3;
 
 namespace mlir {
 namespace triton {
 
-<<<<<<< HEAD
-BufferCountManager &BufferCountManager::getInstance() {
-  static BufferCountManager instance;
-  return instance;
-=======
 BufferCountManager& BufferCountManager::getInstance()
 {
     static BufferCountManager instance;
     return instance;
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 BufferCountManager::BufferCountManager()
     : intraBufferCount_(kDefaultIntraBufferCount),
       interCoreBufferCount_(kDefaultInterBufferCount),
-<<<<<<< HEAD
-      loadStoreBufferCount_(kDefaultLoadBufferCount) {
-  LOG_DEBUG("Default initialized: "
-            << "IntraBufferCount=" << intraBufferCount_
-            << ", InterBufferCount=" << interCoreBufferCount_
-            << ", LoadBufferCount=" << loadStoreBufferCount_);
-}
-
-void BufferCountManager::setBufferCount(DepType type, int count) {
-  if (count <= 0) {
-    LOG_DEBUG("Invalid buffer count: " << count << " (must be > 0)");
-    return;
-  }
-  if (count >= kBufferCountWarningThreshold) {
-    LOG_DEBUG("Warning: buffer count " << count
-                                       << " >= " << kBufferCountWarningThreshold
-                                       << " is not recommended");
-  }
-  switch (type) {
-  case DepType::IntraCore:
-    intraBufferCount_ = count;
-    LOG_DEBUG("IntraBufferCount set to " << count);
-    break;
-  case DepType::InterCore:
-    interCoreBufferCount_ = count;
-    LOG_DEBUG("InterBufferCount set to " << count);
-    break;
-  case DepType::LoadStore:
-    loadStoreBufferCount_ = count;
-    LOG_DEBUG("LoadBufferCount set to " << count);
-    break;
-  default:
-    LOG_DEBUG("Unknown DepType: " << static_cast<int>(type));
-    break;
-  }
-=======
       loadStoreBufferCount_(kDefaultLoadBufferCount)
 {
     LOG_DEBUG("Default initialized: "
@@ -130,49 +79,10 @@ void BufferCountManager::setBufferCount(DepType type, int count)
             LOG_DEBUG("Unknown DepType: " << static_cast<int>(type));
             break;
     }
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 void BufferCountManager::buildBufferCountMap(
     llvm::DenseMap<Value, std::vector<Value>> &depValueMap,
-<<<<<<< HEAD
-    llvm::DenseMap<Value, int> &bufferCountMap, DepType type) {
-  int bufCount = getBufferCountByType(type);
-
-  for (auto &p : depValueMap) {
-    for (Value depVal : p.second) {
-      if (isa<BlockArgument>(depVal) || !depVal.getDefiningOp())
-        continue;
-      bufferCountMap[depVal] = bufCount;
-    }
-  }
-}
-
-int BufferCountManager::getBufferCountByType(DepType type) const {
-  int count = 1;
-  switch (type) {
-  case DepType::IntraCore:
-    count = intraBufferCount_;
-    break;
-  case DepType::InterCore:
-    count = interCoreBufferCount_;
-    break;
-  case DepType::LoadStore:
-    count = loadStoreBufferCount_;
-    break;
-  default:
-    LOG_DEBUG("Unknown DepType: " << static_cast<int>(type));
-    break;
-  }
-  LOG_DEBUG("getBufferCountByType("
-            << static_cast<int>(type) << ") = " << count
-            << " (IntraCore=0, InterCore=1, LoadStore=2)");
-  return count;
-}
-
-} // namespace triton
-} // namespace mlir
-=======
     llvm::DenseMap<Value, int> &bufferCountMap,
     DepType type)
 {
@@ -211,4 +121,3 @@ int BufferCountManager::getBufferCountByType(DepType type) const
 
 } // namespace triton
 } // namespace mlir
->>>>>>> release-3.2.2-0625-b79d137

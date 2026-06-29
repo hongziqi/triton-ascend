@@ -20,17 +20,6 @@
  * THE SOFTWARE.
  */
 
-<<<<<<< HEAD
-#include "ascend/include/DynamicCVPipeline/AddControlFlowCondition.h"
-#include "ascend/include/DynamicCVPipeline/AllocMultiCache.h"
-#include "ascend/include/DynamicCVPipeline/Passes.h"
-#include "ascend/include/DynamicCVPipeline/PlanComputeBlock/PlanCubeBlockPass.h"
-#include "ascend/include/DynamicCVPipeline/PlanComputeBlockPass.h"
-#include "ascend/include/DynamicCVPipeline/SeparateMemoryFromComputePass.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflowPass.h"
-#include "mlir/Pass/PassManager.h"
-#include "llvm/Support/Debug.h"
-=======
 #include "llvm/Support/Debug.h"
 
 #include "mlir/IR/BuiltinOps.h"
@@ -48,7 +37,6 @@
 #include "ascend/include/DynamicCVPipeline/RemoveAttributes.h"
 #include "ascend/include/DynamicCVPipeline/SeparateMemoryFromComputePass.h"
 #include "ascend/include/DynamicCVPipeline/SplitDataflowPass.h"
->>>>>>> release-3.2.2-0625-b79d137
 
 static constexpr const char *DEBUG_TYPE = "AddDynamicCVPipeline";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
@@ -61,9 +49,6 @@ namespace triton {
 } // namespace triton
 } // namespace mlir
 
-<<<<<<< HEAD
-using namespace mlir;
-=======
 namespace {
 
 void restoreModuleFromBackup(ModuleOp moduleOp, ModuleOp moduleBackup)
@@ -80,46 +65,11 @@ void restoreModuleFromBackup(ModuleOp moduleOp, ModuleOp moduleBackup)
 }
 
 } // namespace
->>>>>>> release-3.2.2-0625-b79d137
 
 AddDynamicCVPipelinePass::AddDynamicCVPipelinePass(
     const AddDynamicCVPipelineOptions &options)
     : AddDynamicCVPipelineBase(options) {}
 
-<<<<<<< HEAD
-void AddDynamicCVPipelinePass::runOnOperation() {
-  auto moduleOp = getOperation();
-  compileOn91095Flag = this->compileOn91095;
-
-  LDBG("Enter pass");
-
-  if (!compileOn91095Flag) {
-    llvm::errs() << "Add-dynamic-cv-pipeline is only supported on 91095 now.\n";
-    return;
-  }
-
-  PassManager pm(&getContext(), moduleOp.getOperationName());
-
-  // todo: add related passes.
-  pm.addPass(createPlanComputeBlockPass());
-  pm.addPass(createSplitDataflowPass());
-  pm.addPass(createSeparateMemoryFromComputePass());
-  pm.addPass(createAllocMultiCachePass());
-  pm.addPass(createAddControlFlowConditionPass());
-
-  if (failed(runPipeline(pm, getOperation()))) {
-    moduleOp->emitError() << "[" << DEBUG_TYPE << "] Pass failed!";
-    signalPassFailure();
-  }
-
-  LDBG("Process successfully");
-}
-
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::triton::createAddDynamicCVPipelinePass(
-    const AddDynamicCVPipelineOptions &options) {
-  return std::make_unique<AddDynamicCVPipelinePass>(options);
-=======
 void AddDynamicCVPipelinePass::runOnOperation()
 {
     auto moduleOp = getOperation();
@@ -170,5 +120,4 @@ std::unique_ptr<OperationPass<ModuleOp>> mlir::triton::createAddDynamicCVPipelin
     const AddDynamicCVPipelineOptions &options)
 {
     return std::make_unique<AddDynamicCVPipelinePass>(options);
->>>>>>> release-3.2.2-0625-b79d137
 }

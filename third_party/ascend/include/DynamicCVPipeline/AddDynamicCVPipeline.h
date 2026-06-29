@@ -23,26 +23,19 @@
 #ifndef TRITON_ADAPTER_ADD_DYNAMIC_CVPIPELINE_PASSES_H
 #define TRITON_ADAPTER_ADD_DYNAMIC_CVPIPELINE_PASSES_H
 
-<<<<<<< HEAD
-#include "mlir/Pass/Pass.h"
-=======
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Pass/Pass.h"
 #include "bishengir/Dialect/Annotation/IR/Annotation.h"
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "bishengir/Dialect/Scope/IR/Scope.h"
->>>>>>> release-3.2.2-0625-b79d137
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
 #define GEN_PASS_DECL_ADDDYNAMICCVPIPELINE
 #include "ascend/include/DynamicCVPipeline/Passes.h.inc"
 
-<<<<<<< HEAD
-=======
 using namespace mlir;
 
->>>>>>> release-3.2.2-0625-b79d137
 #define GEN_PASS_DEF_ADDDYNAMICCVPIPELINE
 #include "ascend/include/DynamicCVPipeline/Passes.h.inc"
 
@@ -50,13 +43,8 @@ extern bool compileOn91095Flag;
 
 namespace mlir {
 namespace triton {
-<<<<<<< HEAD
-std::unique_ptr<OperationPass<ModuleOp>>
-createAddDynamicCVPipelinePass(const AddDynamicCVPipelineOptions &options = {});
-=======
 std::unique_ptr<OperationPass<ModuleOp>> createAddDynamicCVPipelinePass(
     const AddDynamicCVPipelineOptions &options = {});
->>>>>>> release-3.2.2-0625-b79d137
 } // namespace triton
 } // namespace mlir
 
@@ -67,19 +55,10 @@ using namespace triton;
 class AddDynamicCVPipelinePass
     : public ::impl::AddDynamicCVPipelineBase<AddDynamicCVPipelinePass> {
 public:
-<<<<<<< HEAD
-  explicit AddDynamicCVPipelinePass(const AddDynamicCVPipelineOptions &options);
-  void runOnOperation() override;
-=======
     explicit AddDynamicCVPipelinePass(const AddDynamicCVPipelineOptions &options);
     void runOnOperation() override;
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 } // namespace
 
-<<<<<<< HEAD
 #endif // TRITON_ADAPTER_ADD_DYNAMIC_CVPIPELINE_PASSES_H
-=======
-#endif // TRITON_ADAPTER_ADD_DYNAMIC_CVPIPELINE_PASSES_H
->>>>>>> release-3.2.2-0625-b79d137

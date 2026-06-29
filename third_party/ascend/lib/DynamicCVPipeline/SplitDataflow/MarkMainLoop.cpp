@@ -21,81 +21,18 @@
  */
 
 #include "ascend/include/DynamicCVPipeline/SplitDataflow/MarkMainLoop.h"
-<<<<<<< HEAD
-#include "bishengir/Dialect/HIVM/IR/HIVM.h"
-#include "mlir/IR/Operation.h"
-#include "llvm/Support/Debug.h"
-=======
 #include "mlir/IR/Operation.h"
 #include "llvm/Support/Debug.h"
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
->>>>>>> release-3.2.2-0625-b79d137
 
 using namespace mlir;
 
 static constexpr const char *DEBUG_TYPE = "mark-main-loop";
-<<<<<<< HEAD
-#define LOG_DEBUG(...)                                                         \
-  LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << __VA_ARGS__)
-=======
 #define LOG_DEBUG(...) LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << __VA_ARGS__)
->>>>>>> release-3.2.2-0625-b79d137
 
 using namespace mlir::triton;
 
 // Pass Entry Point
-<<<<<<< HEAD
-void MarkMainLoopPass::runOnOperation() {
-  LOG_DEBUG("\n--- enter MarkMainLoopPass --->\n");
-  ModuleOp module = getOperation();
-
-  int mainLoopIdCounter = 0;
-  SmallVector<scf::ForOp> mainLoops;
-
-  // Find all candidate main loops
-  module.walk([&](Operation *op) {
-    if (isa<hivm::FixpipeOp, hivm::CopyOp>(op)) {
-      if (auto forOp = op->getParentOfType<scf::ForOp>()) {
-        mainLoops.push_back(forOp);
-      }
-    }
-  });
-
-  for (scf::ForOp forOp : mainLoops) {
-    if (!forOp->hasAttr("ssbuffer.main_loop")) {
-      // Add attribute with integer value (current counter ID)
-      forOp->setAttr(
-          "ssbuffer.main_loop",
-          Builder(module.getContext()).getI32IntegerAttr(mainLoopIdCounter));
-      mainLoopIdCounter++;
-    }
-  }
-
-  // Remove main_loop attribute from outer loops if nested loops both have it
-  // Keep only the innermost main_loop
-  SmallVector<scf::ForOp> allMainLoops;
-  module.walk([&](scf::ForOp forOp) {
-    if (forOp->hasAttr("ssbuffer.main_loop")) {
-      allMainLoops.push_back(forOp);
-    }
-  });
-
-  for (scf::ForOp forOp : allMainLoops) {
-    // Check if there's any nested for loop with main_loop attribute
-    bool hasNestedMainLoop = false;
-    forOp.walk([&](scf::ForOp nestedForOp) {
-      if (nestedForOp != forOp && nestedForOp->hasAttr("ssbuffer.main_loop")) {
-        hasNestedMainLoop = true;
-      }
-    });
-    // Remove attribute from outer loop if inner loop also has it
-    if (hasNestedMainLoop) {
-      forOp->removeAttr("ssbuffer.main_loop");
-    }
-  }
-
-  LOG_DEBUG("--- exit MarkMainLoopPass --->\n");
-=======
 void MarkMainLoopPass::runOnOperation()
 {
     LOG_DEBUG("\n--- enter MarkMainLoopPass --->\n");
@@ -145,20 +82,14 @@ void MarkMainLoopPass::runOnOperation()
     }
 
     LOG_DEBUG("--- exit MarkMainLoopPass --->\n");
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 // Create the pass
 namespace mlir {
 namespace triton {
-<<<<<<< HEAD
-std::unique_ptr<OperationPass<ModuleOp>> createMarkMainLoopPass() {
-  return std::make_unique<MarkMainLoopPass>();
-=======
 std::unique_ptr<OperationPass<ModuleOp>> createMarkMainLoopPass()
 {
     return std::make_unique<MarkMainLoopPass>();
->>>>>>> release-3.2.2-0625-b79d137
 }
 } // namespace triton
 } // namespace mlir

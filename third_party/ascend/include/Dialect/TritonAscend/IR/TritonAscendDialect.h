@@ -1,4 +1,4 @@
-//===- TritonAscendDialect.h - MLIR TritonAscend dialect --------*- C++ -*-===//
+//===- TritonAscendDialect.h - MLIR TritonAscend dialect --------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the TritonAscend dialect in MLIR, containing Ascend
-// operations.
+// This file defines the TritonAscend dialect in MLIR, containing Ascend operations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,9 +27,6 @@
 #define GET_OP_CLASSES
 #include "ascend/include/Dialect/TritonAscend/IR/TritonAscendOps.h.inc"
 
-<<<<<<< HEAD
-namespace mlir::triton::ascend {} // namespace mlir::triton::ascend
-=======
 #include "mlir/Transforms/InliningUtils.h"
 
 namespace mlir::triton::ascend {
@@ -42,6 +38,5 @@ struct TritonAscendInlinerInterface : public mlir::DialectInlinerInterface {
 };
 
 } // namespace mlir::triton::ascend
->>>>>>> release-3.2.2-0625-b79d137
 
 #endif // TRITON_DIALECT_ASCEND_DIALECT_H

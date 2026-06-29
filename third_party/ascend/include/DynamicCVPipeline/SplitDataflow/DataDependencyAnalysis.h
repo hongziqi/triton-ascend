@@ -31,10 +31,7 @@
 #include "mlir/Pass/Pass.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "llvm/ADT/DenseMap.h"
-<<<<<<< HEAD
-=======
 #include "llvm/ADT/SetVector.h"
->>>>>>> release-3.2.2-0625-b79d137
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -46,67 +43,30 @@ struct BlockInfo {
   int blockId;
   bool isCube;
   bool isControl;
-<<<<<<< HEAD
-  llvm::SmallVector<mlir::Value> inputs;
-  llvm::SmallVector<mlir::Value> outputs;
-  llvm::SmallVector<mlir::Operation *> Operations;
-=======
   llvm::SetVector<mlir::Value> inputs;
   llvm::SmallVector<mlir::Value> outputs;
   llvm::SmallVector<mlir::Operation*> Operations;
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 struct DependencyInfo {
   DependencyType type;
   mlir::Value value;
-<<<<<<< HEAD
-
-=======
   bool isScaler = false;
->>>>>>> release-3.2.2-0625-b79d137
   int producerBlockId;
   int consumerBlockId;
   int iniProducerBlockId;
   int iniConsumerBlockId;
-<<<<<<< HEAD
-=======
 
   // Optional Items for V2CDependencies
   mlir::Operation *iniMatmulOp = nullptr;
   bool isMatmulA = false;
   bool isMatmulB = false;
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 class DataDependencyInfo {
 public:
   explicit DataDependencyInfo(mlir::Operation *op) {}
 
-<<<<<<< HEAD
-  bool isValid() const { return valid; }
-
-  // for MLIR Analysis framework
-  bool isInvalidated(const mlir::AnalysisManager::PreservedAnalyses &pa) {
-    return false;
-  }
-
-  static bool classof(const DataDependencyInfo *info) { return true; }
-
-  // get analyze result
-  llvm::DenseMap<int, BlockInfo> &getBlockInfoMap() { return blockInfoMap; }
-  llvm::SmallVector<DependencyInfo> &getV2CDependencies() {
-    return v2cDependencies;
-  }
-  llvm::SmallVector<DependencyInfo> &getC2VDependencies() {
-    return c2vDependencies;
-  }
-  llvm::SmallVector<DependencyInfo> &getMemoryDependencies() {
-    return memoryDependencies;
-  }
-
-  void setValid(bool v) { valid = v; }
-=======
     bool isValid() const
     {
         return valid;
@@ -133,7 +93,6 @@ public:
     {
         valid = v;
     }
->>>>>>> release-3.2.2-0625-b79d137
 
 private:
   bool valid = false;
@@ -146,39 +105,13 @@ private:
 
 // Define pass
 // Pass for analyzing data dependencies between Vector and Cube blocks
-<<<<<<< HEAD
-class DataDependencyAnalysisPass
-    : public PassWrapper<DataDependencyAnalysisPass, OperationPass<ModuleOp>> {
-=======
 class DataDependencyAnalysisPass : public PassWrapper<DataDependencyAnalysisPass, OperationPass<ModuleOp>> {
->>>>>>> release-3.2.2-0625-b79d137
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DataDependencyAnalysisPass)
 
   DataDependencyAnalysisPass() = default;
 
   // Run the pass
-<<<<<<< HEAD
-  void runOnOperation();
-
-private:
-  void createBlockInfoMap(DataDependencyInfo &info);
-  void collectBlockInfo(DataDependencyInfo &info, int blockId,
-                        llvm::SmallVector<mlir::Operation *> &ops);
-
-  void collectDepInfo(mlir::Value depvalue, DependencyType dependencyType,
-                      llvm::SmallVector<DependencyInfo> &dependencies,
-                      int iniProdId, int iniConsId, DataDependencyInfo &info);
-  void analyzeExternalInputs(DataDependencyInfo &info);
-  void analyzeExternalOutputs(DataDependencyInfo &info);
-
-  void analyzeMemoryEffect(DataDependencyInfo &info);
-  std::pair<int, int> findCommonLevelBlockIds(DataDependencyInfo &info,
-                                              int producerBlockId,
-                                              int consumerBlockId);
-
-  bool isControlFlowOp(mlir::Operation *op);
-=======
   void runOnOperation() override;
 
   static constexpr ::llvm::StringRef getArgumentName() { return "data-dependency-analysis"; }
@@ -223,20 +156,14 @@ private:
                                      llvm::StringRef initCoreType,
                                      llvm::SmallVector<mlir::Operation *> &diffUsers,
                                      DataDependencyInfo &info);
->>>>>>> release-3.2.2-0625-b79d137
 
   mlir::ModuleOp module;
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createDataDependencyAnalysisPass();
 
-<<<<<<< HEAD
-// Helper: Get BlockId
-int getSsbufferBlockId(Operation *op);
-=======
 void registerDataDependencyAnalysisPasses();
 
->>>>>>> release-3.2.2-0625-b79d137
 } // namespace triton
 } // namespace mlir
 

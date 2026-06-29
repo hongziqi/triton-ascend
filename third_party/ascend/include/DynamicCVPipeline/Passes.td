@@ -16,8 +16,6 @@ def AddDynamicCVPipeline : Pass<"add_dynamic_cv_pipeline", "mlir::ModuleOp"> {
         "bool", /*default*/"false",
         "compile on 910_95">
     ];
-<<<<<<< HEAD
-=======
     let dependentDialects = ["hivm::HIVMDialect", "bufferization::BufferizationDialect", "scope::ScopeDialect", "annotation::AnnotationDialect", "LLVM::LLVMDialect"];
 }
 
@@ -78,7 +76,6 @@ def ComputeBlockOptPass : Pass<"compute-block-id-opt", "mlir::ModuleOp"> {
 def RemoveSsbufAttrPass : Pass<"remove-ssbuf-attr", "mlir::ModuleOp"> {
   let summary = "Remove ssbuf attributes";
   let constructor = "triton::createRemoveSsbufAttrPass()";
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 #endif // TRITON_DYNAMIC_CV_PIPELINE_PASSES

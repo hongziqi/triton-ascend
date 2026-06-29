@@ -294,24 +294,18 @@ def IndexSelectSimdOp : TT_Ascend_Op<"index_select_simd", [
 
 
 //
-// Built-in: UnstructuredLoad Op
+// Built-in: IndirectLoad Op
 //
-def UnstructuredLoadOp : TT_Ascend_Op<"unstructured_load", [
+def IndirectLoadOp : TT_Ascend_Op<"indirect_load", [
   DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
   AttrSizedOperandSegments
 ]> {
-  let summary = "Unstructured load with explicit base pointer and offset tensor";
+  let summary = "Built-in: indirect load from global memory using per-element offsets with optional mask/other";
 
   let description = [{
-    Intermediate op created by UnstructurePass for non-contiguous memory access.
-    Carries the decomposed base pointer and offset tensor from PtrOffsetInfo
-    analysis, enabling LinalgPass to generate hfusion.gather_load or SIMT
-    template calls without re-analyzing the pointer chain.
+    Built-in operation emitted by the compiler for unstructured (discrete) memory
+    accesses.These are not written directly in the user IR.
 
-<<<<<<< HEAD
-    The base pointer is a scalar !tt.ptr<T>, which the LinalgPass TypeConverter
-    automatically converts to memref<?xT>.
-=======
     Load values from global memory based on per-element offsets. If `mask`
     is provided, false lanes return `other`.
 
@@ -322,34 +316,34 @@ def UnstructuredLoadOp : TT_Ascend_Op<"unstructured_load", [
     - other (optional): if mask[idx] is false, return other[idx]
     - isVolatile: defaults to true. Set to false only when analysis proves
       the source pointer has no prior possible writes.
->>>>>>> release-3.2.2-0625-b79d137
   }];
 
   let arguments = (
-    ins TT_Ptr:$base,
-        TT_IntTensor:$indices,
-        DenseI64ArrayAttr:$unstructuredDims,
+    ins TT_Ptr:$src,
+        TT_IntTensor:$offsets,
         Optional<TT_BoolLike>:$mask,
         Optional<TT_Type>:$other,
-<<<<<<< HEAD
-        OptionalAttr<TT_CacheModifierAttr>:$cache,
-        OptionalAttr<TT_EvictionPolicyAttr>:$evict,
-        OptionalAttr<BoolAttr>:$isVolatile
-=======
         DefaultValuedAttr<BoolAttr, "true">:$isVolatile
->>>>>>> release-3.2.2-0625-b79d137
   );
 
   let results = (outs TT_Tensor:$result);
 
   let assemblyFormat = [{
-    $base `:` type($base) `,`
-    $indices `:` type($indices)
-    `unstructured_dims` `=` $unstructuredDims
+    $src `:` type($src) `,`
+    $offsets `:` type($offsets)
     (`,` $mask^ `:` type($mask))?
     (`,` $other^ `:` type($other))?
     attr-dict `->` type($result)
   }];
+
+  let builders = [
+    OpBuilder<(ins
+      "Value":$src,
+      "Value":$offsets,
+      "Value":$mask,
+      "Value":$other
+    )>
+  ];
 }
 
 //
@@ -423,38 +417,42 @@ def StrideStoreOp : TT_Ascend_Op<"stride_store", [
 
 
 //
-// Built-in: UnstructuredStore Op
+// Built-in: IndirectStore Op
 //
-def UnstructuredStoreOp : TT_Ascend_Op<"unstructured_store", [
+def IndirectStoreOp : TT_Ascend_Op<"indirect_store", [
   MemoryEffects<[MemWrite<GlobalMemory>]>
 ]> {
-  let summary = "Unstructured store with explicit base pointer and offset tensor";
+  let summary = "Built-in: indirect store from UB using per-element offsets with optional mask/other";
 
   let description = [{
-    Intermediate op created by UnstructurePass for non-contiguous store access.
-    Same design as UnstructuredLoadOp but for store operations.
+    Built-in operation emitted by the compiler for unstructured (discrete) memory
+    accesses.These are not written directly in the user IR.
+
+    Store values from UB based to GM on per-element offsets.
+
+    The operation takes:
+    - src: Source pointer
+    - offsets: Tensor of per-element offsets (relative to `src`) for accessing source memory
+    - value: The tensor of elements to be stored
+    - mask (optional): If mask[idx] is false, do not store value[idx] at pointer[idx]
   }];
 
   let arguments = (
-    ins TT_Ptr:$base,
-        TT_IntTensor:$indices,
+    ins TT_Ptr:$src,
+        TT_IntTensor:$offsets,
         TT_Type:$value,
-        DenseI64ArrayAttr:$unstructuredDims,
-        Optional<TT_BoolLike>:$mask,
-        OptionalAttr<TT_CacheModifierAttr>:$cache,
-        OptionalAttr<TT_EvictionPolicyAttr>:$evict
+        Optional<TT_BoolLike>:$mask
   );
 
   let assemblyFormat = [{
-    $base `:` type($base) `,`
-    $indices `:` type($indices) `,`
+    $src `:` type($src) `,`
+    $offsets `:` type($offsets) `,`
     $value `:` type($value)
-    `unstructured_dims` `=` $unstructuredDims
     (`,` $mask^ `:` type($mask))?
     attr-dict
   }];
-}
 
+}
 
 //
 // Custom Op
@@ -518,38 +516,6 @@ def SortOp : TT_Ascend_Op<"sort", [
   );
 
   let assemblyFormat = "$src `,` $dim `,` $descending attr-dict `:` type($src) `->` type($sorted)";
-}
-
-//
-// Conv Op
-//
-def Conv1dOp : TT_Ascend_Op<"conv1d", [
-    Pure,
-    DeclareOpInterfaceMethods<InferTypeOpInterface>
-]> {
-    let summary = "1D convolution operation";
-    let description = [{
-        Performs a 1D convolution operation on the input tensor.
-    }];
-
-    let arguments = (ins
-        TT_Tensor:$input,
-        TT_Tensor:$weight,
-        Optional<TT_Tensor>:$bias,
-        I64Attr:$stride,
-        I64Attr:$padding_size,
-        I64Attr:$dilation,
-        I64Attr:$groups
-    );
-
-    let results = (outs TT_Tensor:$result);
-
-    let assemblyFormat = [{
-        `(` operands `)`
-        attr-dict `:` functional-type(operands, $result)
-    }];
-
-    let hasVerifier = 1;
 }
 
 #endif // TRITON_ASCEND_OPS

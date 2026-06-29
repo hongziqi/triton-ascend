@@ -23,30 +23,13 @@
 #ifndef TRITON_ADAPTER_ALLOC_MULTI_CACHE_PASS_H
 #define TRITON_ADAPTER_ALLOC_MULTI_CACHE_PASS_H
 
-<<<<<<< HEAD
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/Pass.h"
-=======
 #include "mlir/Pass/Pass.h"
 #include "mlir/IR/BuiltinOps.h"
->>>>>>> release-3.2.2-0625-b79d137
 
 namespace mlir {
 namespace triton {
 
 // AllocMultiCachePass for allocating multi-cache
-<<<<<<< HEAD
-class AllocMultiCachePass
-    : public PassWrapper<AllocMultiCachePass, OperationPass<ModuleOp>> {
-public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AllocMultiCachePass)
-
-  // Constructor
-  AllocMultiCachePass() = default;
-
-  // Run the pass
-  void runOnOperation() override;
-=======
 class AllocMultiCachePass : public PassWrapper<AllocMultiCachePass, OperationPass<ModuleOp>> {
 public:
     MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AllocMultiCachePass)
@@ -56,7 +39,6 @@ public:
 
     // Run the pass
     void runOnOperation() override;
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 // Create the pass
