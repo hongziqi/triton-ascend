@@ -118,16 +118,9 @@ public:
   Value createNewOther(Value oldOther, const Location loc,
                        PatternRewriter &rewriter);
 
-<<<<<<< HEAD
-  SmallVector<int32_t>
-  getBoundaryCheck(ArrayRef<int32_t> oldBoundaryCheck) const;
-
-  bool applyPermuteOnMask();
-=======
     SmallVector<int32_t> getBoundaryCheck(ArrayRef<int32_t> oldBoundaryCheck) const;
 
     bool applyPermuteOnMask();
->>>>>>> release-3.2.2-0625-b79d137
 };
 
 } // namespace ImplicitPermute

@@ -59,47 +59,6 @@ using namespace mlir;
 using namespace triton;
 
 static const llvm::SmallVector<llvm::StringRef> libdeviceOps = {
-<<<<<<< HEAD
-    // Basic operations
-    "__hmf_pow_fp32",
-    "__hmf_div_rz_fp32",
-    "__hmf_fmod_fp32",
-    "__hmf_float_as_int_fp32",
-    "__hmf_trunc_fp32",
-    "__hmf_trunc_fp16",
-    "__hmf_nearbyint_fp32",
-    "__hmf_signbit_fp32",
-    "__hmf_signbit_fp16",
-    "__hmf_copysign_fp32",
-    "__hmf_log10_fp32",
-    // Trigonometric operations
-    "__hmf_tanh_fp32",
-    "__hmf_asin_fp32",
-    "__hmf_asin_fp16",
-    "__hmf_acos_fp32",
-    "__hmf_acos_fp16",
-    "__hmf_atan2_fp32",
-    "__hmf_atan2_fp16",
-    "__hmf_sinh_fp32",
-    "__hmf_sinh_fp16",
-    "__hmf_cosh_fp32",
-    "__hmf_cosh_fp16",
-    "__hmf_asinh_fp32",
-    "__hmf_asinh_fp16",
-    "__hmf_acosh_fp32",
-    "__hmf_acosh_fp16",
-    "__hmf_atanh_fp32",
-    "__hmf_atanh_fp16",
-    // Other operations
-    "__hmf_expm1_fp32",
-    "__hmf_expm1_fp16",
-    "__hmf_nextafter_fp32",
-    "__hmf_nextafter_fp16",
-    "__hmf_hypot_fp32",
-    "__hmf_hypot_fp16",
-    "__hmf_cyl_bessel_i0_fp32",
-    "__hmf_cyl_bessel_i0_fp16",
-=======
     "__hmf_trunc_fp32",
     "__hmf_nearbyint_fp32",
     "__hmf_copysign_fp32",
@@ -116,7 +75,6 @@ static const llvm::SmallVector<llvm::StringRef> libdeviceOps = {
     "__hmf_nextafter_fp32",
     "__hmf_hypot_fp32",
     "__hmf_cyl_bessel_i0_fp32",
->>>>>>> release-3.2.2-0625-b79d137
     "__hmf_erfinv_fp32",
     "__hmf_lgamma_fp32",
     "__hmf_signbit_fp32",
@@ -1284,11 +1242,6 @@ LogicalResult ReduceConverter::convertToTargetOpExtended(
   return success();
 }
 
-<<<<<<< HEAD
-bool ScanConverter::isReductionOpSupported(Operation *reductionOp) const {
-  return isa<arith::AddFOp, arith::AddIOp, arith::MulFOp, arith::MulIOp>(
-      reductionOp);
-=======
 bool ScanConverter::isReductionOpSupported(Operation *reductionOp) const
 {
   if (isa<arith::AddFOp, arith::AddIOp, arith::MulFOp, arith::MulIOp>(reductionOp)) {
@@ -1300,7 +1253,6 @@ bool ScanConverter::isReductionOpSupported(Operation *reductionOp) const
     return true;
   }
   return false;
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 LogicalResult
@@ -1339,10 +1291,6 @@ ScanConverter::convertToTargetOp(triton::ScanOp op,
     auto loc = op.getLoc();
     auto src = adaptor.getOperands().front();
     auto resTy = op.getResult().front().getType();
-<<<<<<< HEAD
-    auto libFnType = rewriter.getFunctionType(
-        {src.getType(), rewriter.getI32Type(), rewriter.getI1Type()}, {resTy});
-=======
     // cummax/cummin take a trailing propagateNan flag; cumsum/cumprod do not.
     SmallVector<Type> argTypes{src.getType(), rewriter.getI32Type(),
                                rewriter.getI1Type()};
@@ -1350,7 +1298,6 @@ ScanConverter::convertToTargetOp(triton::ScanOp op,
       argTypes.push_back(rewriter.getI1Type());
     }
     auto libFnType = rewriter.getFunctionType(argTypes, {resTy});
->>>>>>> release-3.2.2-0625-b79d137
     auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
 
     SymbolTable symTab(moduleOp);
@@ -1367,11 +1314,6 @@ ScanConverter::convertToTargetOp(triton::ScanOp op,
     Value axis = rewriter.create<arith::ConstantIntOp>(loc, scanAxis, 32);
     Value reverseVal =
         rewriter.create<arith::ConstantIntOp>(loc, scanReverse, 1);
-<<<<<<< HEAD
-    auto callOp = rewriter.create<func::CallOp>(
-        loc, funcOp.getSymNameAttr(), TypeRange({resTy}),
-        ValueRange({src, axis, reverseVal}));
-=======
     SmallVector<Value> callOperands{src, axis, reverseVal};
     if (isMinMax) {
       callOperands.push_back(
@@ -1379,7 +1321,6 @@ ScanConverter::convertToTargetOp(triton::ScanOp op,
     }
     auto callOp = rewriter.create<func::CallOp>(
         loc, funcOp.getSymNameAttr(), TypeRange({resTy}), callOperands);
->>>>>>> release-3.2.2-0625-b79d137
 
     rewriter.replaceOp(op, callOp);
 
@@ -1835,11 +1776,6 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
     auto extFunc = dyn_cast_or_null<SymbolOpInterface>(
         SymbolTable::lookupSymbolIn(mod, op.getSymbol()));
     // std::string symbol = op.getSymbol().str();
-<<<<<<< HEAD
-    bool is_libdevice = llvm::is_contained(libdeviceOps, op.getSymbol()) &&
-                        getEnvBool("TRITON_ENABLE_LIBDEVICE_SIMT", false);
-=======
->>>>>>> release-3.2.2-0625-b79d137
     if (!extFunc) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(&mod->getRegion(0).front());
@@ -1848,18 +1784,7 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
       extFunc.setPrivate();
       extFunc->setAttr(LLVM::LLVMDialect::getReadnoneAttrName(),
                        UnitAttr::get(rewriter.getContext()));
-<<<<<<< HEAD
-      // set coreType for external func, otherwise InferFuncCoreTypePass will
-      // fail
-      if (is_libdevice) {
-        hivm::TFuncCoreType e = hivm::TFuncCoreType::AIV;
-        extFunc->setAttr(
-            hivm::TFuncCoreTypeAttr::name,
-            hivm::TFuncCoreTypeAttr::get(extFunc->getContext(), e));
-      }
-=======
       // set coreType for external func, otherwise InferFuncCoreTypePass will fail
->>>>>>> release-3.2.2-0625-b79d137
     }
     assert(isa<FunctionOpInterface>(
         SymbolTable::lookupSymbolIn(mod, op.getSymbol())));
@@ -1880,71 +1805,6 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
       output = rewriter.create<tensor::EmptyOp>(
           op.getLoc(), cast<RankedTensorType>(dstTy).getShape(), dstElemTy);
     }
-<<<<<<< HEAD
-
-    if (is_libdevice) {
-      auto srcType = cast<RankedTensorType>(srcs[0].getType());
-      SmallVector<Value> dimSizes;
-      int64_t rank = srcType.getRank();
-      for (int i = 0; i < rank; ++i) {
-        if (srcType.isDynamicDim(i)) {
-          auto dimOp = rewriter.create<tensor::DimOp>(loc, srcs[0], i);
-          dimSizes.push_back(dimOp);
-        } else {
-          auto constOp = rewriter.create<arith::ConstantIndexOp>(
-              loc, srcType.getDimSize(i));
-          dimSizes.push_back(constOp);
-        }
-      }
-      // building nested loops by recursion
-      std::function<Value(OpBuilder &, Location, SmallVector<Value>, Value)>
-          buildLoops = [&](OpBuilder &b, Location loc,
-                           SmallVector<Value> indices, Value acc) -> Value {
-        int64_t dim = indices.size();
-        if (dim == rank) {
-          // innermost loop
-          SmallVector<Value> elemVals;
-          for (auto src : srcs) {
-            auto extract = b.create<tensor::ExtractOp>(loc, src, indices);
-            elemVals.push_back(extract);
-          }
-          auto call =
-              b.create<func::CallOp>(loc, op.getSymbol(), dstElemTy, elemVals);
-          auto insert =
-              b.create<tensor::InsertOp>(loc, call.getResult(0), acc, indices);
-          return insert;
-        } else {
-          Value lower = b.create<arith::ConstantIndexOp>(loc, 0);
-          Value upper = dimSizes[dim];
-          Value step = b.create<arith::ConstantIndexOp>(loc, 1);
-          auto loop =
-              b.create<scf::ForOp>(loc, lower, upper, step, ValueRange{acc});
-          Block *body = loop.getBody();
-          OpBuilder innerBuilder = OpBuilder::atBlockBegin(body);
-          SmallVector<Value> newIndices = indices;
-          newIndices.push_back(loop.getInductionVar());
-          Value innerAcc = loop.getRegionIterArgs()[0];
-          Value updatedAcc =
-              buildLoops(innerBuilder, loc, newIndices, innerAcc);
-          innerBuilder.create<scf::YieldOp>(loc, updatedAcc);
-          return loop.getResult(0);
-        }
-      };
-
-      Value result = buildLoops(rewriter, loc, {}, output);
-      if (isDstScalar) {
-        SmallVector<Value> zeroIndices(
-            rank, rewriter.create<arith::ConstantIndexOp>(loc, 0));
-        auto extract =
-            rewriter.create<tensor::ExtractOp>(loc, result, zeroIndices);
-        rewriter.replaceOp(op, extract);
-      } else {
-        rewriter.replaceOp(op, result);
-      }
-      return success();
-    }
-=======
->>>>>>> release-3.2.2-0625-b79d137
     // 3. create the linalg.map op
     auto mapOp = rewriter.create<linalg::MapOp>(
         loc,
@@ -2268,12 +2128,8 @@ MatmulConverter::matchAndRewrite(triton::DotOp op, OpAdaptor adaptor,
   auto elemTy = dstType.getElementType();
   auto inputPrec = op.getInputPrecision();
 
-<<<<<<< HEAD
   auto createOp = [&](auto &&rewriter, ValueRange operands,
                       ValueRange results) -> Operation * {
-=======
-  auto createOp = [&](auto &&rewriter, ValueRange operands, ValueRange results) -> Operation* {
->>>>>>> release-3.2.2-0625-b79d137
     if (dstType.getRank() == 2)
       return rewriter.template create<linalg::MatmulOp>(op.getLoc(), operands,
                                                         results);
@@ -2511,9 +2367,6 @@ DotScaledConverter::matchAndRewrite(triton::DotScaledOp op, OpAdaptor adaptor,
     auto rhsFmt = convertFormat(rhsElemType);
 
     Value matmulMxResult = rewriter.create<hfusion::MatMulMxOp>(
-<<<<<<< HEAD
-        loc, dstType, lhs, rhs, lhsScale, rhsScale, acc, lhsFmt, rhsFmt);
-=======
       loc,
       dstType,
       lhs,
@@ -2524,7 +2377,6 @@ DotScaledConverter::matchAndRewrite(triton::DotScaledOp op, OpAdaptor adaptor,
       /*lhsFormat(optional)*/nullptr,
       /*rhsFormat(optional)*/nullptr
     );
->>>>>>> release-3.2.2-0625-b79d137
 
     Value finalResult = matmulMxResult;
     if (dstType.getElementType().isBF16()) {
@@ -3131,64 +2983,6 @@ LogicalResult UnstructuredLoadConverter::matchAndRewrite(
     for (int64_t j = lastUnstrucDim + 1; j < (int64_t)resultShape.size(); j++)
       updateBurstlen(resultShape[j]);
   }
-<<<<<<< HEAD
-
-  // Check compile mode: hfusion gather_load vs simt_template func.call
-  bool isSimdSimtMode = compileModeFlag == ascend::CompileMode::SimdSimt;
-  if (isSimdSimtMode) {
-    auto burstLen = rewriter.create<arith::ConstantIntOp>(loc, burstlen, 32);
-
-    Value scalarOther;
-    if (other) {
-      scalarOther = mlir::ConverterUtils::getScalarValue(other, loc, rewriter);
-      assert(scalarOther &&
-             "other value used in masked unstructured_load produced by "
-             "unsupported instruction!");
-    }
-
-    Value dst = rewriter.create<tensor::EmptyOp>(
-        loc, resultShape, cast<RankedTensorType>(resTy).getElementType());
-
-    auto gatherLoadOp = rewriter.create<hfusion::GatherLoadOp>(
-        loc, baseMem, offsets, burstLen, mask, scalarOther, dst,
-        hfusion::CacheModifierAttr{}, hfusion::EvictionPolicyAttr{},
-        mlir::BoolAttr{});
-    rewriter.replaceOp(op, gatherLoadOp.getResult());
-  } else {
-    // simt_template: generate a private func::CallOp
-    auto moduleOp = op->getParentOfType<ModuleOp>();
-    rewriter.setInsertionPoint(moduleOp.getBody(),
-                               std::prev(moduleOp.getBody()->end()));
-    auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
-
-    SmallVector<Type> inputTypes({srcTy, offsets.getType()});
-    if (mask)
-      inputTypes.push_back(mask.getType());
-    if (other)
-      inputTypes.push_back(other.getType());
-
-    auto libFnType = rewriter.getFunctionType(inputTypes, {resTy});
-    auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
-    SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
-
-    rewriter.setInsertionPoint(op);
-    SmallVector<Value> inputVals({baseMem, offsets});
-    if (mask)
-      inputVals.push_back(mask);
-    if (other)
-      inputVals.push_back(other);
-
-    auto callOp = rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
-                                                TypeRange({resTy}), inputVals);
-    rewriter.replaceOp(op, callOp);
-  }
-  return success();
-}
-
-LogicalResult UnstructuredStoreConverter::matchAndRewrite(
-    triton::ascend::UnstructuredStoreOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
-=======
   SmallVector<Type> inputTypes({srcTy, offsets.getType()});
   if (mask) inputTypes.push_back(mask.getType());
   if (other) inputTypes.push_back(other.getType());
@@ -3303,7 +3097,6 @@ LogicalResult
 IndirectStoreConverter::matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAdaptor adaptor,
                                         ConversionPatternRewriter &rewriter) const
 {
->>>>>>> release-3.2.2-0625-b79d137
   auto loc = op.getLoc();
   Value baseMem = adaptor.getBase();
   Value offsets = op.getIndices();
