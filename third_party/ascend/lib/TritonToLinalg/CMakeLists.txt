@@ -12,7 +12,7 @@ add_triton_library(TritonToLinalg
         StridedLoadStoreRewrite.cpp
         StridedAxisCoalescing.cpp
         TileChunkCoalescing.cpp
-        DescriptorConverter
+        DescriptorConverter.cpp
         MarkTensorKindPass.cpp
         DevicePrintOffsetRewrite.cpp
 

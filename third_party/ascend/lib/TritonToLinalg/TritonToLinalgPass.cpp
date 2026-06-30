@@ -36,12 +36,11 @@
 #include "ascend/include/TritonToLinalg/FunctionConverter.h"
 #include "ascend/include/TritonToLinalg/HoistBroadcast.h"
 #include "ascend/include/TritonToLinalg/ImplicitPermute.h"
-<<<<<<< HEAD
-#include "ascend/include/TritonToLinalg/LoadStoreConverter.h"
+#include "ascend/include/TritonToLinalg/UseAnalysis.h"
+#include "ascend/include/TritonToLinalg/StridedLoadStoreRewrite.h"
+#include "ascend/include/TritonToLinalg/StridedAxisCoalescing.h"
+#include "ascend/include/TritonToLinalg/TileChunkCoalescing.h"
 #include "ascend/include/TritonToLinalg/MarkTensorKindPass.h"
-#include "ascend/include/TritonToLinalg/MarkTensorKindPass.h"
-#include "ascend/include/TritonToUnstructure/UnstructureConversionPass.h"
->>>>>>> release-3.2.2-0625-b79d137
 #include "ascend/include/TritonToStructured/CannonicalizerConverter.h"
 #include "ascend/include/Utils/InterleaveOptimization.h"
 
