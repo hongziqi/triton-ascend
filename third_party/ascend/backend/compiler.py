@@ -897,7 +897,6 @@ def linalg_to_bin_enable_npu_compile_A2_A3(linalg: str, metadata, opt):
                 "--enable-triton-kernel-compile=true",
             ]
 
-        cmd_list = ([npu_compiler_path, ttadapter_path] + _compile_option_list + ["-o", bin_file])
 
         if opt.debug:
             print_cmd_list = cmd_list.copy()
