@@ -24,17 +24,6 @@ import ast
 from dataclasses import dataclass
 
 
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/conftest.py
-@pytest.fixture(scope="session", autouse=True)
-def assign_npu(worker_id):
-    npu_count = torch.npu.device_count()
-    if worker_id == "master":
-        npu_id = 0
-    else:
-        idx = int(worker_id.replace("gw", ""))
-        npu_id = idx % npu_count
-    torch.npu.set_device(npu_id)
-=======
 @dataclass(frozen=True)
 class SymbolicExpr:
     text: str
@@ -49,4 +38,3 @@ class SymbolicExpr:
 
     def __str__(self) -> str:
         return self.text
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/backend/runtime/dsl_analysis/symbolic_expr.py

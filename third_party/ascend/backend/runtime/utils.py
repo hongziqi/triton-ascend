@@ -92,17 +92,10 @@ byte_per_numel = {
 
 # Some PyTorch versions expose extra fp8 dtypes. Register them when available.
 for fp8_dtype_name in (
-<<<<<<< HEAD
         "float8_e4m3fn",
         "float8_e4m3fnuz",
         "float8_e5m2",
         "float8_e5m2fnuz",
-=======
-    "float8_e4m3fn",
-    "float8_e4m3fnuz",
-    "float8_e5m2",
-    "float8_e5m2fnuz",
->>>>>>> release-3.2.2-0625-b79d137
 ):
     fp8_dtype = getattr(torch, fp8_dtype_name, None)
     if fp8_dtype is not None:

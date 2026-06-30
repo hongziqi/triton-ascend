@@ -22,31 +22,20 @@ import builtins
 import multiprocessing
 import os
 from datetime import datetime, timezone
-<<<<<<< HEAD
-from pathlib import Path
-=======
 from typing import Optional
->>>>>>> release-3.2.2-0625-b79d137
 
 import triton.runtime as runtime
 
 
-<<<<<<< HEAD
-def get_home_dir():
-    return os.getenv("TRITON_HOME", Path.home())
-
-
-def do_bench_npu(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False):
-=======
 class ProfilerResultMismatchError(RuntimeError):
+
     def __init__(self, target_kernel_name: str, expected_rows: int, actual_rows: int):
         self.target_kernel_name = target_kernel_name
         self.expected_rows = expected_rows
         self.actual_rows = actual_rows
         super().__init__(
             "Profiler rows filtered by target kernel name do not match the expected count. "
-            f"target_kernel_name={target_kernel_name!r}, expected_rows={expected_rows}, actual_rows={actual_rows}"
-        )
+            f"target_kernel_name={target_kernel_name!r}, expected_rows={expected_rows}, actual_rows={actual_rows}")
 
 
 def do_bench_npu(
@@ -58,7 +47,6 @@ def do_bench_npu(
     keep_res=False,
     target_kernel_name: Optional[str] = None,
 ):
->>>>>>> release-3.2.2-0625-b79d137
     import torch
     import torch_npu
 

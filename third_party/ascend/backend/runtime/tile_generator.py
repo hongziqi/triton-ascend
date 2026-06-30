@@ -93,13 +93,7 @@ class KernelMeta:
         :param dual_reduction: performing reduction on more than one axis.
         :param persistent_reduction: there is no splitting in reduction axis.
         """
-<<<<<<< HEAD
-        self._validate_axis(axis_sizes, split_params, fixed_split_params, tiling_params, low_dims)
-=======
-        self._validate_axis(
-            axis_sizes, split_params, fixed_split_params, tiling_params, low_dims, reduction_axes
-        )
->>>>>>> release-3.2.2-0625-b79d137
+        self._validate_axis(axis_sizes, split_params, fixed_split_params, tiling_params, low_dims, reduction_axes)
 
         reduction_axis_names = set(reduction_axes or [])
         axis_dict = {}
@@ -150,21 +144,12 @@ class KernelMeta:
     ) -> None:
         for axis_name in axis_sizes.keys():
             if not is_valid_axis_name(axis_name):
-                raise ValueError(
-                    f"Invalid axis name '{axis_name}'. Axis names must be base axes."
-                )
+                raise ValueError(f"Invalid axis name '{axis_name}'. Axis names must be base axes.")
 
         def check_keys(params: List[str], context="parameter"):
             for k in params:
-<<<<<<< HEAD
-                if k not in axis_sizes and ("r" + k) not in axis_sizes:
-                    raise KeyError(f"{context} '{k}' not found in known axes: {axis_sizes.keys()}")
-=======
                 if k not in axis_sizes:
-                    raise KeyError(
-                        f"{context} '{k}' not found in known axes: {axis_sizes.keys()}"
-                    )
->>>>>>> release-3.2.2-0625-b79d137
+                    raise KeyError(f"{context} '{k}' not found in known axes: {axis_sizes.keys()}")
 
         check_keys(split_params.keys(), "split axis")
         check_keys(fixed_split_params.keys(), "fixed split axis")
@@ -172,10 +157,8 @@ class KernelMeta:
         check_keys(low_dims, "low dim axis")
         for axis_name in list(reduction_axes or []):
             if isinstance(axis_name, str) and axis_name.startswith("r"):
-                raise ValueError(
-                    f"r-prefixed reduction axis '{axis_name}' is not supported; "
-                    "use the base axis name and pass it through reduction_axes."
-                )
+                raise ValueError(f"r-prefixed reduction axis '{axis_name}' is not supported; "
+                                 "use the base axis name and pass it through reduction_axes.")
         check_keys(reduction_axes or [], "reduction axis")
 
 

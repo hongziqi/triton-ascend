@@ -17,18 +17,12 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-<<<<<<< HEAD:third_party/ascend/unittest/generalization_cases/test_flip.py
-import triton
-import triton.language as tl
-=======
 """
 Parameter normalization for CV autotune.
 """
 
 from .param_normalizer import ParamNameNormalizer
 from .cv_autotune_param import CvAutotuneParam, create_cv_autotune_param
->>>>>>> release-3.2.2-0625-b79d137:third_party/ascend/backend/runtime/cv_autotune/normalization/__init__.py
 
 __all__ = [
     'ParamNameNormalizer',

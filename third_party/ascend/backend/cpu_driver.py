@@ -43,11 +43,7 @@ class CPUUtils(object):
         # temperoarily added properties to avoid triton-compiler complain
         # fetch available memory at runtime
         return {"max_shared_mem": 1}
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> release-3.2.2-0625-b79d137
     def load_binary(self, name, kernel, shared, device, mix_mode=None):
         # TODO (temperoarily fake function) load a binary from binary object to device
         # return value are: (mod, funcptr/handle, n_regs, n_spills)

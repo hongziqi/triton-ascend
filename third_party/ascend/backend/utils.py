@@ -341,11 +341,9 @@ def _warn_auto_blockify_disabled(kernel_name: str, blacklist_reasons) -> None:
     if not blacklist_reasons:
         return
     reasons = ", ".join(blacklist_reasons)
-    print(
-        f"[WARNING] AutoBlockify disabled for kernel '{kernel_name}'. "
-        f"Unsafe ops: {reasons}. Enabling may cause correctness issues. "
-        "To force enable: set has_auto_blockify_blacklist_op=False."
-    )
+    print(f"[WARNING] AutoBlockify disabled for kernel '{kernel_name}'. "
+          f"Unsafe ops: {reasons}. Enabling may cause correctness issues. "
+          "To force enable: set has_auto_blockify_blacklist_op=False.")
 
 
 def _enable_print_ub_bits() -> bool:
@@ -371,7 +369,8 @@ def _get_cxx():
     return cxx
 
 
-def _build_npu_ext(obj_name: str, header_or_src_path, src_path=None, *, kernel_launcher="torch", precompile=False) -> str:
+def _build_npu_ext(obj_name: str, header_or_src_path, src_path=None, *, kernel_launcher="torch",
+                   precompile=False) -> str:
     header_path = None
     if src_path is None:
         src_path = header_or_src_path
@@ -570,14 +569,6 @@ def triton_support_ffts():
     return is_ffts_supported(arch) and (not force_disable_ffts())
 
 
-<<<<<<< HEAD
-def triton_enable_libdevice_simt():
-    enable_libdevice_simt = os.getenv("TRITON_ENABLE_LIBDEVICE_SIMT", False)
-    return enable_libdevice_simt
-
-
-=======
->>>>>>> release-3.2.2-0625-b79d137
 def get_cann_version_file_hash():
     ascend_path = _get_ascend_path()
     arch = get_machine_arch()

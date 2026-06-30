@@ -31,27 +31,13 @@ import hashlib
 from triton.runtime.cache import get_cache_manager, get_dump_manager
 from triton.backends.driver import DriverBase
 from triton.backends.compiler import GPUTarget
-<<<<<<< HEAD
-from triton.backends.ascend.utils import (_precompile_npu_hash, _precompile_npu_ext, _build_npu_ext, _check_cxx11_abi,
-                                          convert_sigtype_to_int, _is_auto_map_parallel_blocks_enabled,
-                                          get_ascend_arch_from_env, is_ffts_supported, force_disable_ffts,
-                                          get_backend_func)
-
-=======
-from triton.backends.ascend.utils import (
-    _build_npu_ext,
-    _check_cxx11_abi,
-    convert_sigtype_to_int,
-    _is_auto_map_parallel_blocks_enabled,
-    get_ascend_arch_from_env,
-    is_ffts_supported,
-    force_disable_ffts,
-    get_backend_func
-)
+from triton.backends.ascend.utils import (_build_npu_ext, _check_cxx11_abi, convert_sigtype_to_int,
+                                          _is_auto_map_parallel_blocks_enabled, get_ascend_arch_from_env,
+                                          is_ffts_supported, force_disable_ffts, get_backend_func)
 # Bind the already-imported utils module once so the launch hot path can write
 # TRITON_PROFILER_REGISTERED without a per-launch `import triton` + attribute walk.
 import triton.backends.ascend.utils as _ascend_utils
->>>>>>> release-3.2.2-0625-b79d137
+
 
 class NPUUtils(object):
 
@@ -85,13 +71,7 @@ class NPUUtils(object):
         # setup for remote run
         env_arch = get_ascend_arch_from_env()
 
-<<<<<<< HEAD
     def load_binary(self, name, kernel, shared, device, mix_mode):
-=======
-    def load_binary(self, name, kernel, shared, device, mix_mode=None):
-        if mix_mode is None:
-            name, mix_mode = name.rsplit("_", 1)
->>>>>>> release-3.2.2-0625-b79d137
         return self.npu_utils_mod.load_kernel_binary(name, kernel, shared, device, mix_mode)
 
     @functools.lru_cache()
@@ -121,23 +101,11 @@ class NPULauncher(object):
 
     def __init__(self, src, metadata):
         self.compile_only = os.getenv("TRITON_COMPILE_ONLY", 'false').lower() in ('true', '1')
-<<<<<<< HEAD
         self.enable_msprof_register_tensor = os.getenv("TRITON_REGISTER_TENSOR_MSPROF",
                                                        'false').lower() in ('true', '1')
-        debug_mode = metadata.debug
-        header_src = generate_npu_header_src()
-        constants = src.constants if hasattr(src, "constants") else dict()
-        cst_key = lambda i: src.fn.arg_names.index(i) if isinstance(i, str) else i
-        constants = {cst_key(key): value for key, value in constants.items()}
-        signature = {cst_key(key): value for key, value in src.signature.items()}
-        wrapper_src = make_launcher(constants, signature, metadata)
-        so_launcher_path = make_npu_launcher_stub(header_src, wrapper_src, metadata.debug)
-=======
-        self.enable_msprof_register_tensor = os.getenv("TRITON_REGISTER_TENSOR_MSPROF", 'false').lower() in ('true', '1')
         self.src = src
         self.metadata = metadata
         self.so_launcher_path = self._make_launcher_stub_path()
->>>>>>> release-3.2.2-0625-b79d137
         # setup for remote run
         # TODO: use a var to pack all vars required to run on a remote machine
         self.mix_mode = metadata.mix_mode
@@ -173,7 +141,7 @@ class NPULauncher(object):
         else:
             if self.compile_only:
                 return
-  
+
             profiler_registered = self.launch(*args, **kwargs)
             _ascend_utils.TRITON_PROFILER_REGISTERED = (profiler_registered == 1)
 
@@ -255,60 +223,11 @@ class NPUDriver(DriverBase):
         cache.zero_()
 
 
-<<<<<<< HEAD
-def _precompile_npu_ext_with_lock(header_src, enable_precompile):
-    import fcntl
-    precompile_hash = _precompile_npu_hash(header_src)
-    cache = get_cache_manager(precompile_hash)
-    gch_path = cache.get_file("precompiled.h.gch")
-    header_path = cache.get_file("precompiled.h")
-    if enable_precompile:
-        if header_path is not None and gch_path is not None:
-            return header_path
-    else:
-        if header_path is not None:
-            return header_path
-    cache_dir = os.getenv("TRITON_CACHE_DIR", "").strip()
-    lock_path = os.path.join(cache_dir, f"{precompile_hash}.lock")
-    with open(lock_path, "a+") as f:
-        try:
-            fcntl.flock(f, fcntl.LOCK_EX)
-            header_path = cache.get_file("precompiled.h")
-            if enable_precompile:
-                gch_path = cache.get_file("precompiled.h.gch")
-                if header_path is not None and gch_path is not None:
-                    return header_path
-            else:
-                if header_path is not None:
-                    return header_path
-            header_path = cache.put(header_src, "precompiled.h", binary=False)
-            if not enable_precompile:
-                return header_path
-            src_dir = os.path.dirname(header_path)
-            gch_path = os.path.join(src_dir, "precompiled.h.gch")
-            _precompile_npu_ext(header_path, gch_path)
-            return header_path
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
-
-
-=======
->>>>>>> release-3.2.2-0625-b79d137
 def make_npu_launcher_stub(header_src, wrapper_src, debug=False):
     """
     Generate the launcher stub to launch the kernel
     """
-<<<<<<< HEAD
-    enable_precompile = not os.getenv("TRITON_DISABLE_PRECOMPILE", 'false').lower() in ('true', '1')
-    # if precompile header file and its gch file not exist, do precompile
-    header_path = _precompile_npu_ext_with_lock(header_src, enable_precompile)
-    assert header_path is not None, "the precompiled.h path is empty."
-
-    # try to get cached file
-    so_cache_key = hashlib.sha256(wrapper_src.encode("utf-8")).hexdigest()
-=======
     so_cache_key = hashlib.sha256((header_src + "\0" + wrapper_src).encode("utf-8")).hexdigest()
->>>>>>> release-3.2.2-0625-b79d137
     so_cache_manager = get_cache_manager(so_cache_key)
     use_cxx11_abi = _check_cxx11_abi()
     name = f"launcher_cxx11abi{use_cxx11_abi}"
@@ -332,12 +251,7 @@ def make_npu_launcher_stub(header_src, wrapper_src, debug=False):
         src_path = os.path.join(tmpdir, f"{name}.cxx")
         with open(src_path, "w") as f:
             f.write(wrapper_src)
-<<<<<<< HEAD
-        so_path = _build_npu_ext(name, header_path, src_path, kernel_launcher=kernel_launcher_type,
-                                 precompile=enable_precompile)
-=======
         so_path = _build_npu_ext(name, src_path, kernel_launcher=kernel_launcher_type)
->>>>>>> release-3.2.2-0625-b79d137
         if debug:
             with open(so_path, "rb") as f:
                 dump_manager.put(f.read(), so_name, binary=True)
@@ -433,7 +347,6 @@ def generate_npu_header_src():
 """
 
 
-<<<<<<< HEAD
 # ------------------------
 # Launcher
 # ------------------------
@@ -461,18 +374,13 @@ def ty_to_cpp(ty):
     }[ty]
 
 
-=======
->>>>>>> release-3.2.2-0625-b79d137
 # the template is from triton-adapter HEAD. Wrapping the generated kernel binary into a python module
 def make_launcher(constants, signature, metadata):
     import os
     workspace_size = int(metadata.workspace_size) \
                           if hasattr(metadata, 'workspace_size') else -1
-    lock_init_value = int(
-        metadata.lock_init_value if hasattr(metadata, 'lock_init_value')
-        else metadata.lock_init_val if hasattr(metadata, 'lock_init_val')
-        else 0
-    )
+    lock_init_value = int(metadata.lock_init_value if hasattr(metadata, 'lock_init_value') else metadata.
+                          lock_init_val if hasattr(metadata, 'lock_init_val') else 0)
     lock_num = int(metadata.lock_num) \
                           if hasattr(metadata, 'lock_num') else -1
     bs_task_type = metadata.bs_task_type if hasattr(metadata, 'bs_task_type') else 0
@@ -543,35 +451,9 @@ def make_launcher(constants, signature, metadata):
         int gridX, gridY, gridZ;
         rtStream_t stream;
         const void *functon;
-        PyObject* packed_metadata,       
+        PyObject* packed_metadata,
         *args_expand
     """
-<<<<<<< HEAD
-    args_format = ''.join([format_of(ty) for ty in signature.values()])
-    format = "iiiKKOOOO" + args_format
-    signature = ','.join(map(_serialize_signature, signature.values()))
-    signature = list(filter(bool, signature.split(',')))
-    signature = {i: s for i, s in enumerate(signature)}
-    args_list = ', ' + ', '.join(f"&_arg{i}" for i, ty in signature.items()) if len(signature) > 0 else ''
-    # Record the end of regular arguments;
-    # subsequent arguments are architecture-specific descriptors.
-    arg_decls = ', '.join(f"{ty_to_cpp(ty)} arg{i}" for i, ty in signature.items() if ty != "constexpr")
-    internal_args_list = []
-    for i, ty in signature.items():
-        if ty[0] == "*":
-            internal_args_list.append(f"ptr_info{i}.dev_ptr")
-        elif ty != "constexpr":
-            internal_args_list.append(f"_arg{i}")
-
-    # generate glue code
-    newline = '\n  '
-    ptr_decls = [
-        f"DevicePtrInfo ptr_info{i} = getPointer(_arg{i}, {i}); if (!ptr_info{i}.valid) return NULL;"
-        for i, ty in signature.items()
-        if ty[0] == "*"
-    ]
-=======
->>>>>>> release-3.2.2-0625-b79d137
 
     format = "iiiKKOOOO" + ''.join([_format_of(_extracted_ty(ty)) for ty in signature.values()])
     grid_info = {'X': 'i32', 'Y': 'i32', 'Z': 'i32'}
@@ -579,30 +461,15 @@ def make_launcher(constants, signature, metadata):
 
     arch = get_ascend_arch_from_env()
     target_support_ffts = is_ffts_supported(arch) and (not force_disable_ffts())
-<<<<<<< HEAD
     enable_device_print = os.getenv("TRITON_DEVICE_PRINT", 'false').lower() in ('true', '1')
     enable_taskqueue = os.getenv("TRITON_ENABLE_TASKQUEUE", 'true').lower() in ('true', '1')
     enable_grid_warn_print = os.getenv("TRITON_GRID_WARN_PRINT", 'false').lower() in ('true', '1')
-    # Per-kernel metadata wins; fall back to the env var when unset.
-    enable_auto_map_parallel_blocks = getattr(metadata, "enable_auto_blockify", None)
-    if enable_auto_map_parallel_blocks is None:
-        enable_auto_map_parallel_blocks = _is_auto_map_parallel_blocks_enabled()
-=======
-    enable_device_print = os.getenv(
-        "TRITON_DEVICE_PRINT", 'false').lower() in ('true', '1')
-    enable_taskqueue = os.getenv(
-        "TRITON_ENABLE_TASKQUEUE", 'true').lower() in ('true', '1')
-    enable_grid_warn_print = os.getenv(
-        "TRITON_GRID_WARN_PRINT", 'false').lower() in ('true', '1')
     has_auto_blockify_blacklist_op = getattr(
-      metadata,
-      "has_auto_blockify_blacklist_op",
-      False,
+        metadata,
+        "has_auto_blockify_blacklist_op",
+        False,
     )
-    enable_auto_map_parallel_blocks = (
-      _is_auto_map_parallel_blocks_enabled() and not has_auto_blockify_blacklist_op
-    )
->>>>>>> release-3.2.2-0625-b79d137
+    enable_auto_map_parallel_blocks = (_is_auto_map_parallel_blocks_enabled() and not has_auto_blockify_blacklist_op)
     npu_utils = NPUUtils()
     num_physical_blocks = npu_utils.get_aivector_core_num() if mix_mode == "aiv" else npu_utils.get_aicore_num()
     task_type, mix_block_dim_ratio = _format_of_msprof_task_type_ratio(bs_task_type, mix_mode)
@@ -613,12 +480,8 @@ def make_launcher(constants, signature, metadata):
     workspace_fail_code = 'fprintf(stderr, "Error: workspace allocation failed\\n"); return;'
     launch_signature_items = [(i, ty) for i, ty in signature.items() if i not in constants]
     launch_arg_count = len(launch_signature_items)
-    launch_arg_ptrs = ', '.join(
-        f'static_cast<const void*>(&arg{i})' for i, ty in launch_signature_items
-    )
-    launch_arg_sizes = ', '.join(
-        f'sizeof({_ty_to_cpp(ty)})' for i, ty in launch_signature_items
-    )
+    launch_arg_ptrs = ', '.join(f'static_cast<const void*>(&arg{i})' for i, ty in launch_signature_items)
+    launch_arg_sizes = ', '.join(f'sizeof({_ty_to_cpp(ty)})' for i, ty in launch_signature_items)
 
     npu_utils_inst = NPUUtils()
     npu_utils_mod = getattr(npu_utils_inst, "npu_utils_mod", None)
@@ -675,11 +538,9 @@ static void release_npu_tensor_handle(void* handle) {{
     coalesce_axis = int(getattr(metadata, "coalesce_axis", -1))
     if coalesce_factor > 1 and coalesce_axis in (0, 1, 2):
         _coalesce_grid_var = {0: "gridX", 1: "gridY", 2: "gridZ"}[coalesce_axis]
-        coalesce_grid_div = (
-            f"// coalescing: each program covers {coalesce_factor} tiles along "
-            f"axis {coalesce_axis}; shrink that grid dim.\n"
-            f"  {_coalesce_grid_var} = {_coalesce_grid_var} / {coalesce_factor};"
-        )
+        coalesce_grid_div = (f"// coalescing: each program covers {coalesce_factor} tiles along "
+                             f"axis {coalesce_axis}; shrink that grid dim.\n"
+                             f"  {_coalesce_grid_var} = {_coalesce_grid_var} / {coalesce_factor};")
     else:
         coalesce_grid_div = ""
 
@@ -1212,15 +1073,10 @@ static PyObject* launch(PyObject* self, PyObject* args) {{
   if(!PyArg_ParseTuple(
       args, \"{format}\",
       &gridX, &gridY, &gridZ, &stream, &function,
-<<<<<<< HEAD
-      &packedMetadata, &launch_metadata,
-      &launch_enter_hook, &launch_exit_hook{args_list})) {{
-=======
       &packedMetadata, &launch_metadata, &launch_enter_hook, &launch_exit_hook
       {', ' + ', '.join(f"&_arg{i}" for i, ty in signature.items()) if len(signature) > 0 else ''}
       )
     ) {{
->>>>>>> release-3.2.2-0625-b79d137
     return NULL;
   }}
   if (__MsprofFlagL1)

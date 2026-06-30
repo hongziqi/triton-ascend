@@ -204,14 +204,6 @@ def get_cc_cmd():
         f"-L{os.path.join(mindspore_path, 'lib')}",
         f"-lmindspore_pynative_utils",
     ]
-<<<<<<< HEAD
-    if not build_pch:
-        cc_cmd += [
-            f"-L{os.path.join(mindspore_path, 'lib')}",
-            f"-lmindspore_pynative_utils",
-        ]
-=======
->>>>>>> release-3.2.2-0625-b79d137
     return cc_cmd
 
 
