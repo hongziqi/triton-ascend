@@ -87,11 +87,8 @@ docs/sg_execution_times.rst
 /compile_commands.json
 .vscode
 .vs
-<<<<<<< HEAD
 .idea/
-=======
 .cursor
->>>>>>> 85400f80bf859a34ad7a746ffda877faf80312ab
 
 # Vim
 *.swp
