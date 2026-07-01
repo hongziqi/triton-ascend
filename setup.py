@@ -972,11 +972,7 @@ def get_triton_version_suffix():
 
 
 # keep it separate for easy substitution
-<<<<<<< HEAD
-TRITON_VERSION = "3.5.0" + get_git_version_suffix() + os.environ.get("TRITON_WHEEL_VERSION_SUFFIX", "")
-=======
 TRITON_VERSION = "3.5.0" + get_triton_version_suffix()
->>>>>>> 85400f80bf859a34ad7a746ffda877faf80312ab
 
 # Dynamically define supported Python versions and classifiers
 MIN_PYTHON = (3, 10)
