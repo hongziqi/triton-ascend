@@ -25,13 +25,6 @@ void GatherOutToUbOp::getEffects(
                        triton::GlobalMemory::get());
 }
 
-void UnstructuredLoadOp::getEffects(
-    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
-        &effects) {
-  effects.emplace_back(MemoryEffects::Read::get(), &getBaseMutable(),
-                       triton::GlobalMemory::get());
-}
-
 void StrideLoadOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {

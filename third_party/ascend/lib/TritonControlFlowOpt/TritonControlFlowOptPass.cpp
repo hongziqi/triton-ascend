@@ -882,7 +882,7 @@ static Value createZeroLike(OpBuilder &builder, Location loc, Type type) {
     return builder.create<arith::ConstantIndexOp>(loc, 0);
 
   if (auto intType = dyn_cast<IntegerType>(type))
-    return builder.create<arith::ConstantIntOp>(loc, 0, intType);
+    return builder.create<arith::ConstantIntOp>(loc, 0, intType.getWidth());
 
   return nullptr;
 }
