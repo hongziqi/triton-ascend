@@ -143,7 +143,7 @@ def make_ttir(mod, metadata, opt):
     passes.common.add_licm(pm)
     passes.common.add_symbol_dce(pm)
     passes.ttir.add_loop_unroll(pm)
-    pm.run(mod)
+    pm.run(mod, 'make_ttir')
     if opt.debug:
         dump_manager = get_dump_manager(metadata["hash"])
         print(f"Dumping intermediate results to {dump_manager.cache_dir}")
@@ -230,7 +230,7 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
         if _load_val is not None:
             ascend.passes.ttir.set_buffer_count("LOAD", _load_val)
 
-        pm.run(mod)
+        pm.run(mod, 'ttir_to_linalg')
         _adjust_metadata_by_module_result(mod, metadata, opt, enable_mixed_cv=enable_mixed_cv,
                                           disable_auto_inject_block_sync=disable_auto_inject_block_sync,
                                           set_workspace_multibuffer=set_workspace_multibuffer)
@@ -959,6 +959,7 @@ class NPUOptions:
     ir_override: Optional[str] = None  # filename of a user-defined IR (*.{ttir|ttadapter|mlirbc|bcmlir|npubin})
 
     auto_blockify_size: int = 1
+    add_auto_scheduling: bool = False
     enable_auto_blockify: bool = None
     compile_on_910_95: bool = is_compile_on_910_95
     optimize_dynamic_offset: bool = False
@@ -970,6 +971,7 @@ class NPUOptions:
     enable_fp_fusion: bool = True
     launch_cooperative_grid: bool = False
     backend_name: str = 'cann'
+    instrumentation_mode: str = ""
     allow_fp8e4nv: bool = False
     auto_tile_and_bind_subblock: bool = True
     vf_merge_level: int = 0
