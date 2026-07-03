@@ -20,15 +20,18 @@
  * THE SOFTWARE.
  */
 
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/PreserveControlAttrsCanonicalize.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/Support/Debug.h"
 
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/Support/Debug.h"
+
+#include "ascend/include/DynamicCVPipeline/SplitDataflow/PreserveControlAttrsCanonicalize.h"
+
+#include "DynamicCVPipeline/Common/Utils.h"
 
 using namespace mlir;
 
@@ -151,11 +154,9 @@ void mlir::triton::PreserveControlAttrsCanonicalizePass::runOnOperation()
 
     PreserveControlAttrsListener listener;
     GreedyRewriteConfig config;
-    config.listener = &listener;
+    config.setListener(&listener);
 
-    if (failed(applyPatternsAndFoldGreedily(getOperation(),
-                                            FrozenRewritePatternSet(std::move(patterns)),
-                                            config))) {
+    if (failed(applyPatternsGreedily(getOperation(), FrozenRewritePatternSet(std::move(patterns)), config))) {
         getOperation()->emitError("PreserveControlAttrsCanonicalizePass failed");
         signalPassFailure();
         return;
