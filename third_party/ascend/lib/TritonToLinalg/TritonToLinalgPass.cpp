@@ -41,6 +41,7 @@
 #include "ascend/include/TritonToLinalg/StridedAxisCoalescing.h"
 #include "ascend/include/TritonToLinalg/TileChunkCoalescing.h"
 #include "ascend/include/TritonToLinalg/MarkTensorKindPass.h"
+#include "ascend/include/TritonToUnstructure/UnstructureConversionPass.h"
 #include "ascend/include/TritonToStructured/CannonicalizerConverter.h"
 #include "ascend/include/Utils/InterleaveOptimization.h"
 
