@@ -29,13 +29,8 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
-<<<<<<< HEAD
-#include <vector>
-=======
-#include <fstream>
-#include <algorithm>
 #include <utility>
->>>>>>> release-3.2.2-0625-b79d137
+#include <vector>
 
 #include "runtime/runtime/rt.h"
 
@@ -51,16 +46,10 @@
 static std::unordered_map<std::string, size_t> registered_names;
 static std::unordered_map<std::string, std::unique_ptr<size_t>> func_stubs;
 
-<<<<<<< HEAD
 static std::tuple<void *, void *> registerKernel(const char *name,
                                                  const void *data,
                                                  size_t data_size, int device,
                                                  const char *kernel_mode_str) {
-=======
-static std::tuple<void *, void *>
-registerKernel(const char *name, const void *data, size_t data_size,
-               int device, const char *kernel_mode_str) {
->>>>>>> release-3.2.2-0625-b79d137
   rtError_t rtRet;
 
   rtDevBinary_t devbin;
@@ -163,7 +152,6 @@ static PyObject *createStream(PyObject *self, PyObject *args) {
 
   rtError_t rtRet = rtStreamCreate(&stream, 0);
 
-<<<<<<< HEAD
   if (rtRet != RT_ERROR_NONE) {
     printf("rtStreamCreate failed, 0x%x", rtRet);
     return nullptr;
@@ -177,21 +165,6 @@ static PyObject *createStream(PyObject *self, PyObject *args) {
   if (result == nullptr) {
     rtStreamDestroy(stream);
   }
-=======
-	if (rtRet != RT_ERROR_NONE) {
-		printf("rtStreamCreate failed, 0x%x", rtRet);
-		return nullptr;
-	}
-	if (PyErr_Occurred()) {
-		return nullptr;
-	}
-	uint64_t stream_uint64 = reinterpret_cast<uint64_t>(stream);
-    PyObject* result = Py_BuildValue("K", stream_uint64);
-
-    if (result == nullptr) {
-        rtStreamDestroy(stream);
-    }
->>>>>>> release-3.2.2-0625-b79d137
 
   return result;
 }
@@ -231,7 +204,6 @@ std::vector<char> readDataFromBinaryFile(const std::string &filename) {
 }
 
 static PyObject *readDataFromBinaryFileWrapper(PyObject *self, PyObject *args) {
-<<<<<<< HEAD
   const char *filename;
   uint64_t arr_ptr;
   if (!PyArg_ParseTuple(args, "sK", &filename, &arr_ptr)) {
@@ -247,23 +219,6 @@ static PyObject *readDataFromBinaryFileWrapper(PyObject *self, PyObject *args) {
     PyErr_SetString(PyExc_RuntimeError, e.what());
     return nullptr;
   }
-=======
-	const char *filename;
-	uint64_t arr_ptr;
-	if (!PyArg_ParseTuple(args, "sK", &filename, &arr_ptr)) {
-		return nullptr;
-	}
-
-	try {
-		std::vector<char> data = readDataFromBinaryFile(filename);
-		char *arr = reinterpret_cast<char *>(arr_ptr);
-		std::copy(data.begin(), data.end(), arr);
-		return Py_None;
-	} catch (const std::exception& e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return nullptr;
-	}
->>>>>>> release-3.2.2-0625-b79d137
 }
 
 void writeDataToBinaryFile(const std::string &filename, const char *data,
@@ -285,7 +240,6 @@ static PyObject *writeDataToBinaryFileWrapper(PyObject *self, PyObject *args) {
   uint64_t arr_ptr;
   size_t num_bytes;
 
-<<<<<<< HEAD
   if (!PyArg_ParseTuple(args, "sKn", &filename, &arr_ptr, &num_bytes)) {
     return nullptr;
   }
@@ -313,51 +267,16 @@ static PyObject *allocateHostMemory(PyObject *self, PyObject *args) {
                  "rtMallocHost failed with error code: 0x%x", error);
     return nullptr;
   }
-=======
-	if (!PyArg_ParseTuple(args, "sKn", &filename, &arr_ptr, &num_bytes)) {
-		return nullptr;
-	}
-
-	try {
-		const char* data = reinterpret_cast<const char*>(arr_ptr);
-		writeDataToBinaryFile(filename, data, num_bytes);
-		return Py_None;
-	} catch (const std::exception& e) {
-		PyErr_SetString(PyExc_RuntimeError, e.what());
-		return nullptr;
-	}
-}
-
-static PyObject* allocateHostMemory(PyObject* self, PyObject* args) {
-	uint64_t num_bytes;
-	if (!PyArg_ParseTuple(args, "K", &num_bytes)) {
-		return nullptr;
-	}
-
-	void* host_ptr = nullptr;
-	rtError_t error = rtMallocHost(&host_ptr, num_bytes, RT_MEMORY_HOST);
-	if (error != RT_ERROR_NONE) {
-		PyErr_Format(PyExc_RuntimeError, "rtMallocHost failed with error code: 0x%x", error);
-		return nullptr;
-	}
->>>>>>> release-3.2.2-0625-b79d137
 
   PyObject *result = Py_BuildValue("K", (uint64_t)host_ptr);
 
-<<<<<<< HEAD
   if (result == nullptr) {
     rtFreeHost(host_ptr);
   }
-=======
-    if (result == nullptr) {
-        rtFreeHost(host_ptr);
-    }
->>>>>>> release-3.2.2-0625-b79d137
 
   return result;
 }
 
-<<<<<<< HEAD
 static PyObject *allocateDeviceMemory(PyObject *self, PyObject *args) {
   uint64_t num_bytes;
   if (!PyArg_ParseTuple(args, "K", &num_bytes)) {
@@ -371,32 +290,12 @@ static PyObject *allocateDeviceMemory(PyObject *self, PyObject *args) {
                  error);
     return nullptr;
   }
-=======
-static PyObject* allocateDeviceMemory(PyObject* self, PyObject* args) {
-	uint64_t num_bytes;
-	if (!PyArg_ParseTuple(args, "K", &num_bytes)) {
-		return nullptr;
-	}
-
-	void* device_ptr = nullptr;
-	rtError_t error = rtMalloc(&device_ptr, num_bytes, RT_MEMORY_HBM, 0);
-	if (error != RT_ERROR_NONE) {
-		PyErr_Format(PyExc_RuntimeError, "rtMalloc failed with error code: 0x%x", error);
-		return nullptr;
-	}
->>>>>>> release-3.2.2-0625-b79d137
 
   PyObject *result = Py_BuildValue("K", (uint64_t)device_ptr);
 
-<<<<<<< HEAD
   if (result == nullptr) {
     rtFree(device_ptr);
   }
-=======
-    if (result == nullptr) {
-        rtFree(device_ptr);
-    }
->>>>>>> release-3.2.2-0625-b79d137
 
   return result;
 }
@@ -408,7 +307,6 @@ static PyObject *copyMemory(PyObject *self, PyObject *args) {
   const char *direction_str;
   rtMemcpyKind_t copy_direction;
 
-<<<<<<< HEAD
   if (!PyArg_ParseTuple(args, "KKns", &dst_ptr, &src_ptr, &count,
                         &direction_str)) {
     return nullptr;
@@ -423,38 +321,16 @@ static PyObject *copyMemory(PyObject *self, PyObject *args) {
                     "Invalid copy direction. Must be 'H2D' or 'D2H'.");
     return nullptr;
   }
-=======
-	if (!PyArg_ParseTuple(args, "KKns", &dst_ptr, &src_ptr, &count, &direction_str)) {
-		return nullptr;
-	}
-
-	if (strcmp(direction_str, "H2D") == 0) {
-		copy_direction = RT_MEMCPY_HOST_TO_DEVICE;
-	} else if (strcmp(direction_str, "D2H") == 0) {
-		copy_direction = RT_MEMCPY_DEVICE_TO_HOST;
-	} else {
-		PyErr_SetString(PyExc_ValueError, "Invalid copy direction. Must be 'H2D' or 'D2H'.");
-		return nullptr;
-	}
->>>>>>> release-3.2.2-0625-b79d137
 
   void *dst = (void *)dst_ptr;
   void *src = (void *)src_ptr;
 
-<<<<<<< HEAD
   rtError_t error = rtMemcpy(dst, count, src, count, copy_direction);
   if (error != RT_ERROR_NONE) {
     PyErr_Format(PyExc_RuntimeError, "rtMemcpy failed with error code: 0x%x",
                  error);
     return nullptr;
   }
-=======
-	rtError_t error = rtMemcpy(dst, count, src, count, copy_direction);
-	if (error != RT_ERROR_NONE) {
-		PyErr_Format(PyExc_RuntimeError, "rtMemcpy failed with error code: 0x%x", error);
-		return nullptr;
-	}
->>>>>>> release-3.2.2-0625-b79d137
 
   Py_INCREF(Py_None);
   return Py_None;
@@ -517,7 +393,6 @@ static PyMethodDef NpuUtilsMethods[] = {
     {"get_arch", getArch, METH_VARARGS, "Get soc version of NPU"},
     // sentinel
     {"get_aicore_num", getAiCoreNum, METH_VARARGS, "Get the number of AI core"},
-<<<<<<< HEAD
     {"create_stream", createStream, METH_VARARGS, "Create a stream"},
     {"read_data_from_file", readDataFromBinaryFileWrapper, METH_VARARGS,
      "Read binary file into the array already allocated"},
@@ -529,14 +404,6 @@ static PyMethodDef NpuUtilsMethods[] = {
      "Allocate host memory"},
     {"copy_memory", copyMemory, METH_VARARGS,
      "Copy data between host and device"},
-=======
-	{"create_stream", createStream, METH_VARARGS, "Create a stream"},
-	{"read_data_from_file", readDataFromBinaryFileWrapper, METH_VARARGS, "Read binary file into the array already allocated"},
-	{"write_data_to_file", writeDataToBinaryFileWrapper, METH_VARARGS, "Write an array to a binary file"},
-	{"allocate_device_memory", allocateDeviceMemory, METH_VARARGS, "Allocate device memory"},
-	{"allocate_host_memory", allocateHostMemory, METH_VARARGS, "Allocate host memory"},
-	{"copy_memory", copyMemory, METH_VARARGS, "Copy data between host and device"},
->>>>>>> release-3.2.2-0625-b79d137
     {nullptr, nullptr, 0, nullptr}};
 
 static PyModuleDef ModuleDef = {
