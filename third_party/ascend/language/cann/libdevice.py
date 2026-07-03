@@ -2218,41 +2218,6 @@ def nearbyint(arg0: core.tensor, _semantic=None):
     arg0 = _semantic.to_tensor(arg0)
     dtype = arg0.dtype
     if (dtype == core.dtype("fp32") and is_compile_on_910_95):
-        return core.extern_elementwise(
-            "", "", [arg0], {
-                (core.dtype("fp16"), ): ("__hmf_trunc_fp16", core.dtype("fp16")),
-                (core.dtype("fp32"), ): ("__hmf_trunc_fp32", core.dtype("fp32")),
-            }, is_pure=True, _semantic=_semantic)
-    else:
-        """
-        Truncate the input to the nearest integer toward zero.
-
-        For positive numbers, this is equivalent to floor(x).
-        For negative numbers, this is equivalent to ceil(x).
-
-            Special cases:
-            - trunc(±0) returns ±0.
-            - trunc(±inf) returns ±inf.
-            - trunc(NaN) returns NaN.
-        """
-        arg0 = _semantic.to_tensor(arg0)
-
-        zero = _semantic.full(arg0.shape, 0.0, arg0.type.scalar)
-        condition = _semantic.greater_equal(arg0, zero)
-
-        floor_result = core.tensor(_semantic.builder.create_floor(arg0.handle), arg0.type)
-        ceil_result = core.tensor(_semantic.builder.create_ceil(arg0.handle), arg0.type)
-
-        return _semantic.where(condition, floor_result, ceil_result)
-
-
-@core.builtin
-@math._check_dtype(dtypes=[
-    "fp32",
-])
-@math._add_math_1arg_docstr("nearbyint")
-def nearbyint(arg0: core.tensor, _semantic=None):
-    if triton_enable_libdevice_simt() and is_compile_on_910_95:
         return core.extern_elementwise("", "", [arg0], {
             (core.dtype("fp32"), ): ("__hmf_nearbyint_fp32", core.dtype("fp32")),
         }, is_pure=True, _semantic=_semantic)
@@ -2290,16 +2255,16 @@ def nearbyint(arg0: core.tensor, _semantic=None):
 
         is_even = _semantic.equal(basic_round, double_half)
 
-    adjustment = _semantic.where(is_positive, _semantic.full(arg0.shape, -1.0, arg0.type.scalar),
-                                 _semantic.full(arg0.shape, 1.0, arg0.type.scalar))
+        adjustment = _semantic.where(is_positive, _semantic.full(arg0.shape, -1.0, arg0.type.scalar),
+                                     _semantic.full(arg0.shape, 1.0, arg0.type.scalar))
 
-    banker_result = _semantic.where(
-        is_even,
-        basic_round,
-        _semantic.add(basic_round, adjustment, True),
-    )
-    # Final result: Use banker's rounding for cases exactly at 0.5, otherwise use basic rounding.
-    return _semantic.where(is_half, banker_result, basic_round)
+        banker_result = _semantic.where(
+            is_even,
+            basic_round,
+            _semantic.add(basic_round, adjustment, True),
+        )
+        # Final result: Use banker's rounding for cases exactly at 0.5, otherwise use basic rounding.
+        return _semantic.where(is_half, banker_result, basic_round)
 
 
 @core.extern

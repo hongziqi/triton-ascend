@@ -56,17 +56,13 @@ from triton.backends.ascend.utils import (
     _warn_auto_blockify_disabled,
     downgrade_llir,
     force_disable_ffts,
-    triton_enable_libdevice_simt,
     get_cann_version_file_hash,
 )
 from triton.backends.ascend.driver import (NPUUtils)
 from triton.backends.compiler import (
-    AttrsDescriptor,
     BaseBackend,
     GPUTarget,
-    register_descriptor,
 )
-from triton.runtime import driver
 from triton.runtime.cache import _base32, get_dump_manager
 from triton.tools.get_ascend_devices import is_compile_on_910_95
 
@@ -1081,15 +1077,6 @@ class NPUOptions:
         return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
-@register_descriptor
-class AscendAttrsDescriptor(AttrsDescriptor):
-
-    # For now we collect shapes of tensor at runtime.
-    # We comment out the following func but keep it for future reference.
-    def _add_backend_properties(self, params=None, values=None):
-        pass
-
-
 def ttir_to_npubin(mod, metadata, opt):
     # Get Triton-MLIR as string
     ttir_code = str(mod)
@@ -1121,11 +1108,6 @@ def ttir_to_npubin(mod, metadata, opt):
                 _compile_option_list += ["--enable-simt-reorder-instruction=true"]
             if opt.disable_fma:
                 _compile_option_list += [f"--disable-fma"]
-            enable_libdevice_simt = triton_enable_libdevice_simt()
-            if (enable_libdevice_simt):
-                bisheng_options = metadata["bisheng_options"]
-                if bisheng_options is not None:
-                    _compile_option_list += [f"--append-bisheng-options={bisheng_options}"]
 
             # Enable SIMT auto-blockify if user opted in, or if the env var is
             # set and the user didn't explicitly opt out (matches the SIMD path

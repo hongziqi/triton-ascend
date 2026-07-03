@@ -132,6 +132,17 @@ bool getEnvBool(const char *envVar, bool defaultValue) {
   return true;
 }
 
+static llvm::SmallString<kFuncNameCap>
+generateUniqueFuncName(ModuleOp moduleOp, llvm::StringRef funcNameBase) {
+  llvm::SmallString<kFuncNameCap> funcName = funcNameBase;
+  int uniqueId = 0;
+  while (SymbolTable::lookupSymbolIn(moduleOp, funcName)) {
+    funcName = funcNameBase;
+    funcName += ("_" + std::to_string(uniqueId++));
+  }
+  return funcName;
+}
+
 LogicalResult
 BitcastConverter::matchAndRewrite(triton::BitcastOp op, OpAdaptor adaptor,
                                   ConversionPatternRewriter &rewriter) const {
@@ -2785,34 +2796,6 @@ IndexPutConverter::matchAndRewrite(triton::ascend::IndexPutOp op,
   inputVals.append(dstStride.begin(), dstStride.end());
   rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
                                 TypeRange({}), inputVals);
-  rewriter.eraseOp(op);
-  return success();
-  }
-
-  // simt_template mode: generate a private func::CallOp to the template library
-  auto moduleOp = op->getParentOfType<ModuleOp>();
-  rewriter.setInsertionPoint(moduleOp.getBody(),
-                             std::prev(moduleOp.getBody()->end()));
-
-  auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
-
-  SmallVector<Type> inputTypes({ptrTy, index.getType(), value.getType(),
-                                dim.getType(), indexBoundary.getType()});
-  inputTypes.append(endOffset.getTypes().begin(), endOffset.getTypes().end());
-  inputTypes.append(startOffset.getTypes().begin(),
-                    startOffset.getTypes().end());
-  inputTypes.append(dstStride.getTypes().begin(), dstStride.getTypes().end());
-  auto libFnType = rewriter.getFunctionType(inputTypes, {});
-  auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
-  SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
-
-  rewriter.setInsertionPoint(op);
-  SmallVector<Value> inputVals({ptr, index, value, dim, indexBoundary});
-  inputVals.append(endOffset.begin(), endOffset.end());
-  inputVals.append(startOffset.begin(), startOffset.end());
-  inputVals.append(dstStride.begin(), dstStride.end());
-  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(), TypeRange({}),
-                                inputVals);
   rewriter.eraseOp(op);
   return success();
 }

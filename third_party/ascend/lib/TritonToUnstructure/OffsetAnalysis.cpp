@@ -174,11 +174,6 @@ bool PtrOffsetInfo::isUnstructuredOrScalarlike() const {
   });
 }
 
-bool PtrOffsetInfo::hasUnstructuredDim() const {
-  return llvm::any_of(structured,
-                      [](auto dim) { return dim == AxisInfo::unstructured; });
-}
-
 void PtrOffsetInfo::setZeroOffset() {
   if (!ptr)
     return;
