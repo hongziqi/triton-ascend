@@ -100,7 +100,7 @@ void triton::UseAnalysis::visitOperation(Operation *op,
           propagateUse(operands[2], UseType::MetaUse);
         }
       })
-      .Case<triton::ascend::UnstructuredStoreOp>([&](auto store) {
+      .Case<triton::ascend::IndirectStoreOp>([&](auto store) {
         propagateUse(operands[0], UseType::MetaUse);
         propagateUse(operands[1], UseType::DataUse);
         propagateUse(operands[2], UseType::DataUse);
@@ -196,8 +196,7 @@ void setMixUseRecursively(Operation *rootOp, bool applyRoot = true) {
       },
       // StopFn
       [rootOp](Operation *curOp) {
-        return (isa<triton::LoadOp>(curOp) ||
-                isa<triton::ascend::UnstructuredLoadOp>(curOp)) &&
+        return isa<triton::LoadOp>(curOp) &&
                curOp != rootOp;
       },
       // ActionFn
@@ -388,15 +387,6 @@ LogicalResult triton::runUseAnalysis(triton::FuncOp &funcOp) {
                 metaUsers.insert(user);
               }
             })
-            .Case<triton::ascend::UnstructuredLoadOp>([&](auto unstrucLoad) {
-              auto base = unstrucLoad.getBase();
-              auto indices = unstrucLoad.getIndices();
-              auto mask = unstrucLoad.getMask();
-              auto other = unstrucLoad.getOther();
-              if (result == base || result == indices || result == mask ||
-                  result == other)
-                metaUsers.insert(user);
-            })
             .Case<triton::StoreOp>([&](auto store) {
               auto ptr = store.getPtr();
               auto mask = store.getMask();
@@ -404,12 +394,14 @@ LogicalResult triton::runUseAnalysis(triton::FuncOp &funcOp) {
                 metaUsers.insert(user);
               }
             })
-            .Case<triton::ascend::UnstructuredStoreOp>([&](auto unstrucStore) {
-              auto base = unstrucStore.getBase();
-              auto indices = unstrucStore.getIndices();
-              auto mask = unstrucStore.getMask();
-              if (result == base || result == indices || result == mask)
+            .Case<triton::ascend::IndirectStoreOp>([&](auto indirectstore) {
+              auto src = indirectstore.getSrc();
+              auto offset = indirectstore.getOffsets();
+              auto mask = indirectstore.getMask();
+              if (result == src || result == offset ||
+                  result == mask) {
                 metaUsers.insert(user);
+              }
             })
             .Case<triton::AtomicRMWOp>([&](auto atomicOp) {
               auto ptr = atomicOp.getPtr();
@@ -518,8 +510,7 @@ LogicalResult triton::runUseAnalysis(triton::FuncOp &funcOp) {
             // so that they will be replaced instead of be erased without
             // conversion.
             return (isa<triton::LoadOp>(curOp) || isa<triton::StoreOp>(curOp) ||
-                    isa<triton::ascend::UnstructuredLoadOp>(curOp) ||
-                    isa<triton::ascend::UnstructuredStoreOp>(curOp)) &&
+                    isa<triton::ascend::IndirectStoreOp>(curOp)) &&
                    !isMetaUse(curOp);
           },
           /*actionFn*/

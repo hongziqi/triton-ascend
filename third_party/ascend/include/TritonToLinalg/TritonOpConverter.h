@@ -46,7 +46,7 @@ namespace TTOpConverters {
 using namespace mlir;
 using namespace triton;
 
-using triton::ascend::kFuncNameCap;
+static constexpr unsigned kFuncNameCap = 128;
 
 /*
 Convert `tt.precise_div` operation to `arith.divf` operation.
@@ -705,15 +705,12 @@ private:
   static constexpr llvm::StringRef funcNameBase = "triton_scatter_ub_to_out";
 };
 
-class UnstructuredLoadConverter
-    : public OpConversionPattern<triton::ascend::UnstructuredLoadOp> {
+class IndirectLoadConverter : public OpConversionPattern<triton::ascend::IndirectLoadOp> {
 public:
-  using OpConversionPattern<
-      triton::ascend::UnstructuredLoadOp>::OpConversionPattern;
+  using OpConversionPattern<triton::ascend::IndirectLoadOp>::OpConversionPattern;
   LogicalResult
-  matchAndRewrite(triton::ascend::UnstructuredLoadOp op, OpAdaptor adaptor,
+  matchAndRewrite(triton::ascend::IndirectLoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override;
-
 private:
   static constexpr llvm::StringRef funcNameBase = "triton_indirect_load";
 };
@@ -744,12 +741,10 @@ private:
 
 class IndirectStoreConverter : public OpConversionPattern<triton::ascend::IndirectStoreOp> {
 public:
-  using OpConversionPattern<
-      triton::ascend::UnstructuredStoreOp>::OpConversionPattern;
+  using OpConversionPattern<triton::ascend::IndirectStoreOp>::OpConversionPattern;
   LogicalResult
-  matchAndRewrite(triton::ascend::UnstructuredStoreOp op, OpAdaptor adaptor,
+  matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override;
-
 private:
   static constexpr llvm::StringRef funcNameBase = "triton_indirect_store";
 };

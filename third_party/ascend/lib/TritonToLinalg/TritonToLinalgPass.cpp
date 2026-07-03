@@ -733,10 +733,6 @@ void TritonToLinalgPass::populateTritonToLinalgConversionPatterns(
   patterns.add<TTOpConverters::ScatterUbToOutConverter>(patterns.getContext());
   patterns.add<TTOpConverters::IndexSelectSimdConverter>(patterns.getContext());
   patterns.add<TTOpConverters::IndexPutConverter>(patterns.getContext());
-  patterns.add<TTOpConverters::UnstructuredLoadConverter>(
-      patterns.getContext());
-  patterns.add<TTOpConverters::UnstructuredStoreConverter>(
-      patterns.getContext());
   patterns.add<TTOpConverters::SortOpConverter>(patterns.getContext());
   patterns.add<TTOpConverters::FlipOpConverter>(patterns.getContext());
   patterns.add<TTOpConverters::GatherConverter>(patterns.getContext());

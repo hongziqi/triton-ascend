@@ -46,8 +46,7 @@ using namespace triton;
 
 #include "llvm/Support/Debug.h"
 
-static bool compileOn91095Flag = false;
-static ascend::CompileMode compileModeFlag = ascend::CompileMode::Simd;
+bool forceSimtTemplateFlag = false;
 
 namespace {
 
@@ -511,10 +510,9 @@ LogicalResult UnstructuredMemAccessConverter<MemAccOpTy>::matchAndRewrite(
   LLVM_DEBUG({
     auto &os = llvm::dbgs();
     os << "UnStructured Flag check:\n";
-    os << "ptrOffsetInfo.isStructured: " << ptrOffsetInfo.isStructured()
-       << "\n";
+    os << "ptrOffsetInfo.isStructured: " << ptrOffsetInfo.isStructured() << "\n";
     os << "compileOn91095Flag: " << compileOn91095Flag << "\n";
-    os << "compileModeFlag: " << static_cast<int>(compileModeFlag) << "\n";
+    os << "forceSimtTemplateFlag: " << forceSimtTemplateFlag << "\n";
   });
 
   // SIMT Indirect Fast-Path Lowering in 950 seiries
@@ -831,15 +829,13 @@ TritonToUnstructurePass::TritonToUnstructurePass(
 
 void TritonToUnstructurePass::runOnOperation() {
   compileOn91095Flag = this->compileOn91095;
-  compileModeFlag =
-      ascend::resolveCompileMode(this->compileMode, this->forceSimtTemplate);
+  forceSimtTemplateFlag = this->forceSimtTemplate;
 
   LLVM_DEBUG({
     auto &os = llvm::dbgs();
     os << "TritonToUnstructurePass started with options:\n";
     os << "  compileOn91095: " << compileOn91095Flag << "\n";
-    os << "  compileMode: " << this->compileMode << "\n";
-    os << "  forceSimtTemplate: " << this->forceSimtTemplate << "\n";
+    os << "  forceSimtTemplate: " << forceSimtTemplateFlag << "\n";
   });
 
   ModuleOp moduleOp = getOperation();

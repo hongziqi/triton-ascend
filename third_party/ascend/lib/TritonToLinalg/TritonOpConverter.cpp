@@ -2944,44 +2944,29 @@ LogicalResult ScatterUbToOutConverter::matchAndRewrite(
   return success();
 }
 
-LogicalResult UnstructuredLoadConverter::matchAndRewrite(
-    triton::ascend::UnstructuredLoadOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
+LogicalResult
+IndirectLoadConverter::matchAndRewrite(triton::ascend::IndirectLoadOp op, OpAdaptor adaptor,
+                                       ConversionPatternRewriter &rewriter) const
+{
   auto loc = op.getLoc();
-  // adaptor automatically converts !tt.ptr<T> → memref<?xT>
-  Value baseMem = adaptor.getBase();
-  Value offsets = op.getIndices();
-  Value mask = op.getMask();
-  Value other = op.getOther();
-  auto resTy = op.getResult().getType();
-  auto unstrucDims = op.getUnstructuredDims();
 
-  auto srcTy = dyn_cast<MemRefType>(baseMem.getType());
-  if (!srcTy)
-    return rewriter.notifyMatchFailure(op, "expected MemRefType for base");
+  auto moduleOp = op->getParentOfType<ModuleOp>();
+  rewriter.setInsertionPoint(moduleOp.getBody(),
+                             std::prev(moduleOp.getBody()->end()));
 
-  // Compute burstlen from trailing structured dimensions.
-  auto resultShape = cast<RankedTensorType>(resTy).getShape();
-  int64_t burstlen = 1;
-  bool hasDynamicBurstlenDim = false;
-  auto updateBurstlen = [&](int64_t dim) {
-    if (ShapedType::isDynamic(dim)) {
-      hasDynamicBurstlenDim = true;
-      burstlen = 1;
-      return;
-    }
-    if (hasDynamicBurstlenDim)
-      return;
-    burstlen *= dim;
-  };
-  if (unstrucDims.empty()) {
-    for (int64_t dim : resultShape)
-      updateBurstlen(dim);
-  } else {
-    int64_t lastUnstrucDim =
-        *std::max_element(unstrucDims.begin(), unstrucDims.end());
-    for (int64_t j = lastUnstrucDim + 1; j < (int64_t)resultShape.size(); j++)
-      updateBurstlen(resultShape[j]);
+  auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
+
+  auto src = adaptor.getSrc();
+  auto offsets = op.getOffsets();
+  auto mask = op.getMask();
+  auto other = op.getOther();
+  auto res = op.getResult();
+  auto resTy = res.getType();
+
+  // convert !tt.ptr<f32> to memref<?xf32>
+  auto srcTy = dyn_cast<MemRefType>(src.getType());
+  if (!srcTy) {
+      return rewriter.notifyMatchFailure(op, "expected MemRefType for src");
   }
   SmallVector<Type> inputTypes({srcTy, offsets.getType()});
   if (mask) inputTypes.push_back(mask.getType());
@@ -3098,72 +3083,36 @@ IndirectStoreConverter::matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAd
                                         ConversionPatternRewriter &rewriter) const
 {
   auto loc = op.getLoc();
-  Value baseMem = adaptor.getBase();
-  Value offsets = op.getIndices();
-  Value value = op.getValue();
-  Value mask = op.getMask();
-  auto unstrucDims = op.getUnstructuredDims();
 
-  auto srcTy = dyn_cast<MemRefType>(baseMem.getType());
-  if (!srcTy)
-    return rewriter.notifyMatchFailure(op, "expected MemRefType for base");
+  auto moduleOp = op->getParentOfType<ModuleOp>();
+  rewriter.setInsertionPoint(moduleOp.getBody(),
+                             std::prev(moduleOp.getBody()->end()));
 
-  // Compute burstlen from trailing structured dimensions.
-  auto valueShape = cast<RankedTensorType>(value.getType()).getShape();
-  int64_t burstlen = 1;
-  bool hasDynamicBurstlenDim = false;
-  auto updateBurstlen = [&](int64_t dim) {
-    if (ShapedType::isDynamic(dim)) {
-      hasDynamicBurstlenDim = true;
-      burstlen = 1;
-      return;
-    }
-    if (hasDynamicBurstlenDim)
-      return;
-    burstlen *= dim;
-  };
-  if (unstrucDims.empty()) {
-    for (int64_t dim : valueShape)
-      updateBurstlen(dim);
-  } else {
-    int64_t lastUnstrucDim =
-        *std::max_element(unstrucDims.begin(), unstrucDims.end());
-    for (int64_t j = lastUnstrucDim + 1; j < (int64_t)valueShape.size(); j++)
-      updateBurstlen(valueShape[j]);
+  auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
+
+  auto src = adaptor.getSrc();
+  auto offsets = op.getOffsets();
+  auto value = op.getValue();
+  auto mask = op.getMask();
+
+  // convert !tt.ptr<f32> to memref<?xf32>
+  auto srcTy = dyn_cast<MemRefType>(src.getType());
+  if (!srcTy) {
+      return rewriter.notifyMatchFailure(op, "expected MemRefType for src");
   }
+  SmallVector<Type> inputTypes({srcTy, offsets.getType(), value.getType()});
+  if (mask) inputTypes.push_back(mask.getType());
 
-  bool isSimdSimtMode = compileModeFlag == ascend::CompileMode::SimdSimt;
+  auto libFnType = rewriter.getFunctionType(inputTypes, {});
+  auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
+  SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
 
-  if (isSimdSimtMode) {
-    auto burstLen = rewriter.create<arith::ConstantIntOp>(loc, burstlen, 32);
-
-    rewriter.create<hfusion::ScatterStoreOp>(
-        loc, TypeRange{}, offsets, value, burstLen, mask, baseMem,
-        hfusion::CacheModifierAttr{}, hfusion::EvictionPolicyAttr{});
-    rewriter.eraseOp(op);
-  } else {
-    auto moduleOp = op->getParentOfType<ModuleOp>();
-    rewriter.setInsertionPoint(moduleOp.getBody(),
-                               std::prev(moduleOp.getBody()->end()));
-    auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
-
-    SmallVector<Type> inputTypes({srcTy, offsets.getType(), value.getType()});
-    if (mask)
-      inputTypes.push_back(mask.getType());
-
-    auto libFnType = rewriter.getFunctionType(inputTypes, {});
-    auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
-    SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
-
-    rewriter.setInsertionPoint(op);
-    SmallVector<Value> inputVals({baseMem, offsets, value});
-    if (mask)
-      inputVals.push_back(mask);
-
-    rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(), TypeRange{},
-                                  inputVals);
-    rewriter.eraseOp(op);
-  }
+  rewriter.setInsertionPoint(op);
+  SmallVector<Value> inputVals({src, offsets, value});
+  if (mask) inputVals.push_back(mask);
+  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
+                                TypeRange({}), inputVals);
+  rewriter.eraseOp(op);
   return success();
 }
 
