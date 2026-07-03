@@ -888,7 +888,7 @@ LogicalResult TritonToLinalgPass::processStridedLoadStoreRewriteOperations(Modul
   patterns.add<StridedLoadStoreRewrite::LoadConverter,
                StridedLoadStoreRewrite::StoreConverter>(patterns.getContext());
 
-  if (failed(applyPatternsAndFoldGreedily(moduleOp, std::move(patterns)))) {
+  if (failed(applyPatternsGreedily(moduleOp, std::move(patterns)))) {
     LLVM_DEBUG({
       llvm::dbgs() << "StridedLoadStoreRewrite: pattern application failed\n";
     });
@@ -1100,7 +1100,7 @@ void TritonToLinalgPass::runOnOperation() {
   RewritePatternSet foldPatterns(&getContext());
   TTOpConverters::populatePostConversionCanonicalizationPatterns(foldPatterns);
 
-  if (failed(applyPatternsAndFoldGreedily(moduleOp,
+  if (failed(applyPatternsGreedily(moduleOp,
                                           std::move(foldPatterns)))) {
     moduleOp->emitError("failed to fold one-hot gather after max_with_index");
     signalPassFailure();
