@@ -2749,6 +2749,12 @@ IndexPutConverter::matchAndRewrite(triton::ascend::IndexPutOp op,
                                    ConversionPatternRewriter &rewriter) const {
   auto loc = op.getLoc();
 
+  auto moduleOp = op->getParentOfType<ModuleOp>();
+  rewriter.setInsertionPoint(moduleOp.getBody(),
+                             std::prev(moduleOp.getBody()->end()));
+
+  auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
+
   auto ptr = adaptor.getPtr();
   auto index = op.getIndex();
   auto value = op.getValue();
@@ -2761,56 +2767,26 @@ IndexPutConverter::matchAndRewrite(triton::ascend::IndexPutOp op,
   // convert !tt.ptr<f32> to memref<?xf32>
   auto ptrTy = dyn_cast<MemRefType>(ptr.getType());
   if (!ptrTy) {
-    return rewriter.notifyMatchFailure(op, "expected MemRefType for ptr");
+      return rewriter.notifyMatchFailure(op, "expected MemRefType for ptr");
   }
+  SmallVector<Type> inputTypes({ptrTy, index.getType(), value.getType(),
+                                dim.getType(), indexBoundary.getType()});
+  inputTypes.append(endOffset.getTypes().begin(), endOffset.getTypes().end());
+  inputTypes.append(startOffset.getTypes().begin(), startOffset.getTypes().end());
+  inputTypes.append(dstStride.getTypes().begin(), dstStride.getTypes().end());
+  auto libFnType = rewriter.getFunctionType(inputTypes, {});
+  auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
+  SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
 
-  bool isSimdSimtMode = (compileModeFlag == ascend::CompileMode::SimdSimt);
-
-  // Check if dim is a compile-time constant (required for static burstlen
-  // derivation). If not, fall back to template path even in simd_simt mode.
-  auto dimDefOp =
-      isSimdSimtMode ? dim.getDefiningOp<arith::ConstantIntOp>() : nullptr;
-  bool emitScatterStore = isSimdSimtMode && dimDefOp;
-
-  if (emitScatterStore) {
-    // simd_simt mode: generate hfusion.scatter_store with derived burstlen.
-    // burstlen = product of value.shape[j] for j > dim (contiguous elements per
-    // scatter).
-    auto valueTensorType = cast<RankedTensorType>(value.getType());
-    auto valueShape = valueTensorType.getShape();
-    int32_t dimVal = static_cast<int32_t>(dimDefOp.value());
-
-    int32_t burstLenVal = 1;
-    for (int i = dimVal + 1; i < static_cast<int>(valueShape.size()); ++i) {
-      if (valueShape[i] != ShapedType::kDynamic)
-        burstLenVal *= valueShape[i];
-    }
-    auto burstLen = rewriter.create<arith::ConstantIntOp>(loc, burstLenVal, 32);
-
-    // Convert row indices to element offsets: elem_offset[i] = index[i] *
-    // burstlen
-    auto idxTensorType = cast<RankedTensorType>(index.getType());
-    auto idxElemType = idxTensorType.getElementType();
-    Value elemOffsets;
-    if (burstLenVal == 1) {
-      elemOffsets = index;
-    } else {
-      auto burstLenSplat = rewriter.create<tensor::SplatOp>(
-          loc,
-          rewriter.create<arith::IndexCastOp>(
-              loc, idxElemType,
-              rewriter.create<arith::ConstantIndexOp>(loc, burstLenVal)),
-          RankedTensorType::get(idxTensorType.getShape(), idxElemType));
-      elemOffsets = rewriter.create<arith::MulIOp>(loc, index, burstLenSplat);
-    }
-
-    // hfusion.scatter_store(base, indices, data, burst_len)
-    SmallVector<Value> operands = {ptr, elemOffsets, value,
-                                   burstLen.getResult()};
-    rewriter.create<hfusion::ScatterStoreOp>(loc, TypeRange{}, operands,
-                                             SmallVector<NamedAttribute>{});
-    rewriter.eraseOp(op);
-    return success();
+  rewriter.setInsertionPoint(op);
+  SmallVector<Value> inputVals({ptr, index, value, dim, indexBoundary});
+  inputVals.append(endOffset.begin(), endOffset.end());
+  inputVals.append(startOffset.begin(), startOffset.end());
+  inputVals.append(dstStride.begin(), dstStride.end());
+  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
+                                TypeRange({}), inputVals);
+  rewriter.eraseOp(op);
+  return success();
   }
 
   // simt_template mode: generate a private func::CallOp to the template library

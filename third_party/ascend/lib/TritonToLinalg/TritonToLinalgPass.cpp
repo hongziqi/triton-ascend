@@ -96,7 +96,6 @@ using namespace triton;
 int nd2nzFlag = 0;
 bool compileOn91095Flag = false;
 bool existDotFlag = false;
-ascend::CompileMode compileModeFlag = ascend::CompileMode::Simd;
 
 // Convert structured custom ops after operand type converted,
 // for example tt.ptr converted to memref.
@@ -930,8 +929,6 @@ LogicalResult TritonToLinalgPass::processLegalStrideOperations(ModuleOp moduleOp
 
 void TritonToLinalgPass::runOnOperation() {
   compileOn91095Flag = this->compileOn91095;
-  compileModeFlag =
-      ascend::resolveCompileMode(this->compileMode, this->forceSimtTemplate);
 
   auto moduleOp = getOperation();
 
@@ -1338,11 +1335,10 @@ void TritonToLinalgPass::runOnOperation() {
 std::unique_ptr<OperationPass<ModuleOp>>
 triton::createTritonToLinalgPass(bool globalKernel, bool namedOps,
                                  bool enableNd2nzOnVector,
-                                 bool enableSelectAnalysis, bool compileOn91095,
-                                 const std::string &compileMode) {
+                                 bool enableSelectAnalysis, bool compileOn91095) {
   return std::make_unique<TritonToLinalgPass>(
       globalKernel, namedOps, enableNd2nzOnVector, enableSelectAnalysis,
-      compileOn91095, compileMode);
+      compileOn91095);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>> triton::createTritonToLinalgPass() {
