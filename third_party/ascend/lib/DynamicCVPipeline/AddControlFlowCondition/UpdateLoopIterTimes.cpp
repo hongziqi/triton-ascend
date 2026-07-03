@@ -672,7 +672,7 @@ Value UpdateLoopIterTimesPass::computeNewLoopUpperBound(
     if (ubType.isIndex()) {
       return builder.create<arith::ConstantIndexOp>(loc, val);
     } else if (auto intType = dyn_cast<IntegerType>(ubType)) {
-      return builder.create<arith::ConstantIntOp>(loc, val, intType);
+      return builder.create<arith::ConstantIntOp>(loc, intType, val);
     } else {
       auto indexVal = builder.create<arith::ConstantIndexOp>(loc, val);
       return builder.create<arith::IndexCastOp>(loc, ubType, indexVal);

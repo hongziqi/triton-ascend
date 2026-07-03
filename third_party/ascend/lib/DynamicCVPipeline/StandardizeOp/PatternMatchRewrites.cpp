@@ -22,12 +22,14 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 #include "ascend/include/DynamicCVPipeline/StandardizeOp/PatternMatchRewrites.h"
+
+#include "DynamicCVPipeline/Common/Utils.h"
 
 using namespace mlir;
 using namespace triton;
@@ -46,7 +48,6 @@ void PatternMatchRewritePass::runOnOperation()
     auto moduleOp = getOperation();
     LOG_DEBUG("Input mlir:\n" << moduleOp);
 
-    
     bool needSplitAll = false;
     moduleOp.walk([&](func::FuncOp funcOp) -> WalkResult {
         if (!llvm::is_contained(needSplitAllFuncNme, funcOp.getSymName())) {
@@ -63,9 +64,8 @@ void PatternMatchRewritePass::runOnOperation()
 
     // the way we handle matmul dependencies across for blocks
     // requres the patternmatching to go top-down
-    GreedyRewriteConfig config = GreedyRewriteConfig();
-    config.useTopDownTraversal = true;
-    if (llvm::failed(applyPatternsAndFoldGreedily(moduleOp, std::move(patterns), config))) {
+    GreedyRewriteConfig config = GreedyRewriteConfig().setUseTopDownTraversal();
+    if (llvm::failed(applyPatternsGreedily(moduleOp, std::move(patterns), config))) {
         LOG_DEBUG("matchAndRewrite does not converge!");
         signalPassFailure();
         return;

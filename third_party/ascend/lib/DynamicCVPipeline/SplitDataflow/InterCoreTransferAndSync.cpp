@@ -301,8 +301,8 @@ void InterCoreTransferAndSyncPass::padMatmulInnerDim(OpBuilder &builder, Operati
 
     builder.setInsertionPoint(matmulOp);
     auto floatElemTy = cast<FloatType>(iniValueType.getElementType());
-    auto zeroConstOp = builder.create<arith::ConstantFloatOp>(
-        loc, APFloat::getZero(floatElemTy.getFloatSemantics()), floatElemTy);
+    auto zeroConstOp =
+        builder.create<arith::ConstantFloatOp>(loc, floatElemTy, APFloat::getZero(floatElemTy.getFloatSemantics()));
     auto tensorEmptyOp = builder.create<tensor::EmptyOp>(loc, paddingShape, iniValueType.getElementType());
     LOG_DEBUG("[padMatmulInnerDim]" << *tensorEmptyOp << "\n");
     auto linalgFillOp = builder.create<linalg::FillOp>(loc, zeroConstOp.getResult(), tensorEmptyOp.getResult());
@@ -338,8 +338,8 @@ void InterCoreTransferAndSyncPass::extractMatmulResult(
     builder.setInsertionPoint(matmulOp);
 
     auto floatElemTy = cast<FloatType>(resType.getElementType());
-    auto zeroConstOp = builder.create<arith::ConstantFloatOp>(
-        loc, APFloat::getZero(floatElemTy.getFloatSemantics()), floatElemTy);
+    auto zeroConstOp =
+        builder.create<arith::ConstantFloatOp>(loc, floatElemTy, APFloat::getZero(floatElemTy.getFloatSemantics()));
     auto tensorEmptyOp = builder.create<tensor::EmptyOp>(loc, expectedShape, resType.getElementType());
     auto linalgFillOp = builder.create<linalg::FillOp>(loc, zeroConstOp.getResult(), tensorEmptyOp.getResult());
 
@@ -373,10 +373,10 @@ void InterCoreTransferAndSyncPass::extractMatmulResult(
         attachCommonTags(extractSliceOp, matmulOpBlockId, "CUBE");
         MLIRContext *ctx = extractSliceOp->getContext();
         extractSliceOp->setAttr(CVPipeline::kMatmulExtract, UnitAttr::get(ctx));
-        originalResult.replaceUsesWithIf(extractSliceOp.getResult(),
-            [&](OpOperand &use) { return use.getOwner() != extractSliceOp.getOperation(); });   
-    
-    
+        originalResult.replaceUsesWithIf(extractSliceOp.getResult(), [&](OpOperand &use) {
+            return use.getOwner() != extractSliceOp.getOperation();
+        });
+
         LOG_DEBUG("cubeValueMapping[originalResult]" << originalResult << "\n");
         LOG_DEBUG("cubeValueMapping[originalResult]extractSliceOp.getResult()   " << extractSliceOp.getResult() << "\n");
         cubeValueMapping[originalResult] = extractSliceOp.getResult();
@@ -428,10 +428,10 @@ mlir::Value InterCoreTransferAndSyncPass::normalizeIfNeeded(OpBuilder &builder, 
     } else {
         builder.setInsertionPointAfter(origValue.getDefiningOp());
     }
-    
+
     auto floatElemTy = cast<FloatType>(elemType);
-    auto zeroConstOp = builder.create<arith::ConstantFloatOp>(
-        loc, APFloat::getZero(floatElemTy.getFloatSemantics()), floatElemTy);
+    auto zeroConstOp =
+        builder.create<arith::ConstantFloatOp>(loc, floatElemTy, APFloat::getZero(floatElemTy.getFloatSemantics()));
     auto tensorEmptyOp = builder.create<tensor::EmptyOp>(loc, expectedShape, elemType);
     auto linalgFillOp = builder.create<linalg::FillOp>(loc, zeroConstOp.getResult(), tensorEmptyOp.getResult());
     SmallVector<OpFoldResult> offsets = { builder.getIndexAttr(0), builder.getIndexAttr(0) };
@@ -493,8 +493,7 @@ void InterCoreTransferAndSyncPass::Nd2NzNormalize(OpBuilder &builder, Dependency
 
     if (iniDepMatmulOp) {
         LOG_DEBUG(*iniDepMatmulOp);
-        if (iniDepMatmulOp->hasAttr(CVPipeline::kMatmulADep) 
-            && iniDepMatmulOp->hasAttr(CVPipeline::kMatmulBDep)) {
+        if (iniDepMatmulOp->hasAttr(CVPipeline::kMatmulADep) && iniDepMatmulOp->hasAttr(CVPipeline::kMatmulBDep)) {
             isOnlyDepInMatmul = false;
         }
     }
@@ -528,7 +527,7 @@ void InterCoreTransferAndSyncPass::Nd2NzNormalize(OpBuilder &builder, Dependency
 
     auto [newProdStart, newProdEnd] = getBlockStartEnd(dep.producerBlockId, module);
     builder.setInsertionPointAfter(newProdEnd);
-    
+
     auto reshape3Dcst = builder.create<arith::ConstantOp>(loc, builder.getI64TensorAttr(shape3D));
     auto reshape3DOp = builder.create<tensor::ReshapeOp>(loc, type3D, newValue, reshape3Dcst);
 
@@ -645,7 +644,7 @@ mlir::Operation *InterCoreTransferAndSyncPass::analyzeConsumerReadInsertPoint(
     module->walk([&](mlir::Operation* op) {
         if (consumerOps.contains(op)) {
             firstFoundOp = op;
-            return mlir::WalkResult::interrupt(); 
+            return mlir::WalkResult::interrupt();
         }
         return mlir::WalkResult::advance();
     });
@@ -935,7 +934,6 @@ void InterCoreTransferAndSyncPass::insertInterCoreSync(
     flagIdReuseManager.insertRelationBetweenSetAndWait(setOpForRead, waitOpForRead);
     flagIdReuseManager.insertRelationBetweenSetAndWait(waitOpForRead, consumedDataOp);
     return;
-    
 }
 
 void InterCoreTransferAndSyncPass::insertMemDepSync(OpBuilder &builder, Operation *producerOp, Operation *consumerOp,
@@ -1181,7 +1179,7 @@ llvm::SmallVector<mlir::Operation *> InterCoreTransferAndSyncPass::insertAnalyze
     mlir::ModuleOp module, FlagIdReuseManager &flagIdReuseManager)
 {
     using OpVector = llvm::SmallVector<mlir::Operation *>;
-    
+
     // E1 (per-pipe FIFO) is isolated per MLIR block: ops on one (core, pipe)
     llvm::DenseMap<Block *, llvm::SmallDenseMap<hivm::TCoreType, llvm::SmallDenseMap<hivm::PIPE, OpVector>>>
         sequenceOpMap;

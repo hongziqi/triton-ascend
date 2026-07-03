@@ -20,11 +20,11 @@
  * THE SOFTWARE.
  */
 
-#include "ascend/include/DynamicCVPipeline/Common/Utils.h"
-#include "ascend/include/DynamicCVPipeline/ComputeBlockOpt/Passes.h"
-#include "ascend/include/DynamicCVPipeline/PlanComputeBlock/Common.h"
-#include "ascend/include/DynamicCVPipeline/PlanComputeBlock/ComputeBlockIdManager.h"
-#include "bishengir/Dialect/HIVM/IR/HIVM.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -40,10 +40,14 @@
 #include "mlir/IR/Value.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Support/LLVM.h"
+
+#include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "ascend/include/DynamicCVPipeline/ComputeBlockOpt/Passes.h"
+#include "ascend/include/DynamicCVPipeline/PlanComputeBlock/Common.h"
+#include "ascend/include/DynamicCVPipeline/PlanComputeBlock/ComputeBlockIdManager.h"
+
+#include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "triton/Analysis/Utility.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "fixpipe-opt"
 #define LOG_DEBUG(msg) LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << msg << "\n")
@@ -563,7 +567,7 @@ void FixpipeOptPass::runOnOperation()
     */
     auto bmOriginal = CVPipeline::ComputeBlockIdManager(module);
     for (auto &matchedOps : allMatchedPatterns) {
-        auto sorted = mlir::multiRootTopologicalSort(matchedOps);
+        auto sorted = mlir::topologicalSort(matchedOps);
         for (Operation *op : llvm::reverse(sorted)) {
             if (op->getNumResults() == 1 && isScalarLike(op->getResult(0))) {
                 // replace op not in matchedOps with cloned op, and keep original op for other pattern.
