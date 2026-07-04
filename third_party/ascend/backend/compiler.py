@@ -894,13 +894,15 @@ def linalg_to_bin_enable_npu_compile_A2_A3(linalg: str, metadata, opt):
 
 
         if opt.debug:
+            _compile_option_list += ["--mlir-print-ir-after-failure"]
+            _compile_option_list += ["--bishengir-print-ir-after=hivm-graph-sync-solver"]
+
+        cmd_list = ([npu_compiler_path, ttadapter_path] + _compile_option_list + ["-o", bin_file])
+        if opt.debug:
             print_cmd_list = cmd_list.copy()
             print_cmd_list[1], print_cmd_list[-1] = _get_dump_paths(metadata["hash"], ttadapter_path, bin_file)
             print(f"[DEBUG] cmd_list: {shlex.join(print_cmd_list)}")
-            _compile_option_list += ["--mlir-print-ir-after-failure"]
-            _compile_option_list += ["--bishengir-print-ir-after=hivm-graph-sync-solver"]
-        cmd_list = ([npu_compiler_path, ttadapter_path] + _compile_option_list + ["-o", bin_file])
-        if opt.debug or os.getenv("TRITON_PRINT_UBTUNING", None) == "1":
+        elif os.getenv("TRITON_PRINT_AUTOTUNING", None) == "1":
             print(f"[DEBUG] cmd_list: {' '.join(cmd_list)}")
 
         try:
