@@ -122,7 +122,7 @@ class NPULauncher(object):
         cst_key = lambda i: self.src.fn.arg_names.index(i) if isinstance(i, str) else i
         constants = {cst_key(key): value for key, value in constants.items()}
         signature = {cst_key(key): value for key, value in self.src.signature.items()}
-        wrapper_src = generate_npu_wrapper_src(constants, signature, self.metadata)
+        wrapper_src = make_launcher(constants, signature, self.metadata)
         return make_npu_launcher_stub(header_src, wrapper_src, self.metadata.debug)
 
     def get_launcher_so_path(self):
@@ -455,7 +455,29 @@ def make_launcher(constants, signature, metadata):
         *args_expand
     """
 
-    format = "iiiKKOOOO" + ''.join([_format_of(_extracted_ty(ty)) for ty in signature.values()])
+    args_format = ''.join([format_of(ty) for ty in signature.values()])
+    format = "iiiKKOOOO" + args_format
+    signature = ','.join(map(_serialize_signature, signature.values()))
+    signature = list(filter(bool, signature.split(',')))
+    signature = {i: s for i, s in enumerate(signature)}
+    args_list = ', ' + ', '.join(f"&_arg{i}" for i, ty in signature.items()) if len(signature) > 0 else ''
+    # Record the end of regular arguments;
+    # subsequent arguments are architecture-specific descriptors.
+    arg_decls = ', '.join(f"{ty_to_cpp(ty)} arg{i}" for i, ty in signature.items() if ty != "constexpr")
+    internal_args_list = []
+    for i, ty in signature.items():
+        if ty[0] == "*":
+            internal_args_list.append(f"ptr_info{i}.dev_ptr")
+        elif ty != "constexpr":
+            internal_args_list.append(f"_arg{i}")
+
+    # generate glue code
+    newline = '\n  '
+    ptr_decls = [
+        f"DevicePtrInfo ptr_info{i} = getPointer(_arg{i}, {i}); if (!ptr_info{i}.valid) return NULL;"
+        for i, ty in signature.items()
+        if ty[0] == "*"
+    ]
     grid_info = {'X': 'i32', 'Y': 'i32', 'Z': 'i32'}
     # TODO: automatically check if gather load ops are used.
 
@@ -481,7 +503,7 @@ def make_launcher(constants, signature, metadata):
     launch_signature_items = [(i, ty) for i, ty in signature.items() if i not in constants]
     launch_arg_count = len(launch_signature_items)
     launch_arg_ptrs = ', '.join(f'static_cast<const void*>(&arg{i})' for i, ty in launch_signature_items)
-    launch_arg_sizes = ', '.join(f'sizeof({_ty_to_cpp(ty)})' for i, ty in launch_signature_items)
+    launch_arg_sizes = ', '.join(f'sizeof({ty_to_cpp(ty)})' for i, ty in launch_signature_items if ty != "constexpr")
 
     npu_utils_inst = NPUUtils()
     npu_utils_mod = getattr(npu_utils_inst, "npu_utils_mod", None)
