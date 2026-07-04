@@ -400,13 +400,13 @@ def custom_semantic(name: str, *args, _semantic=None, **kwargs):
     inputs = _args_to_operands(op, _semantic, args, kwargs)
     builder = getattr(_semantic.builder, '_ascend_builder')
     # Setup attributes.
-    attrs = _make_attrs(op, _builder, is_macro)
-    arg_attrs = _make_arg_attrs(op, _builder)
+    attrs = _make_attrs(op, builder, is_macro)
+    arg_attrs = _make_arg_attrs(op, builder)
     # Build IR for the custom op.
     if is_macro:
-        res = _builder.create_custom_macro_op(name, attrs, inputs, outputs, arg_attrs)
+        res = builder.create_custom_macro_op(name, attrs, inputs, outputs, arg_attrs)
     else:
-        res = _builder.create_custom_op(name, attrs, inputs, outputs, arg_attrs)
+        res = builder.create_custom_op(name, attrs, inputs, outputs, arg_attrs)
     # Results with same types as outputs.
     res_types = [out.type for out in outs]
     return _to_result(res, res_types)
