@@ -1345,8 +1345,8 @@ void BlockDataParser::rewriteAddPtr(
     }
   }
 
-  if (auto intToPtrOp =
-          dyn_cast<triton::IntToPtrOp>(data.getSourceRef().getDefiningOp())) {
+  if (auto intToPtrOp = dyn_cast_or_null<triton::IntToPtrOp>(
+          data.getSourceRef().getDefiningOp())) {
     auto rtype = cast<triton::PointerType>(intToPtrOp.getResult().getType());
     auto memrefType =
         MemRefType::get({ShapedType::kDynamic}, rtype.getPointeeType());
