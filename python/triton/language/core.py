@@ -1889,7 +1889,7 @@ def view(input, *shape, _semantic=None):
     """
     warn("view is deprecated, please use reshape with can_reorder being true.")
     shape = _shape_check_impl(_unwrap_iterable(shape))
-    return _semantic.reshape(input, shape, can_reorder=False)
+    return _semantic.reshape(input, shape, can_reorder=True)
 
 
 @_tensor_member_fn
