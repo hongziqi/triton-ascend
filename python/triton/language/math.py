@@ -105,7 +105,7 @@ def exp(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("exponential (base 2)")
 @core._tensor_member_fn
 def exp2(x, _semantic=None):
@@ -123,7 +123,7 @@ def log(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("logarithm (base 2)")
 @core._tensor_member_fn
 def log2(x, _semantic=None):
@@ -150,7 +150,7 @@ def sin(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("fast square root")
 @core._tensor_member_fn
 def sqrt(x, _semantic=None):
@@ -159,7 +159,7 @@ def sqrt(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32"])
 @_add_math_1arg_docstr("precise square root (rounding to nearest wrt the IEEE standard)")
 @core._tensor_member_fn
 def sqrt_rn(x, _semantic=None):
@@ -168,7 +168,7 @@ def sqrt_rn(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("inverse square root")
 @core._tensor_member_fn
 def rsqrt(x, _semantic=None):
@@ -205,7 +205,7 @@ def fdiv(x, y, ieee_rounding=False, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32"])
 @_add_math_2arg_docstr("precise division (rounding to nearest wrt the IEEE standard)")
 def div_rn(x, y, _semantic=None):
     x = _semantic.to_tensor(x)
@@ -215,7 +215,7 @@ def div_rn(x, y, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("error function")
 @core._tensor_member_fn
 def erf(x, _semantic=None):
@@ -224,7 +224,7 @@ def erf(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("floor")
 @core._tensor_member_fn
 def floor(x, _semantic=None):
@@ -233,15 +233,12 @@ def floor(x, _semantic=None):
 
 
 @core.builtin
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("ceil")
 @core._tensor_member_fn
 def ceil(x, _semantic=None):
     x = _semantic.to_tensor(x)
-    if x.type.scalar.is_int():
-        return x
-    elif x.type.scalar.is_floating():
-        return core.tensor(_semantic.builder.create_ceil(x.handle), x.type)
-    raise ValueError("ceil does not support boolean type")
+    return core.tensor(_semantic.builder.create_ceil(x.handle), x.type)
 
 
 @core.builtin
