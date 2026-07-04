@@ -43,7 +43,7 @@ def _make_metadata():
 @patch.object(driver, "is_ffts_supported", return_value=True)
 @patch.object(driver, "get_ascend_arch_from_env", return_value="Ascend910B")
 @patch.object(driver, "get_backend_func", side_effect=_mock_backend_func)
-def test_generate_npu_wrapper_src_exposes_triton_launch_kernel(
+def test_make_launcher_exposes_triton_launch_kernel(
     _mock_backend_func_patch,
     _mock_arch,
     _mock_ffts,
@@ -54,7 +54,7 @@ def test_generate_npu_wrapper_src_exposes_triton_launch_kernel(
     mock_npu_utils.return_value.get_aivector_core_num.return_value = 40
     mock_npu_utils.return_value.get_aicore_num.return_value = 20
 
-    src = driver.generate_npu_wrapper_src(
+    src = driver.make_launcher(
         constants={},
         signature={0: "*fp32", 1: "*fp32", 2: "i32"},
         metadata=_make_metadata(),
@@ -74,7 +74,7 @@ def test_generate_npu_wrapper_src_exposes_triton_launch_kernel(
 @patch.object(driver, "is_ffts_supported", return_value=True)
 @patch.object(driver, "get_ascend_arch_from_env", return_value="Ascend910B")
 @patch.object(driver, "get_backend_func", side_effect=_mock_backend_func)
-def test_generate_npu_wrapper_src_shrinks_coalesced_grid_for_both_launch_paths(
+def test_make_launcher_shrinks_coalesced_grid_for_both_launch_paths(
     _mock_backend_func_patch,
     _mock_arch,
     _mock_ffts,
@@ -88,7 +88,7 @@ def test_generate_npu_wrapper_src_shrinks_coalesced_grid_for_both_launch_paths(
     metadata.coalesce_factor = 16
     metadata.coalesce_axis = 1
 
-    src = driver.generate_npu_wrapper_src(
+    src = driver.make_launcher(
         constants={},
         signature={0: "*fp32", 1: "*fp32"},
         metadata=metadata,
@@ -100,7 +100,7 @@ def test_generate_npu_wrapper_src_shrinks_coalesced_grid_for_both_launch_paths(
 @patch("importlib.util.module_from_spec")
 @patch("importlib.util.spec_from_file_location")
 @patch.object(driver, "make_npu_launcher_stub", return_value="/tmp/fake_launcher.so")
-@patch.object(driver, "generate_npu_wrapper_src", return_value="// wrapper src")
+@patch.object(driver, "make_launcher", return_value="// wrapper src")
 @patch.object(driver, "generate_npu_header_src", return_value="// header src")
 def test_npu_launcher_exposes_launcher_so_path(
     mock_header_src,
