@@ -70,7 +70,7 @@ class EVENT_ID(enum.Enum):
     EVENT_ID7 = ascend_ir.EVENT.EVENT_ID7
 
 
-def create_sync_block_set(sender, receiver, event_id, sender_pipe: PIPE, receiver_pipe: PIPE, _builder=None):
+def create_sync_block_set(sender, receiver, event_id, sender_pipe: PIPE, receiver_pipe: PIPE, _semantic=None):
     if isinstance(event_id, int):
         _semantic.builder.sync_block_set(sender, receiver,
                                          _semantic.to_tensor(tl.constexpr(event_id)).handle, sender_pipe.value,
