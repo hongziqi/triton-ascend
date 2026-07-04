@@ -1565,6 +1565,7 @@ class TritonSemantic(Generic[TensorTy]):
 
         M = lhs.type.shape[-2]
         N = rhs.type.shape[-1]
+        K = lhs.type.shape[-1]
         B = lhs.type.shape[0] if lhs_rank == 3 else None
         ret_ty = tl.block_type(ret_scalar_ty, [B, M, N] if B else [M, N])
         if acc is None:
@@ -1580,9 +1581,9 @@ class TritonSemantic(Generic[TensorTy]):
             else:
                 max_num_imprecise_acc = 0
         else:
-            if lhs.dtype.is_fp8() and rhs.dtype.is_fp8() and max_num_imprecise_acc > lhs.shape[-1].value:
-                raise ValueError(
-                    f"max_num_imprecise_acc ({max_num_imprecise_acc}) must be <= K ({lhs.shape[-1].value})")
+            if lhs.dtype.is_fp8() and rhs.dtype.is_fp8() and max_num_imprecise_acc > K:
+                raise ValueError(f"max_num_imprecise_acc ({max_num_imprecise_acc}) must be <= K ({K})")
+
         return self.tensor(
             self.builder.create_dot(lhs.handle, rhs.handle, acc_handle, input_precision, max_num_imprecise_acc), ret_ty)
 

@@ -96,7 +96,7 @@ def umulhi(x, y, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("exponential")
 @core._tensor_member_fn
 def exp(x, _semantic=None):
@@ -114,7 +114,7 @@ def exp2(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("natural logarithm")
 @core._tensor_member_fn
 def log(x, _semantic=None):
@@ -132,7 +132,7 @@ def log2(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("cosine")
 @core._tensor_member_fn
 def cos(x, _semantic=None):
@@ -141,7 +141,7 @@ def cos(x, _semantic=None):
 
 
 @core.builtin
-@_check_dtype(dtypes=["bf16", "fp16", "fp32", "fp8e4nv", "fp8e5", "fp64"])
+@_check_dtype(dtypes=["fp32", "fp64"])
 @_add_math_1arg_docstr("sine")
 @core._tensor_member_fn
 def sin(x, _semantic=None):
