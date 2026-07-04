@@ -182,9 +182,9 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
         enable_mask_fallback_conversion = metadata["enable_mask_fallback_conversion"]
         optimize_dynamic_offset = metadata["optimize_dynamic_offset"]
         auto_blockify_size = metadata["auto_blockify_size"]
-        enable_mixed_cv = metadata["enable_mixed_cv"]
-        disable_auto_inject_block_sync = metadata["disable_auto_inject_block_sync"]
-        set_workspace_multibuffer = metadata["set_workspace_multibuffer"]
+        enable_mixed_cv = metadata.get("enable_mixed_cv")
+        disable_auto_inject_block_sync = metadata.get("disable_auto_inject_block_sync")
+        set_workspace_multibuffer = metadata.get("set_workspace_multibuffer")
         if has_auto_blockify_blacklist_op or not auto_map_parallel_blocks_enabled:
             auto_blockify_size = 1
         pm = ir.pass_manager(mod.context)
@@ -229,6 +229,17 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
         _load_val = metadata.get("load_cache_num")
         if _load_val is not None:
             ascend.passes.ttir.set_buffer_count("LOAD", _load_val)
+
+        if opt.debug:
+            # Print the equivalent triton-opt command line so the pass
+            # pipeline can be reproduced and debugged outside of Python.
+            print_src_path, print_dst_path = _get_dump_paths(metadata["hash"], src_path, dst_path)
+            cmd = [
+                _get_triton_opt_path(), print_src_path,
+                f"--pass-pipeline={pm.get_pipeline_str()}",
+                "--mlir-print-debuginfo", "-o", print_dst_path,
+            ]
+            print(f"[DEBUG] cmd list: {shlex.join(cmd)}")
 
         pm.run(mod, 'ttir_to_linalg')
         _adjust_metadata_by_module_result(mod, metadata, opt, enable_mixed_cv=enable_mixed_cv,
