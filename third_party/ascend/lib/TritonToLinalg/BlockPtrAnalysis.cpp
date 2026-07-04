@@ -2295,6 +2295,7 @@ void BlockDataParser::rewriteLoopOp(
       mapping.map(initArg, newInitArg);
     }
   }
+  SmallVector<Value> newResults;
   if (auto forOp = dyn_cast<scf::ForOp>(op.getOperation())) {
     SmallVector<bool> usedForRegionArgs;
     for (auto newInitArg : newInitArgs) {
@@ -2317,7 +2318,7 @@ void BlockDataParser::rewriteLoopOp(
          llvm::zip_equal(op->getResults(), op.getRegionIterArgs(),
                          iterArgIdxMap, maskIterArgs)) {
       if (newIterArgIdx != -1) {
-        rewriter.replaceAllUsesWith(res, *newResultIter);
+        newResults.push_back(*newResultIter);
         ++newResultIter;
       } else {
         auto key = mapping.lookup(regionArg);
@@ -2331,7 +2332,7 @@ void BlockDataParser::rewriteLoopOp(
         auto newRes =
             createFromData(cast<RankedTensorType>(regionArg.getType()), data,
                            op.getLoc(), rewriter, mask);
-        rewriter.replaceAllUsesWith(res, newRes);
+        newResults.push_back(newRes);
       }
     }
   } else if (auto whileOp = dyn_cast<scf::WhileOp>(op.getOperation())) {
@@ -2400,7 +2401,7 @@ void BlockDataParser::rewriteLoopOp(
          llvm::zip_equal(op->getResults(), whileOp.getAfterArguments(),
                          iterArgIdxMapForAfter, maskIterArgsForAfter)) {
       if (newIterArgIdx != -1) {
-        rewriter.replaceAllUsesWith(res, *newResultIter);
+        newResults.push_back(*newResultIter);
         ++newResultIter;
       } else {
         auto key = mapping.lookup(regionArg);
@@ -2414,7 +2415,7 @@ void BlockDataParser::rewriteLoopOp(
         auto newRes =
             createFromData(cast<RankedTensorType>(regionArg.getType()), data,
                            op.getLoc(), rewriter, mask);
-        rewriter.replaceAllUsesWith(res, newRes);
+        newResults.push_back(newRes);
       }
     }
 
@@ -2426,7 +2427,7 @@ void BlockDataParser::rewriteLoopOp(
 
   // Copy all attributes from op to newOp
   newOp->setAttrs(op->getAttrs());
-  rewriter.eraseOp(op);
+  rewriter.replaceOp(op, newResults);
 
   // Update the loop body. Manually invoke the rewrite logic on addptr and yield
   // in the loop body, so we can take advantage of the states we built up
