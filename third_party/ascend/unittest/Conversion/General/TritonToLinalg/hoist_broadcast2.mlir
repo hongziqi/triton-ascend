@@ -142,8 +142,4 @@ module {
 // CHECK: memref.copy
 // CHECK: scf.for
 // CHECK: hivm.hir.store
-<<<<<<< HEAD
 // CHECK: bufferization.materialize_in_destination
-=======
-// CHECK: bufferization.materialize_in_destination
->>>>>>> release-3.2.2-0625-b79d137
