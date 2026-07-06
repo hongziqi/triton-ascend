@@ -396,10 +396,8 @@ LogicalResult triton::runUseAnalysis(triton::FuncOp &funcOp) {
             })
             .Case<triton::ascend::IndirectStoreOp>([&](auto indirectstore) {
               auto src = indirectstore.getSrc();
-              auto offset = indirectstore.getOffsets();
-              auto mask = indirectstore.getMask();
-              if (result == src || result == offset ||
-                  result == mask) {
+              // Only src is MetaUse (see visitOperation). offsets/value/mask are DataUse
+              if (result == src) {
                 metaUsers.insert(user);
               }
             })
