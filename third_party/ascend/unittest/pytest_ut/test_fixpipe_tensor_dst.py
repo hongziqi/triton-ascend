@@ -30,12 +30,12 @@ from triton._C.libtriton import ir
 from triton._C.libtriton.ascend import ir as ascend_ir
 from triton.backends.ascend import _apply_ascend_patch
 
-
 os.environ["TORCH_DEVICE_BACKEND_AUTOLOAD"] = "0"
 DEFAULT_A5_ARCH = "Ascend910_9589"
 HACC_TARGET_ATTR = f'hacc.target = #hacc.target<"{DEFAULT_A5_ARCH}">'
 
 _apply_ascend_patch()
+
 
 def make_options(arch):
 
