@@ -22,21 +22,21 @@
 
 #include "ascend/include/DynamicCVPipeline/AnalyzeDataFlow.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "bishengir/Dialect/HIVM/IR/HIVM.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "bishengir/Dialect/HIVM/IR/HIVM.h"
 
 static constexpr const char *DEBUG_TYPE = "analyze-flag";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...) \
-LLVM_DEBUG({ \
-  DBGS(); \
-  llvm::dbgs() << __VA_ARGS__; \
-  llvm::dbgs() << "\n"; \
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__;                                               \
+    llvm::dbgs() << "\n";                                                      \
+  })
 
 using namespace llvm;
 using namespace mlir;
@@ -47,8 +47,7 @@ namespace {
 
 static constexpr const char *syncFlagIdAttr = "static_flag_id";
 
-static bool checkFlagIdValidity(ModuleOp module)
-{
+static bool checkFlagIdValidity(ModuleOp module) {
   bool shouldReturn = false;
   int invalidFlagNum = 0;
 
@@ -67,17 +66,17 @@ static bool checkFlagIdValidity(ModuleOp module)
 
     return WalkResult::advance();
   });
-  
+
   if (shouldReturn) {
-    LDBG("[warning]: flag_id is not enough for transfer, invalidFlagNum: " << invalidFlagNum << "\n");
+    LDBG("[warning]: flag_id is not enough for transfer, invalidFlagNum: "
+         << invalidFlagNum << "\n");
   }
   return shouldReturn;
 }
 
 } // namespace
 
-void AnalyzeFlagPass::runOnOperation()
-{
+void AnalyzeFlagPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   LDBG("Before AnalyzeFlag:\n" << module << "\n");
@@ -94,8 +93,7 @@ void AnalyzeFlagPass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeFlagPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeFlagPass() {
   return std::make_unique<AnalyzeFlagPass>();
 }
 

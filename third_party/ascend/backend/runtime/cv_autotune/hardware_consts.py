@@ -17,7 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 """
 Hardware constraints for CV autotune.
 
@@ -50,18 +49,18 @@ class HardwareConstraints:
     """
 
     # Default ArchType : A2/A3
-    l0a_size: int = 64 * 1024   # 64 KB - for matrix A
-    l0b_size: int = 64 * 1024   # 64 KB - for matrix B
-    l0c_size: int = 128 * 1024   # 128 KB - for matrix C
+    l0a_size: int = 64 * 1024  # 64 KB - for matrix A
+    l0b_size: int = 64 * 1024  # 64 KB - for matrix B
+    l0c_size: int = 128 * 1024  # 128 KB - for matrix C
 
     # Memory limits (in bytes)
     max_l0_size: int = 128 * 1024  # 128 KB
     max_l1_size: int = 512 * 1024  # 512 KB
     max_l2_size: int = 192 * 1024 * 1024  # 192 MB
-    ub_size: int = 192 * 1024  # 192KB 
+    ub_size: int = 192 * 1024  # 192KB
 
     if target.arch.startswith("Ascend910_95") or target.arch.startswith("Ascend950"):
-        l0c_size: int = 256 * 1024  
+        l0c_size: int = 256 * 1024
         ub_size: int = 248 * 1024
         max_l2_size: int = 128 * 1024 * 1024  # 128 MB
 
@@ -99,10 +98,8 @@ class HardwareConstraints:
         }
 
 
-def get_default_hardware_constraints(
-    device_type: str = "ascend",
-    custom_constraints: Optional[HardwareConstraints] = None
-) -> HardwareConstraints:
+def get_default_hardware_constraints(device_type: str = "ascend",
+                                     custom_constraints: Optional[HardwareConstraints] = None) -> HardwareConstraints:
     """
     Get default hardware constraints for the specified device type.
 

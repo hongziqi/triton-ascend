@@ -32,12 +32,14 @@ def standard_unary(x0, dtype):
     res = torch.log(x0)
     return res
 
+
 @triton.jit
 def triton_elementwise_unary(in_ptr0, out_ptr0, N: tl.constexpr, NUMEL: tl.constexpr):
     idx_block = tl.arange(0, NUMEL)
     x = tl.load(in_ptr0 + idx_block, mask=idx_block < N)
     ret = tl.math.log(x)
     tl.store(out_ptr0 + idx_block, ret, mask=idx_block < N)
+
 
 shapes = [
     (3, 32),
@@ -46,6 +48,7 @@ shapes = [
     (-256, 256),
     (781, 1024),
 ]
+
 
 @pytest.mark.parametrize('dtype,sigtype', [
     (torch.float32, 'float32'),

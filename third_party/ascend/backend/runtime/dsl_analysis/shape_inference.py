@@ -30,23 +30,15 @@ from .symbolic_expr import SymbolicExpr
 
 
 def _is_tl_mix_call(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr in ("dot", "conv")
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl"
+            and node.func.attr in ("dot", "conv"))
 
 
 def _is_tl_transpose_call(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr in ("trans", "transpose")
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl"
+            and node.func.attr in ("trans", "transpose"))
 
 
 def _merge_tensor_name_candidates(*candidates: Optional[str]) -> Optional[str]:
@@ -76,10 +68,7 @@ def _extract_tensor_name_from_expr(expr: ast.AST) -> Optional[str]:
                 # while tensor.xxx(...) methods can use receiver name directly.
                 if expr.func.value.id != "tl":
                     return expr.func.value.id
-            elif not (
-                isinstance(expr.func.value, ast.Name)
-                and expr.func.value.id == "tl"
-            ):
+            elif not (isinstance(expr.func.value, ast.Name) and expr.func.value.id == "tl"):
                 base = _extract_tensor_name_from_expr(expr.func.value)
                 if base is not None:
                     return base
@@ -147,6 +136,7 @@ def _deduplicate_dot_sites(dot_sites: List[DotSiteMNK]) -> List[DotSiteMNK]:
 
 
 class _DotSiteCollector(ast.NodeVisitor):
+
     def __init__(self, tensor_roles):
         self.tensor_roles = tensor_roles
         self.dot_sites = []
@@ -227,16 +217,8 @@ class _DotSiteCollector(ast.NodeVisitor):
 
             m_total = str(lhs_role.total_row_symbol) if lhs_role and lhs_role.total_row_symbol else None
             n_total = str(rhs_role.total_col_symbol) if rhs_role and rhs_role.total_col_symbol else None
-            k_lhs_total = (
-                str(lhs_role.total_col_symbol)
-                if lhs_role and lhs_role.total_col_symbol
-                else None
-            )
-            k_rhs_total = (
-                str(rhs_role.total_row_symbol)
-                if rhs_role and rhs_role.total_row_symbol
-                else None
-            )
+            k_lhs_total = (str(lhs_role.total_col_symbol) if lhs_role and lhs_role.total_col_symbol else None)
+            k_rhs_total = (str(rhs_role.total_row_symbol) if rhs_role and rhs_role.total_row_symbol else None)
             k_total = k_lhs_total
             if k_total is None:
                 k_total = k_rhs_total
@@ -254,8 +236,7 @@ class _DotSiteCollector(ast.NodeVisitor):
                     m_total=m_total,
                     n_total=n_total,
                     k_total=k_total,
-                )
-            )
+                ))
             self._site_id += 1
 
         self.generic_visit(node)
@@ -384,8 +365,7 @@ def infer_dot_sites_mnk_interprocedural(module_ast: ast.AST, entry_function_name
                     m_total=_substitute_symbol(site.m_total, symbol_map),
                     n_total=_substitute_symbol(site.n_total, symbol_map),
                     k_total=_substitute_symbol(site.k_total, symbol_map),
-                )
-            )
+                ))
             next_site_id += 1
 
         for call_site in call_sites_by_caller.get(function_name, []):

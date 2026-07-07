@@ -3,13 +3,13 @@ add_mlir_library(AscendModelAnalysis
   HardwareConfig.cpp
   HIVMAnalysis.cpp
   PipelineAnalysis.cpp
-  
+
   ADDITIONAL_HEADER_DIRS
   ${PROJECT_SOURCE_DIR}/include/AscendModel/Analysis
-  
+
   DEPENDS
   AscendModelOpsIncGen
-  
+
   LINK_LIBS PUBLIC
   AscendModelIR
   MLIRArithDialect

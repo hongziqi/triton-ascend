@@ -47,6 +47,7 @@ def _run_autoparse_and_generate(tuner, all_args):
 
 
 class _FakeTensor:
+
     def __init__(self, dtype):
         self.dtype = dtype
 
@@ -85,8 +86,8 @@ def test_vector_parse_state_resets_persistent_reduction_between_shapes():
     fake_y = _FakeTensor(torch.bfloat16)
 
     with mock.patch(
-        "triton.backends.ascend.runtime.autotuner.get_byte_per_numel",
-        lambda dtype: 2,
+            "triton.backends.ascend.runtime.autotuner.get_byte_per_numel",
+            lambda dtype: 2,
     ):
         small = _run_autoparse_and_generate(
             tuner,
@@ -103,7 +104,4 @@ def test_vector_parse_state_resets_persistent_reduction_between_shapes():
     assert _axis_bases(large["reduction_axes"]) == ["x"]
     assert large["persistent_reduction"] is False
     assert large["gen_configs"]
-    assert any(
-        config.get("BLOCK_SIZE", 0) <= 8192
-        for config in large["gen_configs"]
-    )
+    assert any(config.get("BLOCK_SIZE", 0) <= 8192 for config in large["gen_configs"])

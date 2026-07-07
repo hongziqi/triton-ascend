@@ -112,7 +112,6 @@ uint8_t ArgMaxConverter::getBaseReductionUIntValue() {
 
 } // namespace TTOpConverters
 
-
 namespace {
 struct FoldOneHotGatherAfterReduceWithIndex
     : public OpRewritePattern<linalg::ReduceOp> {
@@ -163,10 +162,12 @@ struct FoldOneHotGatherAfterReduceWithIndex
     if (!reduceWithIndex)
       return failure();
 
-    if (reduceWithIndex.getNumResults() != 2 || reduceWithIndex.getInputs().size() < 2)
+    if (reduceWithIndex.getNumResults() != 2 ||
+        reduceWithIndex.getInputs().size() < 2)
       return failure();
 
-    Value reduceIndexBase = stripShapeAndBroadcast(reduceWithIndex.getInputs()[1]);
+    Value reduceIndexBase =
+        stripShapeAndBroadcast(reduceWithIndex.getInputs()[1]);
     if (arangeBase != reduceIndexBase)
       return failure();
     if (op.getDimensionsAttr() != reduceWithIndex.getDimensionsAttr())
@@ -174,7 +175,8 @@ struct FoldOneHotGatherAfterReduceWithIndex
 
     Value maxInput = reduceWithIndex.getInputs()[0];
     auto selectOp = maxInput.getDefiningOp<arith::SelectOp>();
-    if (selectOp && selectOp.getTrueValue() != logits && selectOp.getFalseValue() != logits)
+    if (selectOp && selectOp.getTrueValue() != logits &&
+        selectOp.getFalseValue() != logits)
       return failure();
     if (!selectOp && maxInput != logits)
       return failure();
@@ -229,6 +231,7 @@ private:
 };
 } // namespace
 
-void TTOpConverters::populatePostConversionCanonicalizationPatterns(RewritePatternSet &patterns) {
+void TTOpConverters::populatePostConversionCanonicalizationPatterns(
+    RewritePatternSet &patterns) {
   patterns.add<FoldOneHotGatherAfterReduceWithIndex>(patterns.getContext());
 }

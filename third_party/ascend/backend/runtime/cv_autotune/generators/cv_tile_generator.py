@@ -17,7 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 """
 CV Tile configuration generator for autotune.
 
@@ -34,10 +33,8 @@ import torch
 
 from triton.runtime.autotuner import Config
 
-from ...dsl_analysis.schema import (AXIS_LENGTH_STATE_TUNABLE,
-                                    CvAxisLengthInfo, CvParseResult)
-from ..hardware_consts import (HardwareConstraints,
-                               get_default_hardware_constraints)
+from ...dsl_analysis.schema import (AXIS_LENGTH_STATE_TUNABLE, CvAxisLengthInfo, CvParseResult)
+from ..hardware_consts import (HardwareConstraints, get_default_hardware_constraints)
 from ..pruning.heuristic_pruner import HeuristicPruner
 
 ParamType = Literal["NUM", "ENUM", "BOOL"]
@@ -104,11 +101,8 @@ class CVTileGenerator:
     _STEP_LARGE = 32
     _STEP_THRESHOLD = 64
 
-    def __init__(self,
-                cv_parse_result: CvParseResult,
-                hardware_constraints: Optional[HardwareConstraints] = None,
-                all_args: Optional[Dict[str, Any]] = None,
-                dtype: Optional[torch.dtype] = None):
+    def __init__(self, cv_parse_result: CvParseResult, hardware_constraints: Optional[HardwareConstraints] = None,
+                 all_args: Optional[Dict[str, Any]] = None, dtype: Optional[torch.dtype] = None):
         """
         Initialize the generator.
 
@@ -283,13 +277,9 @@ class CVTileGenerator:
             for param_name, max_val in param_max_values.items():
                 role = param_roles[param_name]
                 if role == "K":
-                    param_space[param_name] = self._make_param(
-                        param_name, max_val, self._K_MIN, self._K_STRIDE
-                    )
+                    param_space[param_name] = self._make_param(param_name, max_val, self._K_MIN, self._K_STRIDE)
                 else:
-                    param_space[param_name] = self._make_param(
-                        param_name, max_val, self._MN_MIN, self._MN_STRIDE
-                    )
+                    param_space[param_name] = self._make_param(param_name, max_val, self._MN_MIN, self._MN_STRIDE)
 
         # Strategy 2: if dot-site extraction produced nothing, fall back to
         # tunable_params.
@@ -304,8 +294,7 @@ class CVTileGenerator:
                     param_space[name] = self._make_param(name, self._K_DEFAULT_MAX, self._K_MIN, self._K_STRIDE)
                 else:
                     param_space[name] = self._make_param(name, self._MN_DEFAULT_MAX, self._MN_MIN, self._MN_STRIDE)
-            
-            
+
         if not param_space:
             return {}
 
@@ -322,9 +311,12 @@ class CVTileGenerator:
     def _get_default_param_space(self) -> Dict[str, ParamSpace]:
         """Return the default parameter search space."""
         return {
-            'BLOCK_M': ParamSpace(name='BLOCK_M', type='NUM', min=self._MN_MIN, max=self._MN_DEFAULT_MAX, stride=self._MN_STRIDE),
-            'BLOCK_N': ParamSpace(name='BLOCK_N', type='NUM', min=self._MN_MIN, max=self._MN_DEFAULT_MAX, stride=self._MN_STRIDE),
-            'BLOCK_K': ParamSpace(name='BLOCK_K', type='NUM', min=self._K_MIN, max=self._K_DEFAULT_MAX, stride=self._K_STRIDE),
+            'BLOCK_M':
+            ParamSpace(name='BLOCK_M', type='NUM', min=self._MN_MIN, max=self._MN_DEFAULT_MAX, stride=self._MN_STRIDE),
+            'BLOCK_N':
+            ParamSpace(name='BLOCK_N', type='NUM', min=self._MN_MIN, max=self._MN_DEFAULT_MAX, stride=self._MN_STRIDE),
+            'BLOCK_K':
+            ParamSpace(name='BLOCK_K', type='NUM', min=self._K_MIN, max=self._K_DEFAULT_MAX, stride=self._K_STRIDE),
         }
 
     def _is_memory_limit_exceeded(self, reason: str) -> bool:

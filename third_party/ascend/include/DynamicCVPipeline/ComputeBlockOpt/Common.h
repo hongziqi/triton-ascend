@@ -32,12 +32,14 @@ namespace mlir {
 namespace CVPipeline {
 
 /**
- * @brief Detect if unifying a list of operations to target block_id would create a cycle
+ * @brief Detect if unifying a list of operations to target block_id would
+ * create a cycle
  *
- * This helper temporarily assigns every op in @p opsToUnify to @p targetBlockId,
- * walks the SSA + memory dependency edges, and reports whether the resulting
- * block-level dependency graph would contain a cycle. The temporary block_id
- * assignments are always rolled back before returning, so the function leaves
+ * This helper temporarily assigns every op in @p opsToUnify to @p
+ * targetBlockId, walks the SSA + memory dependency edges, and reports whether
+ * the resulting block-level dependency graph would contain a cycle. The
+ * temporary block_id assignments are always rolled back before returning, so
+ * the function leaves
  * @p bm in its original state regardless of the result.
  *
  * Shared by the ComputeBlockOpt passes (e.g. UnifyAllocBlockPass and
@@ -47,7 +49,8 @@ namespace CVPipeline {
  * @param memGraph Memory dependence graph for RAW/WAW/WAR dependency analysis
  * @param targetBlockId Target block_id after unification
  * @param bm Block-id manager used to query/temporarily mutate block ids
- * @return bool Returns true if unification would create a cycle, false otherwise
+ * @return bool Returns true if unification would create a cycle, false
+ * otherwise
  */
 bool willCreateCycle(llvm::ArrayRef<Operation *> opsToUnify,
                      const MemoryDependenceGraph &memGraph, int targetBlockId,

@@ -5,7 +5,6 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
-
 SPLIT_AXIS_FALLBACK_SIZE = 4096
 DEFAULT_AXIS_FALLBACK_SIZE = 512
 
@@ -131,11 +130,7 @@ class VectorAxes:
 
     @property
     def axis_pid_dims(self) -> Dict[str, int]:
-        return {
-            axis.name: axis.pid_dim
-            for axis in self.axes.values()
-            if isinstance(axis.pid_dim, int)
-        }
+        return {axis.name: axis.pid_dim for axis in self.axes.values() if isinstance(axis.pid_dim, int)}
 
     @property
     def axis_length_exprs(self) -> Dict[str, str]:
@@ -158,21 +153,12 @@ class VectorAxes:
         return {
             axis.name: axis.dynamic_source
             for axis in self.axes.values()
-            if (
-                isinstance(axis.dynamic_source, str)
-                and axis.dynamic_source
-                and axis.dynamic_source != "none"
-            )
+            if (isinstance(axis.dynamic_source, str) and axis.dynamic_source and axis.dynamic_source != "none")
         }
 
     @staticmethod
     def _should_materialize_axis(axis: VectorAxis) -> bool:
-        return bool(
-            axis.split_param
-            or axis.tiling_param
-            or axis.length_expr
-            or axis.fixed_tiling_expr
-        )
+        return bool(axis.split_param or axis.tiling_param or axis.length_expr or axis.fixed_tiling_expr)
 
     @staticmethod
     def _record_axis_property(store: List[str], axis_name: str) -> None:

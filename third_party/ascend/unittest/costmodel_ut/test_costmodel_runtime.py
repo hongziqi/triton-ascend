@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 
 class DummyCacheManager:
+
     def __init__(self):
         self.storage = {}
 
@@ -23,6 +24,7 @@ class DummyCacheManager:
 
 
 class CostmodelRuntimeTest(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         # Stub triton runtime cache before importing module under test.
@@ -61,9 +63,8 @@ class CostmodelRuntimeTest(unittest.TestCase):
         with patch.dict("os.environ", {"TRITON_COSTMODEL_WORKER_NUM": "2"}, clear=False):
             self.assertEqual(self.cm.get_costmodel_jobs(8), 2)
 
-        with patch.dict("os.environ", {"TRITON_COSTMODEL_WORKER_NUM": "bad"}, clear=False), patch.object(
-            self.cm.os, "cpu_count", return_value=6
-        ):
+        with patch.dict("os.environ", {"TRITON_COSTMODEL_WORKER_NUM": "bad"},
+                        clear=False), patch.object(self.cm.os, "cpu_count", return_value=6):
             self.assertEqual(self.cm.get_costmodel_jobs(3), 3)
             self.assertEqual(self.cm.get_costmodel_jobs(0), 1)
 
@@ -123,6 +124,7 @@ class CostmodelRuntimeTest(unittest.TestCase):
         calls = []
 
         class AscendCapi:
+
             @staticmethod
             def run_costmodel_inproc(mlir_text, args):
                 calls.append((mlir_text, tuple(args)))
@@ -146,7 +148,9 @@ class CostmodelRuntimeTest(unittest.TestCase):
         self.assertIn("-allow-unregistered-dialect", calls[0][1])
 
     def test_run_costmodel_exception_paths(self):
+
         class GenericFailingCapi:
+
             @staticmethod
             def run_costmodel_inproc(_mlir_text, _args):
                 raise RuntimeError("failed to parse input MLIR module")
@@ -199,11 +203,13 @@ class CostmodelRuntimeTest(unittest.TestCase):
                 return "Estimated Time: 9.9 us"
             return None
 
-        with patch.object(self.cm, "load_costmodel_latency", lambda _k: None), patch.object(
-            self.cm, "store_costmodel_latency", lambda *_args, **_kwargs: None
-        ), patch.object(self.cm, "run_costmodel", fake_run), patch.dict(
-            "os.environ", {"TRITON_COSTMODEL_WORKER_NUM": "1"}, clear=False
-        ):
+        with patch.object(self.cm, "load_costmodel_latency",
+                          lambda _k: None), patch.object(self.cm, "store_costmodel_latency",
+                                                         lambda *_args, **_kwargs: None), patch.object(
+                                                             self.cm, "run_costmodel",
+                                                             fake_run), patch.dict("os.environ",
+                                                                                   {"TRITON_COSTMODEL_WORKER_NUM": "1"},
+                                                                                   clear=False):
             self.cm._evaluate_pending_items(pending, lat)
 
         self.assertAlmostEqual(lat[cfg1], 9.9)
@@ -228,9 +234,8 @@ class CostmodelRuntimeTest(unittest.TestCase):
                 return cfg1, 0.5
             raise RuntimeError("bad worker")
 
-        with patch.object(self.cm, "_eval_one_costmodel_item", fake_eval), patch.dict(
-            "os.environ", {"TRITON_COSTMODEL_WORKER_NUM": "2"}, clear=False
-        ):
+        with patch.object(self.cm, "_eval_one_costmodel_item",
+                          fake_eval), patch.dict("os.environ", {"TRITON_COSTMODEL_WORKER_NUM": "2"}, clear=False):
             self.cm._evaluate_pending_items(pending, out)
 
         self.assertAlmostEqual(out[cfg1], 0.5)
@@ -240,6 +245,7 @@ class CostmodelRuntimeTest(unittest.TestCase):
         self.assertEqual(self.cm.costmodel_bench([]), {})
 
         class BadIter:
+
             def __iter__(self):
                 raise RuntimeError("bad")
 
@@ -248,7 +254,9 @@ class CostmodelRuntimeTest(unittest.TestCase):
         cfg1, cfg2 = object(), object()
         items = [{"config": cfg1, "ttir": "t1"}, {"config": cfg2, "ttir": ""}]
 
-        with patch.object(self.cm, "_normalize_costmodel_items", lambda _x: ([(cfg1, "t1", "", "")], {cfg2: float("inf")})):
+        with patch.object(self.cm, "_normalize_costmodel_items", lambda _x:
+                          ([(cfg1, "t1", "", "")], {cfg2: float("inf")})):
+
             def fake_eval(_pending, out):
                 out[cfg1] = 0.88
 

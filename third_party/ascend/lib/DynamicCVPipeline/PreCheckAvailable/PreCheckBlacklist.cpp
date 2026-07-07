@@ -39,50 +39,50 @@ static const llvm::SmallVector<llvm::StringRef> kBlacklistOpNames = {
 
 static constexpr const char *DEBUG_TYPE = "pre-check-blacklist";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...)\
-  LLVM_DEBUG({\
-    DBGS();\
-    llvm::dbgs() << __VA_ARGS__ << "\n";\
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__ << "\n";                                       \
+  })
 
-void PreCheckBlacklistPass::getDependentDialects(DialectRegistry &registry) const
-{
-    registry.insert<scope::ScopeDialect>();
+void PreCheckBlacklistPass::getDependentDialects(
+    DialectRegistry &registry) const {
+  registry.insert<scope::ScopeDialect>();
 }
 
-void PreCheckBlacklistPass::runOnOperation()
-{
-    ModuleOp module = getOperation();
-    Operation *foundBlacklistOp = nullptr;
-    llvm::StringRef foundOpName;
+void PreCheckBlacklistPass::runOnOperation() {
+  ModuleOp module = getOperation();
+  Operation *foundBlacklistOp = nullptr;
+  llvm::StringRef foundOpName;
 
-    // Check for all blacklist operations
-    module.walk([&](Operation *op) -> WalkResult {
-        llvm::StringRef opName = op->getName().getStringRef();
-        if (llvm::is_contained(kBlacklistOpNames, opName)) {
-            foundBlacklistOp = op;
-            foundOpName = opName;
-            return WalkResult::interrupt();
-        }
-        return WalkResult::advance();
-    });
-
-    if (!foundBlacklistOp) {
-        LDBG("No blacklist operations found, passed.");
-        return;
+  // Check for all blacklist operations
+  module.walk([&](Operation *op) -> WalkResult {
+    llvm::StringRef opName = op->getName().getStringRef();
+    if (llvm::is_contained(kBlacklistOpNames, opName)) {
+      foundBlacklistOp = op;
+      foundOpName = opName;
+      return WalkResult::interrupt();
     }
+    return WalkResult::advance();
+  });
 
-    LDBG("SSBUFFER will be skipped because " << foundOpName
-        << " operation was found, which indicates that it has been optimized for the Ascend.");
-    signalPassFailure();
+  if (!foundBlacklistOp) {
+    LDBG("No blacklist operations found, passed.");
+    return;
+  }
+
+  LDBG("SSBUFFER will be skipped because "
+       << foundOpName
+       << " operation was found, which indicates that it has been optimized "
+          "for the Ascend.");
+  signalPassFailure();
 }
 
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createPreCheckBlacklistPass()
-{
-    return std::make_unique<PreCheckBlacklistPass>();
+std::unique_ptr<OperationPass<ModuleOp>> createPreCheckBlacklistPass() {
+  return std::make_unique<PreCheckBlacklistPass>();
 }
 
 } // namespace triton

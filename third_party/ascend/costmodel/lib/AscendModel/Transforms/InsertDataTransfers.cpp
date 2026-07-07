@@ -6,7 +6,8 @@
 // Data flow model (910B architecture):
 //
 //   Vector path:  HBM ──MTE2──▶ UB ──▶ Vector ──▶ UB ──MTE3──▶ HBM
-//   Cube path:    HBM ──MTE2──▶ L1 ──MTE1──▶ L0A/L0B ──▶ Cube ──▶ L0C ──FixPipe──▶ HBM
+//   Cube path:    HBM ──MTE2──▶ L1 ──MTE1──▶ L0A/L0B ──▶ Cube ──▶ L0C
+//   ──FixPipe──▶ HBM
 //
 // When Vector result is used by Cube (e.g., arith.mulf -> tt.dot):
 //   Insert: vector_store (MTE3: UB → HBM) + cube_load (MTE2: HBM → L1)
@@ -44,9 +45,9 @@ using utils::getByteSize;
 //===----------------------------------------------------------------------===//
 
 enum class ComputePath {
-  Cube,    // Matrix operations: matmul
-  Vector,  // SIMD operations: elementwise, reduce, etc.
-  Memory,  // Memory operations: load/store
+  Cube,   // Matrix operations: matmul
+  Vector, // SIMD operations: elementwise, reduce, etc.
+  Memory, // Memory operations: load/store
   Unknown
 };
 
@@ -55,19 +56,17 @@ static ComputePath getComputePath(Operation *op) {
   // Cube operations
   if (isa<MatmulOp>(op))
     return ComputePath::Cube;
-  
+
   // Vector operations
-  if (isa<AddOp, SubOp, MulOp, DivOp, MaxOp, MinOp,
-          ExpOp, LogOp, SqrtOp, RsqrtOp, TanhOp, SigmoidOp,
-          NegOp, AbsOp, ReluOp, CastOp,
-          ReduceSumOp, ReduceMaxOp, ReduceMinOp, ReduceProdOp,
-          BroadcastOp, SelectOp>(op))
+  if (isa<AddOp, SubOp, MulOp, DivOp, MaxOp, MinOp, ExpOp, LogOp, SqrtOp,
+          RsqrtOp, TanhOp, SigmoidOp, NegOp, AbsOp, ReluOp, CastOp, ReduceSumOp,
+          ReduceMaxOp, ReduceMinOp, ReduceProdOp, BroadcastOp, SelectOp>(op))
     return ComputePath::Vector;
-  
+
   // Memory operations
   if (isa<VectorLoadOp, VectorStoreOp, CubeLoadOp, CubeStoreOp>(op))
     return ComputePath::Memory;
-  
+
   // Arith/Math tensor ops are Vector (before conversion)
   StringRef dialect = op->getDialect()->getNamespace();
   if (dialect == "arith" || dialect == "math") {
@@ -77,7 +76,7 @@ static ComputePath getComputePath(Operation *op) {
         return ComputePath::Vector;
     }
   }
-  
+
   return ComputePath::Unknown;
 }
 
@@ -91,53 +90,49 @@ struct InsertDataTransfersPass
 
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    
+
     // Track which values have been transferred to avoid duplicates
-    llvm::DenseMap<Value, Value> vectorToHBM;  // Value in UB -> Value in HBM
-    llvm::DenseMap<Value, Value> hbmToL1;      // Value in HBM -> Value in L1
-    
+    llvm::DenseMap<Value, Value> vectorToHBM; // Value in UB -> Value in HBM
+    llvm::DenseMap<Value, Value> hbmToL1;     // Value in HBM -> Value in L1
+
     // Collect all MatmulOps first (to avoid iterator invalidation)
     SmallVector<MatmulOp> matmulOps;
-    module.walk([&](MatmulOp op) {
-      matmulOps.push_back(op);
-    });
-    
+    module.walk([&](MatmulOp op) { matmulOps.push_back(op); });
+
     // Process each MatmulOp
     for (MatmulOp matmulOp : matmulOps) {
       OpBuilder builder(matmulOp);
       Location loc = matmulOp.getLoc();
-      
+
       // Null attrs for optional parameters
       ::mlir::IntegerAttr nullAttr;
-      
+
       // === Step 1: Handle inputs to Cube ===
       // MatmulOp has lhs and rhs operands
-      SmallVector<Value, 2> operands = {
-        matmulOp.getLhs(), matmulOp.getRhs()
-      };
-      
+      SmallVector<Value, 2> operands = {matmulOp.getLhs(), matmulOp.getRhs()};
+
       for (unsigned i = 0; i < operands.size(); ++i) {
         Value operand = operands[i];
         Operation *defOp = operand.getDefiningOp();
-        
+
         // Skip if no defining op (block argument)
         if (!defOp)
           continue;
-        
+
         // Skip if already a memory load
         if (isa<CubeLoadOp, VectorLoadOp>(defOp))
           continue;
-        
+
         ComputePath path = getComputePath(defOp);
-        
+
         // If operand comes from Vector path, insert transfers
         if (path == ComputePath::Vector) {
           auto tensorType = dyn_cast<RankedTensorType>(operand.getType());
           if (!tensorType)
             continue;
-          
+
           uint64_t bytes = static_cast<uint64_t>(getByteSize(tensorType));
-          
+
           // Check if we already transferred this value
           Value hbmValue;
           auto it = vectorToHBM.find(operand);
@@ -146,11 +141,12 @@ struct InsertDataTransfersPass
           } else {
             // Insert vector_store: UB → HBM (MTE3)
             // VectorStoreOp: (data, bytes, estimated_cycles, op_id)
-            builder.create<VectorStoreOp>(loc, operand, bytes, nullAttr, nullAttr);
-            hbmValue = operand;  // After store, conceptually in HBM
+            builder.create<VectorStoreOp>(loc, operand, bytes, nullAttr,
+                                          nullAttr);
+            hbmValue = operand; // After store, conceptually in HBM
             vectorToHBM[operand] = hbmValue;
           }
-          
+
           // Check if we already loaded to L1
           Value l1Value;
           auto it2 = hbmToL1.find(hbmValue);
@@ -164,22 +160,22 @@ struct InsertDataTransfersPass
             l1Value = cubeLoad.getResult();
             hbmToL1[hbmValue] = l1Value;
           }
-          
+
           // Replace operand in matmul
           matmulOp->setOperand(i, l1Value);
         }
       }
-      
+
       // === Step 2: Handle output from Cube ===
       // Check if any user is a Vector operation
-      
+
       Value matmulResult = matmulOp.getResult();
       auto resultType = dyn_cast<RankedTensorType>(matmulResult.getType());
       if (!resultType)
         continue;
-      
+
       // Collect Vector users
-      SmallVector<OpOperand*> vectorUsers;
+      SmallVector<OpOperand *> vectorUsers;
       for (OpOperand &use : matmulResult.getUses()) {
         Operation *user = use.getOwner();
         ComputePath userPath = getComputePath(user);
@@ -187,24 +183,24 @@ struct InsertDataTransfersPass
           vectorUsers.push_back(&use);
         }
       }
-      
+
       if (vectorUsers.empty())
         continue;
-      
+
       // Insert after matmul
       builder.setInsertionPointAfter(matmulOp);
-      
+
       uint64_t bytes = static_cast<uint64_t>(getByteSize(resultType));
-      
+
       // Insert cube_store: L0C → HBM (FixPipe)
       // CubeStoreOp: (data, bytes, estimated_cycles, op_id)
       builder.create<CubeStoreOp>(loc, matmulResult, bytes, nullAttr, nullAttr);
-      
+
       // Insert vector_load: HBM → UB (MTE2)
       // VectorLoadOp: (result_type, source, bytes, estimated_cycles, op_id)
       auto vectorLoad = builder.create<VectorLoadOp>(
           loc, resultType, matmulResult, bytes, nullAttr, nullAttr);
-      
+
       // Replace uses in Vector operations
       for (OpOperand *use : vectorUsers) {
         use->set(vectorLoad.getResult());

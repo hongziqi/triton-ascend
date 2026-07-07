@@ -39,14 +39,15 @@
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "bishengir/Dialect/Scope/IR/Scope.h"
 
-static constexpr const char *DEBUG_TYPE = "analyze-cube-control-flow-input-chain";
+static constexpr const char *DEBUG_TYPE =
+    "analyze-cube-control-flow-input-chain";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...) \
-LLVM_DEBUG({ \
-  DBGS(); \
-  llvm::dbgs() << __VA_ARGS__; \
-  llvm::dbgs() << "\n"; \
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__;                                               \
+    llvm::dbgs() << "\n";                                                      \
+  })
 
 using namespace llvm;
 using namespace mlir;
@@ -55,124 +56,127 @@ using namespace CVPipeline;
 
 namespace {
 
-static bool isCubeScope(scope::ScopeOp scopeOp)
-{
-    auto coreTypeAttr = scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(hivm::TCoreTypeAttr::name);
-    if (!coreTypeAttr) {
-        return false;
+static bool isCubeScope(scope::ScopeOp scopeOp) {
+  auto coreTypeAttr =
+      scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(hivm::TCoreTypeAttr::name);
+  if (!coreTypeAttr) {
+    return false;
+  }
+  return coreTypeAttr.getTcoretype() == hivm::TCoreType::CUBE;
+}
+
+static bool isControlFlowOp(Operation *op) {
+  return llvm::isa<scf::SCFDialect>(op->getDialect());
+}
+
+static bool hasIncompatibleOpForCondition(Value val,
+                                          llvm::DenseSet<Value> &visited);
+
+static inline bool hasIncompatibleUpstream(ValueRange operands,
+                                           llvm::DenseSet<Value> &visited) {
+  return llvm::any_of(operands, [&](Value operand) {
+    return hasIncompatibleOpForCondition(operand, visited);
+  });
+}
+
+static bool hasIncompatibleOpForCondition(Value val,
+                                          llvm::DenseSet<Value> &visited) {
+  if (visited.contains(val)) {
+    return false;
+  }
+  visited.insert(val);
+
+  Operation *defOp = val.getDefiningOp();
+  if (!defOp) {
+    return false;
+  }
+  if (isVectorOnlyOp(defOp)) {
+    LDBG("Fallback reason: incompatible upstream op for control flow: "
+         << *defOp);
+    return true;
+  }
+  return hasIncompatibleUpstream(defOp->getOperands(), visited);
+}
+
+static bool checkControlFlowOpInputs(Operation *cfOp) {
+  llvm::SmallVector<Value> scalarOperands;
+  llvm::TypeSwitch<Operation *>(cfOp)
+      .Case([&](scf::IfOp ifOp) {
+        scalarOperands.push_back(ifOp.getCondition());
+      })
+      .Case([&](scf::ForOp forOp) {
+        scalarOperands.append(
+            {forOp.getLowerBound(), forOp.getUpperBound(), forOp.getStep()});
+      })
+      .Case([&](scf::WhileOp whileOp) {
+        // while op is very complicated, all loop-carried vars may influence
+        // conditions, conservatively take all args
+        auto operands = whileOp->getOperands();
+        scalarOperands.append(operands.begin(), operands.end());
+      })
+      .Default([&](Operation *op) {
+        // user passed in unknown op, conservatively take all operands
+        auto operands = op->getOperands();
+        scalarOperands.append(operands.begin(), operands.end());
+      });
+
+  llvm::DenseSet<Value> visited;
+  return hasIncompatibleUpstream(scalarOperands, visited);
+}
+
+bool checkCubeControlFlowInputChain(ModuleOp module) {
+  bool shouldReturn = false;
+
+  module.walk([&](scope::ScopeOp scopeOp) -> WalkResult {
+    if (!isCubeScope(scopeOp)) {
+      return WalkResult::advance();
     }
-    return coreTypeAttr.getTcoretype() == hivm::TCoreType::CUBE;
-}
+    LDBG("Found CUBE scope");
 
-static bool isControlFlowOp(Operation *op)
-{
-    return llvm::isa<scf::SCFDialect>(op->getDialect());
-}
-
-static bool hasIncompatibleOpForCondition(Value val, llvm::DenseSet<Value> &visited);
-
-static inline bool hasIncompatibleUpstream(ValueRange operands, llvm::DenseSet<Value> &visited)
-{
-    return llvm::any_of(operands, [&](Value operand) { return hasIncompatibleOpForCondition(operand, visited); });
-}
-
-static bool hasIncompatibleOpForCondition(Value val, llvm::DenseSet<Value> &visited)
-{
-    if (visited.contains(val)) {
-        return false;
-    }
-    visited.insert(val);
-
-    Operation *defOp = val.getDefiningOp();
-    if (!defOp) {
-        return false;
-    }
-    if (isVectorOnlyOp(defOp)) {
-        LDBG("Fallback reason: incompatible upstream op for control flow: " << *defOp);
-        return true;
-    }
-    return hasIncompatibleUpstream(defOp->getOperands(), visited);
-}
-
-static bool checkControlFlowOpInputs(Operation *cfOp)
-{
-    llvm::SmallVector<Value> scalarOperands;
-    llvm::TypeSwitch<Operation *>(cfOp)
-        .Case([&](scf::IfOp ifOp) { scalarOperands.push_back(ifOp.getCondition()); })
-        .Case([&](scf::ForOp forOp) {
-            scalarOperands.append({forOp.getLowerBound(), forOp.getUpperBound(), forOp.getStep()});
-        })
-        .Case([&](scf::WhileOp whileOp) {
-            // while op is very complicated, all loop-carried vars may influence conditions, conservatively take all
-            // args
-            auto operands = whileOp->getOperands();
-            scalarOperands.append(operands.begin(), operands.end());
-        })
-        .Default([&](Operation *op) {
-            // user passed in unknown op, conservatively take all operands
-            auto operands = op->getOperands();
-            scalarOperands.append(operands.begin(), operands.end());
-        });
-
-    llvm::DenseSet<Value> visited;
-    return hasIncompatibleUpstream(scalarOperands, visited);
-}
-
-bool checkCubeControlFlowInputChain(ModuleOp module)
-{
-    bool shouldReturn = false;
-
-    module.walk([&](scope::ScopeOp scopeOp) -> WalkResult {
-        if (!isCubeScope(scopeOp)) {
-            return WalkResult::advance();
-        }
-        LDBG("Found CUBE scope");
-
-        scopeOp.walk([&](Operation *op) -> WalkResult {
-            if (!isControlFlowOp(op)) {
-                return WalkResult::advance();
-            }
-            LDBG("Found control flow op in CUBE scope");
-
-            if (checkControlFlowOpInputs(op)) {
-                shouldReturn = true;
-                return WalkResult::interrupt();
-            }
-            return WalkResult::advance();
-        });
-
-        if (shouldReturn) {
-            return WalkResult::interrupt();
-        }
-
+    scopeOp.walk([&](Operation *op) -> WalkResult {
+      if (!isControlFlowOp(op)) {
         return WalkResult::advance();
+      }
+      LDBG("Found control flow op in CUBE scope");
+
+      if (checkControlFlowOpInputs(op)) {
+        shouldReturn = true;
+        return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
     });
 
-    return shouldReturn;
+    if (shouldReturn) {
+      return WalkResult::interrupt();
+    }
+
+    return WalkResult::advance();
+  });
+
+  return shouldReturn;
 }
 
 } // namespace
 
-void AnalyzeCubeControlFlowInputChainPass::runOnOperation()
-{
-    ModuleOp module = getOperation();
+void AnalyzeCubeControlFlowInputChainPass::runOnOperation() {
+  ModuleOp module = getOperation();
 
-    LDBG("Enter AnalyzeCubeControlFlowInputChainPass.");
+  LDBG("Enter AnalyzeCubeControlFlowInputChainPass.");
 
-    if (checkCubeControlFlowInputChain(module)) {
-        setFallbackAttr(module);
-        signalPassFailure();
-        return;
-    }
+  if (checkCubeControlFlowInputChain(module)) {
+    setFallbackAttr(module);
+    signalPassFailure();
+    return;
+  }
 
-    LDBG("Exit AnalyzeCubeControlFlowInputChainPass.");
+  LDBG("Exit AnalyzeCubeControlFlowInputChainPass.");
 }
 
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeCubeContolFLowInputChainPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>>
+createAnalyzeCubeContolFLowInputChainPass() {
   return std::make_unique<AnalyzeCubeControlFlowInputChainPass>();
 }
 

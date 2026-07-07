@@ -24,7 +24,7 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
     %cst_0 = arith.constant {ssbuffer.block_id = 15 : i32} 0.000000e+00 : f16
     %cst_1 = arith.constant {ssbuffer.block_id = 13 : i32} dense<[4, 4, 16, 16]> : tensor<4xi64>
     %cst_2 = arith.constant {ssbuffer.block_id = 13 : i32} dense<[64, 4, 16]> : tensor<3xi64>
-    
+
     // CHECK:       %[[PTR0:.*]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<11>
     // CHECK:       %[[PTR1:.*]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<11>
     // CHECK:       %[[PTR2:.*]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<11>

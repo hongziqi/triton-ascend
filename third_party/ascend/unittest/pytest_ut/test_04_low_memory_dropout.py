@@ -19,7 +19,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 """
 Low-Memory Dropout
 ==================
@@ -61,10 +60,10 @@ def dropout(x, x_keep, p):
     output = torch.empty_like(x)
     assert x.is_contiguous()
     n_elements = x.numel()
-    
+
     def grid(meta):
         return (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    
+
     _dropout[grid](x, x_keep, output, n_elements, p, BLOCK_SIZE=1024)
     return output
 
@@ -97,10 +96,10 @@ def seeded_dropout(x, p, seed):
     output = torch.empty_like(x)
     assert x.is_contiguous()
     n_elements = x.numel()
-    
+
     def grid(meta):
         return (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    
+
     _seeded_dropout[grid](x, output, n_elements, p, seed, BLOCK_SIZE=1024)
     return output
 
@@ -117,7 +116,8 @@ def test_dropout_matches_reference(shape, p):
     torch.testing.assert_close(output, expected, atol=1e-6, rtol=0)
 
 
-@pytest.mark.parametrize("shape,p,seed", [((10, ), 0.5, 123), ((256, ), 0.5, 123), ((513, ), 0.2, 7), ((32, 64), 0.35, 999)])
+@pytest.mark.parametrize("shape,p,seed", [((10, ), 0.5, 123), ((256, ), 0.5, 123), ((513, ), 0.2, 7),
+                                          ((32, 64), 0.35, 999)])
 def test_seeded_dropout_is_deterministic(shape, p, seed):
     torch.manual_seed(0)
     x = torch.randn(size=shape, device=DEV, dtype=torch.float32)

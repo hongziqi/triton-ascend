@@ -47,9 +47,9 @@
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/Triton/IR/Types.h"
 
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallVectorExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
@@ -479,13 +479,13 @@ static std::optional<Value> getRootPointer(Value ptr) {
                 [](auto op) -> std::optional<Value> { return op.getSource(); })
             .Case<memref::CastOp>(
                 [](auto op) -> std::optional<Value> { return op.getSource(); })
-            .Case<UnrealizedConversionCastOp>([](auto op)
-                                                  -> std::optional<Value> {
-              if (op.getInputs().size() != 1) {
-                return std::nullopt;
-              }
-              return op.getInputs().front();
-            })
+            .Case<UnrealizedConversionCastOp>(
+                [](auto op) -> std::optional<Value> {
+                  if (op.getInputs().size() != 1) {
+                    return std::nullopt;
+                  }
+                  return op.getInputs().front();
+                })
             .Default([](Operation *) -> std::optional<Value> {
               return std::nullopt;
             });
@@ -523,14 +523,13 @@ static bool isLocalMemRef(Value value) {
     if (isa<memref::AllocOp, memref::AllocaOp>(defOp)) {
       return true;
     }
-    auto source = llvm::TypeSwitch<Operation *, Value>(defOp)
-                      .Case<memref::ReinterpretCastOp>(
-                          [](auto op) { return op.getSource(); })
-                      .Case<memref::SubViewOp>(
-                          [](auto op) { return op.getSource(); })
-                      .Case<memref::CastOp>(
-                          [](auto op) { return op.getSource(); })
-                      .Default([](Operation *) { return Value(); });
+    auto source =
+        llvm::TypeSwitch<Operation *, Value>(defOp)
+            .Case<memref::ReinterpretCastOp>(
+                [](auto op) { return op.getSource(); })
+            .Case<memref::SubViewOp>([](auto op) { return op.getSource(); })
+            .Case<memref::CastOp>([](auto op) { return op.getSource(); })
+            .Default([](Operation *) { return Value(); });
     if (!source) {
       return false;
     }
@@ -593,15 +592,14 @@ bool requiresVolatileIndirectLoad(Value srcPtr, Operation *loadOp) {
       return false;
     }
 
-    auto memRefWriteTarget =
-        llvm::TypeSwitch<Operation *, Value>(op)
-            .Case<memref::CopyOp>([](auto copyOp) {
-              return copyOp.getTarget();
-            })
-            .Case<memref::StoreOp>([](auto storeOp) {
-              return storeOp.getMemRef();
-            })
-            .Default([](Operation *) { return Value(); });
+    auto memRefWriteTarget = llvm::TypeSwitch<Operation *, Value>(op)
+                                 .Case<memref::CopyOp>([](auto copyOp) {
+                                   return copyOp.getTarget();
+                                 })
+                                 .Case<memref::StoreOp>([](auto storeOp) {
+                                   return storeOp.getMemRef();
+                                 })
+                                 .Default([](Operation *) { return Value(); });
     if (memRefWriteTarget) {
       auto rootPtr = getRootPointer(memRefWriteTarget);
       if (rootPtr) {
@@ -1410,62 +1408,62 @@ FailureOr<TypedAttr> specializeTypelessValueToAttr(TypelessValue value,
   auto toPtr = [](mlir::Type ty) { return ty.getAsOpaquePointer(); };
 
   std::map<std::pair<TypelessValue, const void *>,
-        std::variant<llvm::APInt, llvm::APFloat>>
-    initMap = {
-        {{TypelessValue::Zero, toPtr(f16Ty)}, halfZero},
-        {{TypelessValue::Zero, toPtr(bf16Ty)}, bfloatZero},
-        {{TypelessValue::Zero, toPtr(f32Ty)}, floatZero},
-        {{TypelessValue::Zero, toPtr(i8TySL)}, llvm::APInt(8, 0, true)},
-        {{TypelessValue::Zero, toPtr(i8TyS)}, llvm::APInt(8, 0, true)},
-        {{TypelessValue::Zero, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
-        {{TypelessValue::Zero, toPtr(i16TySL)}, llvm::APInt(16, 0, true)},
-        {{TypelessValue::Zero, toPtr(i16TyS)}, llvm::APInt(16, 0, true)},
-        {{TypelessValue::Zero, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
-        {{TypelessValue::Zero, toPtr(i32TySL)}, llvm::APInt(32, 0, true)},
-        {{TypelessValue::Zero, toPtr(i32TyS)}, llvm::APInt(32, 0, true)},
-        {{TypelessValue::Zero, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
-        {{TypelessValue::Zero, toPtr(i64TySL)}, llvm::APInt(64, 0, true)},
-        {{TypelessValue::Zero, toPtr(i64TyS)}, llvm::APInt(64, 0, true)},
-        {{TypelessValue::Zero, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
-        {{TypelessValue::Min, toPtr(f16Ty)}, halfMin},
-        {{TypelessValue::Min, toPtr(bf16Ty)}, bfloatMin},
-        {{TypelessValue::Min, toPtr(f32Ty)}, floatMin},
-        {{TypelessValue::Min, toPtr(i8TySL)}, llvm::APInt(8, -128, true)},
-        {{TypelessValue::Min, toPtr(i8TyS)}, llvm::APInt(8, -128, true)},
-        {{TypelessValue::Min, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
-        {{TypelessValue::Min, toPtr(i16TySL)}, llvm::APInt(16, -32768, true)},
-        {{TypelessValue::Min, toPtr(i16TyS)}, llvm::APInt(16, -32768, true)},
-        {{TypelessValue::Min, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
-        {{TypelessValue::Min, toPtr(i32TySL)},
-          llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
-        {{TypelessValue::Min, toPtr(i32TyS)},
-          llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
-        {{TypelessValue::Min, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
-        {{TypelessValue::Min, toPtr(i64TySL)},
-          llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
-        {{TypelessValue::Min, toPtr(i64TyS)},
-          llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
-        {{TypelessValue::Min, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
-        {{TypelessValue::Max, toPtr(f16Ty)}, halfMax},
-        {{TypelessValue::Max, toPtr(bf16Ty)}, bfloatMax},
-        {{TypelessValue::Max, toPtr(f32Ty)}, floatMax},
-        {{TypelessValue::Max, toPtr(i8TySL)}, llvm::APInt(8, 127, true)},
-        {{TypelessValue::Max, toPtr(i8TyS)}, llvm::APInt(8, 127, true)},
-        {{TypelessValue::Max, toPtr(i8TyU)}, llvm::APInt::getAllOnes(8)},
-        {{TypelessValue::Max, toPtr(i16TySL)}, llvm::APInt(16, 32767, true)},
-        {{TypelessValue::Max, toPtr(i16TyS)}, llvm::APInt(16, 32767, true)},
-        {{TypelessValue::Max, toPtr(i16TyU)}, llvm::APInt::getAllOnes(16)},
-        {{TypelessValue::Max, toPtr(i32TySL)},
-          llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
-        {{TypelessValue::Max, toPtr(i32TyS)},
-          llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
-        {{TypelessValue::Max, toPtr(i32TyU)}, llvm::APInt::getAllOnes(32)},
-        {{TypelessValue::Max, toPtr(i64TySL)},
-          llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
-        {{TypelessValue::Max, toPtr(i64TyS)},
-          llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
-        {{TypelessValue::Max, toPtr(i64TyU)}, llvm::APInt::getAllOnes(64)},
-    };
+           std::variant<llvm::APInt, llvm::APFloat>>
+      initMap = {
+          {{TypelessValue::Zero, toPtr(f16Ty)}, halfZero},
+          {{TypelessValue::Zero, toPtr(bf16Ty)}, bfloatZero},
+          {{TypelessValue::Zero, toPtr(f32Ty)}, floatZero},
+          {{TypelessValue::Zero, toPtr(i8TySL)}, llvm::APInt(8, 0, true)},
+          {{TypelessValue::Zero, toPtr(i8TyS)}, llvm::APInt(8, 0, true)},
+          {{TypelessValue::Zero, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
+          {{TypelessValue::Zero, toPtr(i16TySL)}, llvm::APInt(16, 0, true)},
+          {{TypelessValue::Zero, toPtr(i16TyS)}, llvm::APInt(16, 0, true)},
+          {{TypelessValue::Zero, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
+          {{TypelessValue::Zero, toPtr(i32TySL)}, llvm::APInt(32, 0, true)},
+          {{TypelessValue::Zero, toPtr(i32TyS)}, llvm::APInt(32, 0, true)},
+          {{TypelessValue::Zero, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
+          {{TypelessValue::Zero, toPtr(i64TySL)}, llvm::APInt(64, 0, true)},
+          {{TypelessValue::Zero, toPtr(i64TyS)}, llvm::APInt(64, 0, true)},
+          {{TypelessValue::Zero, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
+          {{TypelessValue::Min, toPtr(f16Ty)}, halfMin},
+          {{TypelessValue::Min, toPtr(bf16Ty)}, bfloatMin},
+          {{TypelessValue::Min, toPtr(f32Ty)}, floatMin},
+          {{TypelessValue::Min, toPtr(i8TySL)}, llvm::APInt(8, -128, true)},
+          {{TypelessValue::Min, toPtr(i8TyS)}, llvm::APInt(8, -128, true)},
+          {{TypelessValue::Min, toPtr(i8TyU)}, llvm::APInt(8, 0, false)},
+          {{TypelessValue::Min, toPtr(i16TySL)}, llvm::APInt(16, -32768, true)},
+          {{TypelessValue::Min, toPtr(i16TyS)}, llvm::APInt(16, -32768, true)},
+          {{TypelessValue::Min, toPtr(i16TyU)}, llvm::APInt(16, 0, false)},
+          {{TypelessValue::Min, toPtr(i32TySL)},
+           llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
+          {{TypelessValue::Min, toPtr(i32TyS)},
+           llvm::APInt(32, std::numeric_limits<int32_t>::min(), true)},
+          {{TypelessValue::Min, toPtr(i32TyU)}, llvm::APInt(32, 0, false)},
+          {{TypelessValue::Min, toPtr(i64TySL)},
+           llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
+          {{TypelessValue::Min, toPtr(i64TyS)},
+           llvm::APInt(64, std::numeric_limits<int64_t>::min(), true)},
+          {{TypelessValue::Min, toPtr(i64TyU)}, llvm::APInt(64, 0, false)},
+          {{TypelessValue::Max, toPtr(f16Ty)}, halfMax},
+          {{TypelessValue::Max, toPtr(bf16Ty)}, bfloatMax},
+          {{TypelessValue::Max, toPtr(f32Ty)}, floatMax},
+          {{TypelessValue::Max, toPtr(i8TySL)}, llvm::APInt(8, 127, true)},
+          {{TypelessValue::Max, toPtr(i8TyS)}, llvm::APInt(8, 127, true)},
+          {{TypelessValue::Max, toPtr(i8TyU)}, llvm::APInt::getAllOnes(8)},
+          {{TypelessValue::Max, toPtr(i16TySL)}, llvm::APInt(16, 32767, true)},
+          {{TypelessValue::Max, toPtr(i16TyS)}, llvm::APInt(16, 32767, true)},
+          {{TypelessValue::Max, toPtr(i16TyU)}, llvm::APInt::getAllOnes(16)},
+          {{TypelessValue::Max, toPtr(i32TySL)},
+           llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
+          {{TypelessValue::Max, toPtr(i32TyS)},
+           llvm::APInt(32, std::numeric_limits<int32_t>::max(), true)},
+          {{TypelessValue::Max, toPtr(i32TyU)}, llvm::APInt::getAllOnes(32)},
+          {{TypelessValue::Max, toPtr(i64TySL)},
+           llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
+          {{TypelessValue::Max, toPtr(i64TyS)},
+           llvm::APInt(64, std::numeric_limits<int64_t>::max(), true)},
+          {{TypelessValue::Max, toPtr(i64TyU)}, llvm::APInt::getAllOnes(64)},
+      };
 
   std::pair<TypelessValue, const void *> key =
       std::make_pair(value, toPtr(type));
@@ -1588,10 +1586,11 @@ RankedTensorType getExtractSlicedType(ArrayRef<OpFoldResult> shape,
   return RankedTensorType::get(targetShape, elemType);
 }
 
-bool checkStructureAnnotated(Operation* op, RewriterBase& rewriter) {
+bool checkStructureAnnotated(Operation *op, RewriterBase &rewriter) {
   return llvm::any_of(op->getUsers(), [&rewriter](Operation *user) {
     auto annotationOp = dyn_cast<annotation::MarkOp>(user);
-    if (annotationOp && annotationOp->hasAttr(ConverterUtils::continuousAttrName)) {
+    if (annotationOp &&
+        annotationOp->hasAttr(ConverterUtils::continuousAttrName)) {
       rewriter.eraseOp(annotationOp);
       return true;
     }
@@ -1599,7 +1598,8 @@ bool checkStructureAnnotated(Operation* op, RewriterBase& rewriter) {
   });
 }
 
-bool isDistributedTypeCustomOp(Operation* op){
-    return op->hasAttr("hivm.is_distributed") && (llvm::isa<hivm::CustomOp>(op) || llvm::isa<hivm::CustomMacroOp>(op));
+bool isDistributedTypeCustomOp(Operation *op) {
+  return op->hasAttr("hivm.is_distributed") &&
+         (llvm::isa<hivm::CustomOp>(op) || llvm::isa<hivm::CustomMacroOp>(op));
 }
 } // namespace mlir

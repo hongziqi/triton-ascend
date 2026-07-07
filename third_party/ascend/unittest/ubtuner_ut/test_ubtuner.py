@@ -29,10 +29,8 @@ from triton.backends.ascend.runtime.ubtuner import ubtuner, get_origin_fn
 os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
 
 # Skip all tests if NPU is not available
-pytestmark = pytest.mark.skipif(
-    torch_npu is None or not (hasattr(torch, "npu") and torch.npu.is_available()),
-    reason="requires torch_npu runtime"
-)
+pytestmark = pytest.mark.skipif(torch_npu is None or not (hasattr(torch, "npu") and torch.npu.is_available()),
+                                reason="requires torch_npu runtime")
 
 BLOCK = int(os.environ.get("BLOCK", "20480"))
 
@@ -66,6 +64,7 @@ class TestDecoratorOrder:
         """Test: @ubtuner outside @autotune should raise ValueError."""
 
         with pytest.raises(ValueError) as exc_info:
+
             @ubtuner(key=['N'])
             @triton.autotune(
                 configs=[triton.Config(kwargs={'N': 512})],
@@ -149,7 +148,6 @@ class TestTwoChainKernel:
             os.environ.pop("TRITON_ENABLE_UBTUNER", None)
             os.environ.pop("TRITON_CACHE_DIR", None)
 
-
     def _create_tensors(self, size=BLOCK):
         """Create input and output tensors for add_kernel."""
         x = torch.rand(size, dtype=torch.float32).npu()
@@ -174,7 +172,7 @@ class TestTwoChainKernel:
         ])
         x, y, output, expected = self._create_tensors()
         try:
-            kernel[(1,)](x, y, output, output.numel(), BLOCK_SIZE=BLOCK, ITERATIONS=8, multibuffer=True)
+            kernel[(1, )](x, y, output, output.numel(), BLOCK_SIZE=BLOCK, ITERATIONS=8, multibuffer=True)
             torch.npu.synchronize()
         except Exception as e:
             if "ub overflow" in str(e).lower():
@@ -190,7 +188,7 @@ class TestTwoChainKernel:
         ])
         x, y, output, expected = self._create_tensors()
         try:
-            kernel[(1,)](x, y, output, output.numel(), ITERATIONS=8, multibuffer=True)
+            kernel[(1, )](x, y, output, output.numel(), ITERATIONS=8, multibuffer=True)
             torch.npu.synchronize()
         except Exception as e:
             if "ub overflow" in str(e).lower():
@@ -206,7 +204,7 @@ class TestTwoChainKernel:
         ])
         x, y, output, _ = self._create_tensors()
         with pytest.raises(Exception) as exc_info:
-            kernel[(1,)](x, y, output, output.numel(), ITERATIONS=8, multibuffer=True)
+            kernel[(1, )](x, y, output, output.numel(), ITERATIONS=8, multibuffer=True)
             torch.npu.synchronize()
         assert "ub overflow" in str(exc_info.value).lower()
 
@@ -217,13 +215,13 @@ class TestTwoChainKernel:
         ])
         x, y, output, expected = self._create_tensors()
         try:
-            kernel[(1,)](x, y, output, output.numel(), ITERATIONS=8, multibuffer=True)
+            kernel[(1, )](x, y, output, output.numel(), ITERATIONS=8, multibuffer=True)
             torch.npu.synchronize()
         except Exception as e:
             if "ub overflow" in str(e).lower():
                 pytest.fail(f"UB overflow occurred with TRITON_ENABLE_UBTUNER=compile: {e}")
             raise
-        torch.testing.assert_close(output.cpu(), expected, rtol=1e-5, atol=1e-5)    
+        torch.testing.assert_close(output.cpu(), expected, rtol=1e-5, atol=1e-5)
 
 
 if __name__ == "__main__":

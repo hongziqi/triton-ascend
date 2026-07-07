@@ -31,7 +31,8 @@ namespace mlir {
 namespace triton {
 
 // Pass for analyzing tensor args in main_loop forOps
-class AnalyzeArgsPass : public PassWrapper<AnalyzeArgsPass, OperationPass<ModuleOp>> {
+class AnalyzeArgsPass
+    : public PassWrapper<AnalyzeArgsPass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AnalyzeArgsPass)
 
@@ -46,7 +47,8 @@ public:
 };
 
 // Pass for analyzing function names
-class AnalyzeNamePass : public PassWrapper<AnalyzeNamePass, OperationPass<ModuleOp>> {
+class AnalyzeNamePass
+    : public PassWrapper<AnalyzeNamePass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AnalyzeNamePass)
 
@@ -61,7 +63,8 @@ public:
 };
 
 // Wrapper pass for AnalyzeDataFlow
-class AnalyzeDataFlowPass : public PassWrapper<AnalyzeDataFlowPass, OperationPass<ModuleOp>> {
+class AnalyzeDataFlowPass
+    : public PassWrapper<AnalyzeDataFlowPass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AnalyzeDataFlowPass)
 
@@ -76,7 +79,8 @@ public:
 };
 
 // Pass for analyzing flag operations
-class AnalyzeFlagPass : public PassWrapper<AnalyzeFlagPass, OperationPass<ModuleOp>> {
+class AnalyzeFlagPass
+    : public PassWrapper<AnalyzeFlagPass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AnalyzeFlagPass)
 
@@ -91,7 +95,8 @@ public:
 };
 
 // Pass for analyzing scope-level issues
-class AnalyzeScopePass : public PassWrapper<AnalyzeScopePass, OperationPass<ModuleOp>> {
+class AnalyzeScopePass
+    : public PassWrapper<AnalyzeScopePass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AnalyzeScopePass)
 
@@ -106,16 +111,20 @@ public:
 };
 
 // Pass for analyzing cube control flow input chain
-class AnalyzeCubeControlFlowInputChainPass 
-    : public PassWrapper<AnalyzeCubeControlFlowInputChainPass, OperationPass<ModuleOp>> {
+class AnalyzeCubeControlFlowInputChainPass
+    : public PassWrapper<AnalyzeCubeControlFlowInputChainPass,
+                         OperationPass<ModuleOp>> {
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AnalyzeCubeControlFlowInputChainPass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      AnalyzeCubeControlFlowInputChainPass)
 
   AnalyzeCubeControlFlowInputChainPass() = default;
 
   void runOnOperation() override;
 
-  llvm::StringRef getArgument() const override { return "analyze-cube-control-flow-input-chain"; }
+  llvm::StringRef getArgument() const override {
+    return "analyze-cube-control-flow-input-chain";
+  }
   llvm::StringRef getDescription() const override {
     return "Analyze cube control flow input chain";
   }
@@ -124,7 +133,8 @@ public:
 std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeArgsPass();
 std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeFlagPass();
 std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeNamePass();
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeCubeContolFLowInputChainPass();
+std::unique_ptr<OperationPass<ModuleOp>>
+createAnalyzeCubeContolFLowInputChainPass();
 std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeDataFlowPass();
 std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeScopePass();
 

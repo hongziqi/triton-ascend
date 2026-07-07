@@ -17,13 +17,13 @@ def EstimateCyclesOpInterface : OpInterface<"EstimateCyclesOpInterface"> {
   let description = [{
     Interface for operations that can estimate their execution cycles
     on Ascend NPU hardware.
-    
+
     Operations implementing this interface provide:
     - Cycle estimation based on hardware configuration
     - Hardware unit assignment (Cube, Vector, MTE, etc.)
     - Transfer bytes (for memory operations)
     - FLOP count (for compute operations)
-    
+
     Example implementation:
     ```cpp
     int64_t MyOp::estimateCycles(const HardwareConfig &config) {
@@ -32,9 +32,9 @@ def EstimateCyclesOpInterface : OpInterface<"EstimateCyclesOpInterface"> {
     }
     ```
   }];
-  
+
   let cppNamespace = "::mlir::ascend";
-  
+
   let methods = [
     InterfaceMethod<
       /*desc=*/[{
@@ -87,11 +87,11 @@ def EstimateCyclesOpInterface : OpInterface<"EstimateCyclesOpInterface"> {
       /*defaultImplementation=*/"return 1;"
     >
   ];
-  
+
   let extraClassDeclaration = [{
     /// Helper to get element bit width from first operand.
     int getElementBits();
-    
+
     /// Helper to get number of elements from first operand.
     int64_t getNumElements();
   }];

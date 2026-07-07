@@ -32,8 +32,8 @@ namespace triton {
 
 // Define pass
 // Pass for marking the main computation loop in the module
-class MarkMainLoopPass : public PassWrapper<MarkMainLoopPass, OperationPass<ModuleOp>> 
-{
+class MarkMainLoopPass
+    : public PassWrapper<MarkMainLoopPass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MarkMainLoopPass)
 
@@ -43,11 +43,12 @@ public:
   void runOnOperation() override;
 
   // Return the pass argument name
-  static constexpr ::llvm::StringRef getArgumentName() { return "mark-main-loop"; }
+  static constexpr ::llvm::StringRef getArgumentName() {
+    return "mark-main-loop";
+  }
   ::llvm::StringRef getArgument() const override { return "mark-main-loop"; }
-  ::llvm::StringRef getDescription() const override
-  {
-      return "Mark main computation loops with main_loop attribute";
+  ::llvm::StringRef getDescription() const override {
+    return "Mark main computation loops with main_loop attribute";
   }
   ::llvm::StringRef getName() const override { return "MarkMainLoopPass"; }
 

@@ -23,11 +23,11 @@
 #ifndef TRITON_ADAPTER_DYNAMIC_CV_PIPELINE_COMMON_SSBUFFER_MANAGER_H
 #define TRITON_ADAPTER_DYNAMIC_CV_PIPELINE_COMMON_SSBUFFER_MANAGER_H
 
-#include <optional>
-#include "llvm/ADT/DenseMap.h"
-#include "mlir/IR/Value.h"
-#include "mlir/IR/Types.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Types.h"
+#include "mlir/IR/Value.h"
+#include "llvm/ADT/DenseMap.h"
+#include <optional>
 
 namespace mlir {
 namespace triton {
@@ -41,9 +41,10 @@ public:
   // SSBuffer address space and constants
   static constexpr int SSBUF_ADDR_SPACE = 11;
   static constexpr int ADDR_INT_TYPE = 64;
-  static constexpr int SSBUF_BASE_ADDR = 2048;      // Base address for SSBuffer
-  static constexpr int SSBUF_ADDR_OFFSET = 8;       // Address offset for each allocation
-  static constexpr int SSBUF_ADDR_MAX = 6072;       // Maximum allowed address
+  static constexpr int SSBUF_BASE_ADDR = 2048; // Base address for SSBuffer
+  static constexpr int SSBUF_ADDR_OFFSET =
+      8; // Address offset for each allocation
+  static constexpr int SSBUF_ADDR_MAX = 6072; // Maximum allowed address
 
   // Constructor
   SSBufferManager() = default;
@@ -52,17 +53,19 @@ public:
 
   std::optional<std::pair<Value, Type>> findValueByAddr(int64_t addr);
 
-  std::optional<int64_t> writeToSSBuffer(Value value, OpBuilder &builder,
-                                         SmallVectorImpl<Operation *> &createdOps);
+  std::optional<int64_t>
+  writeToSSBuffer(Value value, OpBuilder &builder,
+                  SmallVectorImpl<Operation *> &createdOps);
 
-  std::optional<Value> readFromSSBuffer(int64_t addr, OpBuilder &builder,
-                                        SmallVectorImpl<Operation *> &createdOps);
+  std::optional<Value>
+  readFromSSBuffer(int64_t addr, OpBuilder &builder,
+                   SmallVectorImpl<Operation *> &createdOps);
 
   // Get the number of allocated addresses
   size_t getAllocatedCount() const { return valueToAddrMap.size(); }
 
   // Clear all mappings (for testing or reset)
-  void clear() { 
+  void clear() {
     valueToAddrMap.clear();
     addrToValueMap.clear();
   }
@@ -73,7 +76,7 @@ private:
   // Forward mapping: Value -> address (int64_t)
   // Used for address allocation and reuse
   llvm::DenseMap<Value, int64_t> valueToAddrMap;
-  
+
   // Reverse mapping: address (int64_t) -> Value
   // Used for fast lookup when reading from SSBuffer
   // This avoids O(n) traversal in findValueByAddr

@@ -27,55 +27,53 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 
-#include "ascend/include/DynamicCVPipeline/StandardizeOp.h"
-#include "ascend/include/DynamicCVPipeline/StandardizeOp/PatternMatchRewrites.h"
 #include "ascend/include/DynamicCVPipeline/AnalyzeDataFlow.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "ascend/include/DynamicCVPipeline/StandardizeOp.h"
+#include "ascend/include/DynamicCVPipeline/StandardizeOp/PatternMatchRewrites.h"
 
 using namespace mlir;
 using namespace triton;
 using namespace CVSplit;
 
 static constexpr const char *DEBUG_TYPE = "StandardizeOp";
-#define LOG_DEBUG(...) LLVM_DEBUG(llvm::dbgs() << "\n[" << DEBUG_TYPE << "] " << __VA_ARGS__ << "\n")
+#define LOG_DEBUG(...)                                                         \
+  LLVM_DEBUG(llvm::dbgs() << "\n[" << DEBUG_TYPE << "] " << __VA_ARGS__ << "\n")
 
 namespace mlir::triton {
 
-void StandardizeOpPass::runOnOperation()
-{
-    auto op = getOperation();
-    LOG_DEBUG("Input mlir:\n" << op);
-    OpPassManager pm(op.getOperationName());
-    pm.addPass(createPatternMatchRewritePass());
+void StandardizeOpPass::runOnOperation() {
+  auto op = getOperation();
+  LOG_DEBUG("Input mlir:\n" << op);
+  OpPassManager pm(op.getOperationName());
+  pm.addPass(createPatternMatchRewritePass());
 
-    if (llvm::failed(runPipeline(pm, op))) {
-        LOG_DEBUG("Pipeline Failed!");
-        signalPassFailure();
+  if (llvm::failed(runPipeline(pm, op))) {
+    LOG_DEBUG("Pipeline Failed!");
+    signalPassFailure();
+  }
+
+  bool findMayNotExec = false;
+  op->walk([&](linalg::MatmulOp matmulOp) {
+    if (matmulOp->hasAttr(CVPipeline::kMayNotExec)) {
+      findMayNotExec = true;
     }
+  });
 
-    bool findMayNotExec = false;
-    op->walk([&](linalg::MatmulOp matmulOp) {
-        if (matmulOp->hasAttr(CVPipeline::kMayNotExec)) {
-            findMayNotExec = true;
-        }
-    });
-
-    if (findMayNotExec) {
-        LOG_DEBUG("Matmul may not execute!");
-        CVPipeline::setFallbackAttr(op);
-        signalPassFailure();
-    }
+  if (findMayNotExec) {
+    LOG_DEBUG("Matmul may not execute!");
+    CVPipeline::setFallbackAttr(op);
+    signalPassFailure();
+  }
 }
 
-std::unique_ptr<OperationPass<ModuleOp>> createStandardizeOpPass()
-{
-    return std::make_unique<StandardizeOpPass>();
+std::unique_ptr<OperationPass<ModuleOp>> createStandardizeOpPass() {
+  return std::make_unique<StandardizeOpPass>();
 };
 
-void registerStandardizeOpPasses()
-{
-    registerPass(createStandardizeOpPass);
-    registerPass(createPatternMatchRewritePass);
+void registerStandardizeOpPasses() {
+  registerPass(createStandardizeOpPass);
+  registerPass(createPatternMatchRewritePass);
 }
 
 } // namespace mlir::triton

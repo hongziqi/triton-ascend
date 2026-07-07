@@ -1,4 +1,5 @@
-//===- AscendModelDialect.h - AscendModel dialect definition -----*- C++ -*-===//
+//===- AscendModelDialect.h - AscendModel dialect definition -----*- C++
+//-*-===//
 //
 // This file defines the AscendModel dialect.
 //
@@ -7,13 +8,13 @@
 #ifndef ASCEND_MODEL_DIALECT_H
 #define ASCEND_MODEL_DIALECT_H
 
-#include "mlir/IR/Dialect.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
-#include "mlir/Bytecode/BytecodeOpInterface.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 
 // Forward declarations
 namespace mlir {

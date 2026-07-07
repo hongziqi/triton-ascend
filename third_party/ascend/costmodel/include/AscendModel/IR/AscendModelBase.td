@@ -23,15 +23,15 @@ def AscendModel_Dialect : Dialect {
   let description = [{
     This dialect provides operations for modeling Ascend 910B NPU hardware
     behavior and performance characteristics. It supports:
-    
+
     - Cube Core operations (matrix multiply)
     - Vector Core operations (elementwise, reduction, etc.)
     - Memory transfer operations (MTE2, MTE3, FixPipe)
     - Pipeline modeling and scheduling
-    
+
     The dialect is designed for performance analysis and roofline modeling.
   }];
-  
+
   let cppNamespace = "::mlir::ascend";
 }
 

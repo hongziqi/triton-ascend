@@ -51,6 +51,7 @@ def test_npu_tensor_should_success():
 
     torch.testing.assert_close(expected, actual, rtol=1e-03, atol=1e-03)
 
+
 @pytest.mark.skip(reason="The launcher is optimized.and the CPU tensor check is removed.")
 def test_cpu_tensor_should_fail():
     print("Test the CPU tensor. An address check exception should be raised.")

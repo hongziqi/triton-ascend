@@ -27,12 +27,8 @@ from .schema import ParameterSpec, SignatureInfo
 
 
 def _is_tl_constexpr(annotation: ast.AST) -> bool:
-    return (
-        isinstance(annotation, ast.Attribute)
-        and isinstance(annotation.value, ast.Name)
-        and annotation.value.id == "tl"
-        and annotation.attr == "constexpr"
-    )
+    return (isinstance(annotation, ast.Attribute) and isinstance(annotation.value, ast.Name)
+            and annotation.value.id == "tl" and annotation.attr == "constexpr")
 
 
 def _find_function_node(func_ast: ast.AST) -> Union[ast.FunctionDef, ast.AsyncFunctionDef]:
@@ -83,8 +79,7 @@ def extract_signature_info(func_ast: ast.AST) -> SignatureInfo:
                 name=arg.arg,
                 is_constexpr=_is_tl_constexpr(arg.annotation),
                 has_default=bool(default_flags.get(arg.arg, False)),
-            )
-        )
+            ))
     return SignatureInfo(parameters=parameters)
 
 

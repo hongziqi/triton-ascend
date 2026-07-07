@@ -32,7 +32,8 @@ namespace triton {
 
 // Define pass
 // Pass for adding block_id attributes to control flow operations
-class AddBlockIdForControlOpsPass : public PassWrapper<AddBlockIdForControlOpsPass, OperationPass<ModuleOp>> {
+class AddBlockIdForControlOpsPass
+    : public PassWrapper<AddBlockIdForControlOpsPass, OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(AddBlockIdForControlOpsPass)
 
@@ -41,13 +42,18 @@ public:
   // Run the pass
   void runOnOperation() override;
 
-  static constexpr ::llvm::StringRef getArgumentName() { return "add-block-id-for-control-ops"; }
-  ::llvm::StringRef getArgument() const override { return "add-block-id-for-control-ops"; }
-  ::llvm::StringRef getDescription() const override
-  {
-      return "Add block_id attribute to control flow operations";
+  static constexpr ::llvm::StringRef getArgumentName() {
+    return "add-block-id-for-control-ops";
   }
-  ::llvm::StringRef getName() const override { return "AddBlockIdForControlOpsPass"; }
+  ::llvm::StringRef getArgument() const override {
+    return "add-block-id-for-control-ops";
+  }
+  ::llvm::StringRef getDescription() const override {
+    return "Add block_id attribute to control flow operations";
+  }
+  ::llvm::StringRef getName() const override {
+    return "AddBlockIdForControlOpsPass";
+  }
 
 private:
 };

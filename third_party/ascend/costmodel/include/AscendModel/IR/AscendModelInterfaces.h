@@ -1,4 +1,5 @@
-//===- AscendModelInterfaces.h - AscendModel Op Interfaces -------*- C++ -*-===//
+//===- AscendModelInterfaces.h - AscendModel Op Interfaces -------*- C++
+//-*-===//
 //
 // Defines operation interfaces for the AscendModel dialect.
 //

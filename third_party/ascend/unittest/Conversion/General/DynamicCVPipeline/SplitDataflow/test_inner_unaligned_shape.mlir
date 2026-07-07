@@ -60,4 +60,3 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">}  {
 // CHECK: %[[MATMUL_15:[a-z0-9_]+]] = linalg.matmul {ssbuffer.adep, ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE"} ins(%[[TENSOR_14]], %[[INSERTED_SLICE_7]] : tensor<32x32xf8E4M3FN>, tensor<32x63xf8E4M3FN>) outs(%[[FILL_12]] : tensor<32x63xf8E4M3FN>) -> tensor<32x63xf8E4M3FN>
 // CHECK: tensor.extract_slice %[[MATMUL_15]][0, 0] [31, 63] [1, 1] {ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE", ssbuffer.matmul_extract} : tensor<32x63xf8E4M3FN> to tensor<31x63xf8E4M3FN>
 // CHECK: return
-

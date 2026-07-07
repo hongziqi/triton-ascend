@@ -29,14 +29,14 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/PatternMatch.h"
-#include "mlir/IR/Visitors.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/IR/Visitors.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Debug.h"
 
 #include <limits>
@@ -105,8 +105,7 @@ static FailureOr<Block *> findNearestCommonBlock(Block *lhs, Block *rhs,
     unsigned maxDistance = std::max(lhsDistance, rhsDistance);
     unsigned totalDistance = lhsDistance + rhsDistance;
     if (maxDistance < bestMaxDistance ||
-        (maxDistance == bestMaxDistance &&
-         totalDistance < bestTotalDistance)) {
+        (maxDistance == bestMaxDistance && totalDistance < bestTotalDistance)) {
       best = candidate;
       bestMaxDistance = maxDistance;
       bestTotalDistance = totalDistance;
@@ -150,9 +149,10 @@ struct ReturnPathResult {
   SmallVector<Value> operands;
 };
 
-static FailureOr<SmallVector<Value>>
-buildRegionPath(Block *block, ValueRange incoming, Block *stopBlock,
-                OpBuilder &builder);
+static FailureOr<SmallVector<Value>> buildRegionPath(Block *block,
+                                                     ValueRange incoming,
+                                                     Block *stopBlock,
+                                                     OpBuilder &builder);
 
 static FailureOr<ReturnPathResult>
 buildReturnPath(Block *block, ValueRange incoming, OpBuilder &builder);
@@ -168,9 +168,9 @@ static FailureOr<scf::IfOp> buildStructuredIf(cf::CondBranchOp condBr,
   for (BlockArgument arg : joinBlock->getArguments())
     resultTypes.push_back(arg.getType());
 
-  auto ifOp = builder.create<scf::IfOp>(
-      condBr.getLoc(), resultTypes, condBr.getCondition(),
-      /*withElseRegion=*/true);
+  auto ifOp = builder.create<scf::IfOp>(condBr.getLoc(), resultTypes,
+                                        condBr.getCondition(),
+                                        /*withElseRegion=*/true);
 
   {
     OpBuilder::InsertionGuard guard(builder);
@@ -201,9 +201,9 @@ static FailureOr<scf::IfOp> buildStructuredIf(cf::CondBranchOp condBr,
       builder.setInsertionPoint(autoYield);
     else
       builder.setInsertionPointToStart(ifOp.elseBlock());
-    FailureOr<SmallVector<Value>> elseYield = buildRegionPath(
-        condBr.getFalseDest(), condBr.getFalseDestOperands(), joinBlock,
-        builder);
+    FailureOr<SmallVector<Value>> elseYield =
+        buildRegionPath(condBr.getFalseDest(), condBr.getFalseDestOperands(),
+                        joinBlock, builder);
     if (failed(elseYield))
       return failure();
     if (elseYield->size() != resultTypes.size()) {
@@ -336,16 +336,14 @@ static SmallVector<Value> mapValues(ValueRange values, IRMapping &mapping) {
 
 static FailureOr<SmallVector<Value>>
 buildClonedTerminalPath(Block *block, ValueRange incoming, OpBuilder &builder,
-                        IRMapping mapping,
-                        SmallPtrSetImpl<Block *> &visiting);
+                        IRMapping mapping, SmallPtrSetImpl<Block *> &visiting);
 
 static FailureOr<SmallVector<Value>>
 buildClonedTerminalTerminator(Operation *term, OpBuilder &builder,
                               IRMapping mapping,
                               SmallPtrSetImpl<Block *> &visiting) {
   if (auto br = dyn_cast<cf::BranchOp>(term)) {
-    SmallVector<Value> incoming =
-        mapValues(br.getDestOperands(), mapping);
+    SmallVector<Value> incoming = mapValues(br.getDestOperands(), mapping);
     return buildClonedTerminalPath(br.getDest(), incoming, builder, mapping,
                                    visiting);
   }
@@ -426,8 +424,7 @@ buildClonedTerminalTerminator(Operation *term, OpBuilder &builder,
 
 static FailureOr<SmallVector<Value>>
 buildClonedTerminalPath(Block *block, ValueRange incoming, OpBuilder &builder,
-                        IRMapping mapping,
-                        SmallPtrSetImpl<Block *> &visiting) {
+                        IRMapping mapping, SmallPtrSetImpl<Block *> &visiting) {
   if (!visiting.insert(block).second)
     return block->getTerminator()->emitError()
            << "unsupported cyclic terminal control flow";
@@ -445,9 +442,8 @@ buildClonedTerminalPath(Block *block, ValueRange incoming, OpBuilder &builder,
   for (Operation &op : block->without_terminator())
     builder.clone(op, mapping);
 
-  FailureOr<SmallVector<Value>> result =
-      buildClonedTerminalTerminator(block->getTerminator(), builder, mapping,
-                                    visiting);
+  FailureOr<SmallVector<Value>> result = buildClonedTerminalTerminator(
+      block->getTerminator(), builder, mapping, visiting);
   visiting.erase(block);
   return result;
 }
@@ -516,9 +512,9 @@ static FailureOr<scf::IfOp> buildTerminalValueIf(cf::CondBranchOp condBr,
     return failure();
   }
 
-  auto ifOp = builder.create<scf::IfOp>(
-      condBr.getLoc(), *thenTypes, condBr.getCondition(),
-      /*withElseRegion=*/true);
+  auto ifOp = builder.create<scf::IfOp>(condBr.getLoc(), *thenTypes,
+                                        condBr.getCondition(),
+                                        /*withElseRegion=*/true);
 
   {
     OpBuilder::InsertionGuard branchGuard(builder);
@@ -612,9 +608,10 @@ buildReturnPath(Block *block, ValueRange incoming, OpBuilder &builder) {
          << "unsupported terminator while structuring terminal control flow";
 }
 
-static FailureOr<SmallVector<Value>>
-buildRegionPath(Block *block, ValueRange incoming, Block *stopBlock,
-                OpBuilder &builder) {
+static FailureOr<SmallVector<Value>> buildRegionPath(Block *block,
+                                                     ValueRange incoming,
+                                                     Block *stopBlock,
+                                                     OpBuilder &builder) {
   if (block == stopBlock)
     return SmallVector<Value>(incoming.begin(), incoming.end());
 
@@ -687,8 +684,7 @@ static LogicalResult appendStructuredTerminator(Operation *term,
                   "reach a common convergence block";
       }
 
-      FailureOr<scf::IfOp> terminalIf =
-          buildTerminalValueIf(condBr, builder);
+      FailureOr<scf::IfOp> terminalIf = buildTerminalValueIf(condBr, builder);
       if (failed(terminalIf))
         return failure();
 
@@ -698,8 +694,7 @@ static LogicalResult appendStructuredTerminator(Operation *term,
       return success();
     }
 
-    FailureOr<scf::IfOp> ifOp =
-        buildStructuredIf(condBr, *joinBlock, builder);
+    FailureOr<scf::IfOp> ifOp = buildStructuredIf(condBr, *joinBlock, builder);
     if (failed(ifOp))
       return failure();
 
@@ -873,8 +868,8 @@ static Value createZeroLike(OpBuilder &builder, Location loc, Type type) {
     auto elementType = dyn_cast<IntegerType>(tensorType.getElementType());
     if (!elementType)
       return nullptr;
-    auto attr = DenseElementsAttr::get(
-        tensorType, builder.getIntegerAttr(elementType, 0));
+    auto attr = DenseElementsAttr::get(tensorType,
+                                       builder.getIntegerAttr(elementType, 0));
     return builder.create<arith::ConstantOp>(loc, attr);
   }
 
@@ -951,8 +946,7 @@ static FailureOr<Type> getWiderIntegerLikeType(Type lhs, Type rhs) {
 
   auto lhsTensor = dyn_cast<RankedTensorType>(lhs);
   auto rhsTensor = dyn_cast<RankedTensorType>(rhs);
-  if (!lhsTensor || !rhsTensor ||
-      lhsTensor.getShape() != rhsTensor.getShape())
+  if (!lhsTensor || !rhsTensor || lhsTensor.getShape() != rhsTensor.getShape())
     return failure();
 
   Type lhsElement = lhsTensor.getElementType();
@@ -971,8 +965,7 @@ static FailureOr<Type> getWiderIntegerLikeType(Type lhs, Type rhs) {
   return lhsElementInt.getWidth() >= rhsElementInt.getWidth() ? lhs : rhs;
 }
 
-static Value createAdd(OpBuilder &builder, Location loc, Value lhs,
-                       Value rhs) {
+static Value createAdd(OpBuilder &builder, Location loc, Value lhs, Value rhs) {
   if (!lhs || !rhs)
     return nullptr;
   if (lhs.getType() != rhs.getType()) {
@@ -1000,8 +993,7 @@ static Value createAddWithWiderType(OpBuilder &builder, Location loc, Value lhs,
   return builder.create<arith::AddIOp>(loc, lhs, rhs);
 }
 
-static Value createMul(OpBuilder &builder, Location loc, Value lhs,
-                       Value rhs) {
+static Value createMul(OpBuilder &builder, Location loc, Value lhs, Value rhs) {
   if (!lhs || !rhs)
     return nullptr;
   if (lhs.getType() != rhs.getType()) {
@@ -1021,9 +1013,10 @@ static Value remapValue(Value value, const RewriteEnv &env) {
 static FailureOr<CFPtrInfo> analyzePtr(Value value, const RewriteEnv &env,
                                        OpBuilder &builder, Location loc);
 
-static FailureOr<TensorPtrInfo>
-analyzeTensorPtr(Value value, const RewriteEnv &env, OpBuilder &builder,
-                 Location loc) {
+static FailureOr<TensorPtrInfo> analyzeTensorPtr(Value value,
+                                                 const RewriteEnv &env,
+                                                 OpBuilder &builder,
+                                                 Location loc) {
   if (auto it = env.pointerComponents.find(value);
       it != env.pointerComponents.end() && it->second.kind == PtrKind::Tensor)
     return it->second.tensor;
@@ -1082,9 +1075,10 @@ analyzeTensorPtr(Value value, const RewriteEnv &env, OpBuilder &builder,
   return parts;
 }
 
-static FailureOr<BlockPtrInfo>
-analyzeBlockPtr(Value value, const RewriteEnv &env, OpBuilder &builder,
-                Location loc) {
+static FailureOr<BlockPtrInfo> analyzeBlockPtr(Value value,
+                                               const RewriteEnv &env,
+                                               OpBuilder &builder,
+                                               Location loc) {
   if (auto it = env.pointerComponents.find(value);
       it != env.pointerComponents.end() && it->second.kind == PtrKind::Block)
     return it->second.block;
@@ -1095,7 +1089,8 @@ analyzeBlockPtr(Value value, const RewriteEnv &env, OpBuilder &builder,
     BlockPtrInfo parts;
     parts.resultType = value.getType();
     parts.base = makePtrOp.getBase();
-    parts.shape.assign(makePtrOp.getShape().begin(), makePtrOp.getShape().end());
+    parts.shape.assign(makePtrOp.getShape().begin(),
+                       makePtrOp.getShape().end());
     parts.strides.assign(makePtrOp.getStrides().begin(),
                          makePtrOp.getStrides().end());
     parts.offsets.assign(makePtrOp.getOffsets().begin(),
@@ -1147,7 +1142,8 @@ static FailureOr<CFPtrInfo> analyzePtr(Value value, const RewriteEnv &env,
   }
 
   if (isTensorPointerType(value.getType())) {
-    FailureOr<TensorPtrInfo> tensor = analyzeTensorPtr(value, env, builder, loc);
+    FailureOr<TensorPtrInfo> tensor =
+        analyzeTensorPtr(value, env, builder, loc);
     if (failed(tensor))
       return failure();
     CFPtrInfo info{PtrKind::Tensor};
@@ -1306,8 +1302,7 @@ withForIvClosedFormComponents(const LoopPointerInfo &info, Value iv,
 
   SmallVector<Value> components;
   components.reserve(initComponents.size());
-  for (auto [initComponent, delta] :
-       llvm::zip(initComponents, info.ivDeltas)) {
+  for (auto [initComponent, delta] : llvm::zip(initComponents, info.ivDeltas)) {
     Type componentType = initComponent.getType();
     if (!isScalarIntegerLike(componentType))
       return failure();
@@ -1346,9 +1341,9 @@ static const LoopPointerInfo *findLoopInfo(ArrayRef<LoopPointerInfo> infos,
   return nullptr;
 }
 
-static SmallVector<Value>
-collectForComponents(const LoopPointerInfo &info, scf::ForOp forOp,
-                     bool useResults) {
+static SmallVector<Value> collectForComponents(const LoopPointerInfo &info,
+                                               scf::ForOp forOp,
+                                               bool useResults) {
   SmallVector<Value> values;
   for (unsigned newIndex : info.newIndices)
     values.push_back(useResults ? forOp.getResult(newIndex)
@@ -1356,9 +1351,10 @@ collectForComponents(const LoopPointerInfo &info, scf::ForOp forOp,
   return values;
 }
 
-static SmallVector<Value>
-collectWhileComponents(const LoopPointerInfo &info, scf::WhileOp whileOp,
-                       bool useResults, bool useAfterArgs) {
+static SmallVector<Value> collectWhileComponents(const LoopPointerInfo &info,
+                                                 scf::WhileOp whileOp,
+                                                 bool useResults,
+                                                 bool useAfterArgs) {
   SmallVector<Value> values;
   for (unsigned newIndex : info.newIndices) {
     if (useResults)
@@ -1430,9 +1426,8 @@ static LogicalResult rewriteForOp(scf::ForOp forOp, OpBuilder &builder,
     if (idx >= forOp.getInitArgs().size() || idx >= yieldOp.getNumOperands())
       return failure();
 
-    FailureOr<CFPtrInfo> initInfo =
-        analyzePtr(forOp.getInitArgs()[idx], env, analysisBuilder,
-                   forOp.getLoc());
+    FailureOr<CFPtrInfo> initInfo = analyzePtr(forOp.getInitArgs()[idx], env,
+                                               analysisBuilder, forOp.getLoc());
     if (failed(initInfo))
       continue;
     pointerInfos.push_back(
@@ -1444,8 +1439,7 @@ static LogicalResult rewriteForOp(scf::ForOp forOp, OpBuilder &builder,
 
   for (LoopPointerInfo &info : pointerInfos) {
     FailureOr<SmallVector<Value>> deltas =
-        matchSimpleForIvDeltas(forOp, info,
-                               yieldOp.getOperand(info.oldIndex));
+        matchSimpleForIvDeltas(forOp, info, yieldOp.getOperand(info.oldIndex));
     if (succeeded(deltas))
       info.ivDeltas = *deltas;
   }
@@ -1479,9 +1473,8 @@ static LogicalResult rewriteForOp(scf::ForOp forOp, OpBuilder &builder,
             for (unsigned newIndex : info->newIndices)
               values.push_back(args[newIndex]);
             CFPtrInfo argInfo = withLoopComponentValues(info->initInfo, values);
-            FailureOr<CFPtrInfo> closedFormInfo =
-                withForIvClosedFormComponents(*info, iv, bodyBuilder, loc,
-                                              bodyEnv);
+            FailureOr<CFPtrInfo> closedFormInfo = withForIvClosedFormComponents(
+                *info, iv, bodyBuilder, loc, bodyEnv);
             if (succeeded(closedFormInfo))
               argInfo = *closedFormInfo;
             Value rebuilt = rebuildPtr(bodyBuilder, loc, argInfo);
@@ -1502,8 +1495,7 @@ static LogicalResult rewriteForOp(scf::ForOp forOp, OpBuilder &builder,
         for (auto [idx, oldOperand] : llvm::enumerate(yieldOp.getOperands())) {
           if (const LoopPointerInfo *info = findLoopInfo(pointerInfos, idx)) {
             FailureOr<CFPtrInfo> nextInfo =
-                analyzePtr(oldOperand, bodyEnv, bodyBuilder,
-                           yieldOp.getLoc());
+                analyzePtr(oldOperand, bodyEnv, bodyBuilder, yieldOp.getLoc());
             if (failed(nextInfo) ||
                 !areLoopCompatible(info->initInfo, *nextInfo)) {
               bodyOk = false;
@@ -1559,13 +1551,12 @@ static LogicalResult rewriteWhileOp(scf::WhileOp whileOp, OpBuilder &builder,
   for (auto [idx, beforeArg] : llvm::enumerate(whileOp.getBeforeArguments())) {
     if (!isControlFlowPointerType(beforeArg.getType()))
       continue;
-    if (idx >= whileOp.getInits().size() || idx >= conditionOp.getArgs().size()
-        || idx >= yieldOp.getNumOperands())
+    if (idx >= whileOp.getInits().size() ||
+        idx >= conditionOp.getArgs().size() || idx >= yieldOp.getNumOperands())
       return failure();
 
-    FailureOr<CFPtrInfo> initInfo =
-        analyzePtr(whileOp.getInits()[idx], env, analysisBuilder,
-                   whileOp.getLoc());
+    FailureOr<CFPtrInfo> initInfo = analyzePtr(
+        whileOp.getInits()[idx], env, analysisBuilder, whileOp.getLoc());
     if (failed(initInfo))
       continue;
     pointerInfos.push_back(
@@ -1622,9 +1613,8 @@ static LogicalResult rewriteWhileOp(scf::WhileOp whileOp, OpBuilder &builder,
         SmallVector<Value> newConditionArgs;
         for (auto [idx, oldArg] : llvm::enumerate(conditionOp.getArgs())) {
           if (const LoopPointerInfo *info = findLoopInfo(pointerInfos, idx)) {
-            FailureOr<CFPtrInfo> conditionInfo =
-                analyzePtr(oldArg, beforeEnv, bodyBuilder,
-                           conditionOp.getLoc());
+            FailureOr<CFPtrInfo> conditionInfo = analyzePtr(
+                oldArg, beforeEnv, bodyBuilder, conditionOp.getLoc());
             if (failed(conditionInfo) ||
                 !areLoopCompatible(info->initInfo, *conditionInfo)) {
               bodyOk = false;
@@ -1646,7 +1636,8 @@ static LogicalResult rewriteWhileOp(scf::WhileOp whileOp, OpBuilder &builder,
       },
       [&](OpBuilder &bodyBuilder, Location loc, ValueRange args) {
         RewriteEnv afterEnv = env;
-        for (auto [idx, oldArg] : llvm::enumerate(whileOp.getAfterArguments())) {
+        for (auto [idx, oldArg] :
+             llvm::enumerate(whileOp.getAfterArguments())) {
           if (const LoopPointerInfo *info = findLoopInfo(pointerInfos, idx)) {
             SmallVector<Value> values;
             for (unsigned newIndex : info->newIndices)
@@ -1663,16 +1654,15 @@ static LogicalResult rewriteWhileOp(scf::WhileOp whileOp, OpBuilder &builder,
           afterEnv.valueMapping.map(oldArg, args[oldToNewStart[idx]]);
         }
 
-        if (failed(rewriteBodyOps(whileOp.getAfterBody(), bodyBuilder,
-                                  afterEnv)))
+        if (failed(
+                rewriteBodyOps(whileOp.getAfterBody(), bodyBuilder, afterEnv)))
           bodyOk = false;
 
         SmallVector<Value> newYieldOperands;
         for (auto [idx, oldOperand] : llvm::enumerate(yieldOp.getOperands())) {
           if (const LoopPointerInfo *info = findLoopInfo(pointerInfos, idx)) {
             FailureOr<CFPtrInfo> nextInfo =
-                analyzePtr(oldOperand, afterEnv, bodyBuilder,
-                           yieldOp.getLoc());
+                analyzePtr(oldOperand, afterEnv, bodyBuilder, yieldOp.getLoc());
             if (failed(nextInfo) ||
                 !areLoopCompatible(info->initInfo, *nextInfo)) {
               bodyOk = false;
@@ -1752,9 +1742,8 @@ addIfBlockComponents(const BlockPtrInfo &thenParts,
       continue;
     if (thenValue.getType() != elseValue.getType())
       return failure();
-    components.push_back(
-        {IfComponentKind::BlockShape, static_cast<unsigned>(idx),
-         thenValue.getType()});
+    components.push_back({IfComponentKind::BlockShape,
+                          static_cast<unsigned>(idx), thenValue.getType()});
   }
 
   for (auto [idx, values] :
@@ -1765,9 +1754,8 @@ addIfBlockComponents(const BlockPtrInfo &thenParts,
       continue;
     if (thenValue.getType() != elseValue.getType())
       return failure();
-    components.push_back(
-        {IfComponentKind::BlockStride, static_cast<unsigned>(idx),
-         thenValue.getType()});
+    components.push_back({IfComponentKind::BlockStride,
+                          static_cast<unsigned>(idx), thenValue.getType()});
   }
 
   for (auto [idx, values] :
@@ -1784,9 +1772,10 @@ addIfBlockComponents(const BlockPtrInfo &thenParts,
   return success();
 }
 
-static FailureOr<CFPtrInfo>
-analyzePtrForIfPlanning(Value value, const RewriteEnv &env,
-                        OpBuilder &builder, Location loc);
+static FailureOr<CFPtrInfo> analyzePtrForIfPlanning(Value value,
+                                                    const RewriteEnv &env,
+                                                    OpBuilder &builder,
+                                                    Location loc);
 
 static FailureOr<CFPtrInfo>
 analyzeNestedIfResultForPlanning(scf::IfOp ifOp, unsigned resultIndex,
@@ -1805,8 +1794,7 @@ analyzeNestedIfResultForPlanning(scf::IfOp ifOp, unsigned resultIndex,
       thenYield.getOperand(resultIndex), env, builder, loc);
   FailureOr<CFPtrInfo> elseInfo = analyzePtrForIfPlanning(
       elseYield.getOperand(resultIndex), env, builder, loc);
-  if (failed(thenInfo) || failed(elseInfo) ||
-      thenInfo->kind != elseInfo->kind)
+  if (failed(thenInfo) || failed(elseInfo) || thenInfo->kind != elseInfo->kind)
     return failure();
 
   SmallVector<IfComponent> components;
@@ -1825,9 +1813,10 @@ analyzeNestedIfResultForPlanning(scf::IfOp ifOp, unsigned resultIndex,
   return *thenInfo;
 }
 
-static FailureOr<CFPtrInfo>
-analyzePtrForIfPlanning(Value value, const RewriteEnv &env,
-                        OpBuilder &builder, Location loc) {
+static FailureOr<CFPtrInfo> analyzePtrForIfPlanning(Value value,
+                                                    const RewriteEnv &env,
+                                                    OpBuilder &builder,
+                                                    Location loc) {
   if (auto it = env.pointerComponents.find(value);
       it != env.pointerComponents.end())
     return it->second;
@@ -1865,8 +1854,8 @@ static Value getComponentValue(const CFPtrInfo &info,
   }
 }
 
-static const IfPointerInfo *
-findIfInfo(ArrayRef<IfPointerInfo> infos, unsigned oldIndex) {
+static const IfPointerInfo *findIfInfo(ArrayRef<IfPointerInfo> infos,
+                                       unsigned oldIndex) {
   for (const IfPointerInfo &info : infos) {
     if (info.oldIndex == oldIndex)
       return &info;
@@ -1874,8 +1863,8 @@ findIfInfo(ArrayRef<IfPointerInfo> infos, unsigned oldIndex) {
   return nullptr;
 }
 
-static FailureOr<CFPtrInfo>
-makeIfResultInfo(const IfPointerInfo &info, ArrayRef<Value> componentValues) {
+static FailureOr<CFPtrInfo> makeIfResultInfo(const IfPointerInfo &info,
+                                             ArrayRef<Value> componentValues) {
   unsigned componentIndex = 0;
   CFPtrInfo resultInfo = info.thenInfo;
   if (info.thenInfo.kind == PtrKind::Tensor) {
@@ -1946,12 +1935,11 @@ static LogicalResult rewriteIfOp(scf::IfOp ifOp, OpBuilder &builder,
           info.thenInfo.tensor.scalarBase != info.elseInfo.tensor.scalarBase)
         continue;
       if (failed(addIfTensorComponents(info.thenInfo.tensor,
-                                       info.elseInfo.tensor,
-                                       info.components)))
+                                       info.elseInfo.tensor, info.components)))
         continue;
     } else {
-      if (failed(addIfBlockComponents(info.thenInfo.block,
-                                      info.elseInfo.block, info.components)))
+      if (failed(addIfBlockComponents(info.thenInfo.block, info.elseInfo.block,
+                                      info.components)))
         continue;
     }
     pointerInfos.push_back(info);
@@ -1983,8 +1971,7 @@ static LogicalResult rewriteIfOp(scf::IfOp ifOp, OpBuilder &builder,
     for (auto [idx, oldOperand] : llvm::enumerate(oldYield.getOperands())) {
       if (const IfPointerInfo *info = findIfInfo(pointerInfos, idx)) {
         FailureOr<CFPtrInfo> branchInfo =
-            analyzePtr(oldOperand, branchEnv, branchBuilder,
-                       oldYield.getLoc());
+            analyzePtr(oldOperand, branchEnv, branchBuilder, oldYield.getLoc());
         if (failed(branchInfo) || branchInfo->kind != info->thenInfo.kind)
           return failure();
         for (const IfComponent &component : info->components) {
@@ -2001,9 +1988,9 @@ static LogicalResult rewriteIfOp(scf::IfOp ifOp, OpBuilder &builder,
     return success();
   };
 
-  auto newIfOp = builder.create<scf::IfOp>(
-      ifOp.getLoc(), newResultTypes, remapValue(ifOp.getCondition(), env),
-      true);
+  auto newIfOp =
+      builder.create<scf::IfOp>(ifOp.getLoc(), newResultTypes,
+                                remapValue(ifOp.getCondition(), env), true);
   newIfOp->setAttrs(ifOp->getAttrs());
 
   {
@@ -2103,8 +2090,7 @@ namespace mlir::triton {
 void TritonControlFlowOptPass::getDependentDialects(
     DialectRegistry &registry) const {
   registry.insert<arith::ArithDialect, cf::ControlFlowDialect,
-                  func::FuncDialect, scf::SCFDialect,
-                  triton::TritonDialect>();
+                  func::FuncDialect, scf::SCFDialect, triton::TritonDialect>();
 }
 
 void TritonControlFlowOptPass::runOnOperation() {

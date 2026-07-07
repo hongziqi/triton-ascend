@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "AscendModel/HardwareParams.h"
 #include "AscendModel/IR/AscendModelDialect.h"
 #include "AscendModel/Transforms/Passes.h"
-#include "AscendModel/HardwareParams.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -75,8 +75,8 @@ static Value tracePointerSource(Value ptr) {
   Value current = ptr;
   while (Operation *def = current.getDefiningOp()) {
     StringRef name = def->getName().getStringRef();
-    if (name == "tt.addptr" || name == "tt.splat" ||
-        name == "tt.bitcast" || name == "tt.int_to_ptr") {
+    if (name == "tt.addptr" || name == "tt.splat" || name == "tt.bitcast" ||
+        name == "tt.int_to_ptr") {
       current = def->getOperand(0);
     } else {
       break;
@@ -102,12 +102,14 @@ static Value createPlaceholderSource(Type resultType, Location loc,
 // Triton-Specific Conversion Patterns
 //===----------------------------------------------------------------------===//
 
-/// Helper: check if a value comes from a cube operation (dot/matmul or cube_load)
+/// Helper: check if a value comes from a cube operation (dot/matmul or
+/// cube_load)
 static bool isFromCubeOp(Value v) {
   Operation *def = v.getDefiningOp();
-  if (!def) return false;
+  if (!def)
+    return false;
   StringRef name = def->getName().getStringRef();
-  return name == "tt.dot" || name == "ascend.matmul" || 
+  return name == "tt.dot" || name == "ascend.matmul" ||
          name == "ascend.cube_load";
 }
 
@@ -117,12 +119,12 @@ static bool isFromLoad(Value v) {
   Value current = v;
   while (Operation *def = current.getDefiningOp()) {
     StringRef name = def->getName().getStringRef();
-    if (name == "tt.load" || name == "ascend.cube_load" || 
+    if (name == "tt.load" || name == "ascend.cube_load" ||
         name == "ascend.vector_load") {
       return true;
     }
-    if (name == "tt.trans" || name == "tt.bitcast" ||
-        name == "tt.reshape" || name == "tt.expand_dims") {
+    if (name == "tt.trans" || name == "tt.bitcast" || name == "tt.reshape" ||
+        name == "tt.expand_dims") {
       current = def->getOperand(0);
     } else {
       break;
@@ -132,9 +134,10 @@ static bool isFromLoad(Value v) {
 }
 
 /// Convert tt.dot -> ascend.matmul with proper data transfer ops
-/// 
+///
 /// Data flow rules:
-/// - If input comes from tt.load: already converted to cube_load by ConvertTritonLoad
+/// - If input comes from tt.load: already converted to cube_load by
+/// ConvertTritonLoad
 /// - If input comes from vector ops: insert vector_store + cube_load
 /// - Output always goes to cube_store + vector_load (for subsequent vector ops)
 struct ConvertTritonDot : public RewritePattern {
@@ -162,8 +165,8 @@ struct ConvertTritonDot : public RewritePattern {
     auto lhsType = dyn_cast<RankedTensorType>(lhs.getType());
     auto rhsType = dyn_cast<RankedTensorType>(rhs.getType());
 
-    if (!lhsType || !rhsType ||
-        lhsType.getRank() != 2 || rhsType.getRank() != 2)
+    if (!lhsType || !rhsType || lhsType.getRank() != 2 ||
+        rhsType.getRank() != 2)
       return failure();
 
     int64_t M = lhsType.getShape()[0];
@@ -179,28 +182,30 @@ struct ConvertTritonDot : public RewritePattern {
       if (isFromLoad(operand)) {
         return operand;
       }
-      
+
       // If from vector operations, need to transfer to cube
       auto tensorType = dyn_cast<RankedTensorType>(operand.getType());
-      if (!tensorType) return operand;
-      
+      if (!tensorType)
+        return operand;
+
       int64_t bytes = getByteSize(tensorType);
-      
+
       // Vector store (write from vector core to L1/UB)
       rewriter.create<VectorStoreOp>(loc, operand, bytes, nullptr, nullptr);
-      
+
       // Cube load (read into cube core)
       Value placeholder = createPlaceholderSource(tensorType, loc, rewriter);
       auto cubeLoad = rewriter.create<CubeLoadOp>(
-          loc, tensorType, placeholder ? placeholder : operand, bytes, nullptr, nullptr);
-      
+          loc, tensorType, placeholder ? placeholder : operand, bytes, nullptr,
+          nullptr);
+
       return cubeLoad.getResult();
     };
 
     // Prepare inputs - ensure they're in cube memory
     Value lhsInput = ensureCubeInput(lhs);
     Value rhsInput = ensureCubeInput(rhs);
-    
+
     // Handle accumulator if present and non-zero
     Value accInput = acc;
     if (acc) {
@@ -210,13 +215,13 @@ struct ConvertTritonDot : public RewritePattern {
         if (defOp->getName().getStringRef() == "arith.constant") {
           if (auto attr = defOp->getAttr("value")) {
             if (auto denseAttr = dyn_cast<DenseElementsAttr>(attr)) {
-              isZeroAcc = denseAttr.isSplat() && 
+              isZeroAcc = denseAttr.isSplat() &&
                           denseAttr.getSplatValue<APFloat>().isZero();
             }
           }
         }
       }
-      
+
       // If non-zero accumulator from vector ops, transfer to cube
       if (!isZeroAcc && !isFromLoad(acc) && !isFromCubeOp(acc)) {
         accInput = ensureCubeInput(acc);
@@ -224,15 +229,14 @@ struct ConvertTritonDot : public RewritePattern {
     }
 
     // Create matmul
-    auto matmul = rewriter.create<MatmulOp>(
-        loc, resultType, lhsInput, rhsInput,
-        M, N, K, nullptr, nullptr);
-    
+    auto matmul = rewriter.create<MatmulOp>(loc, resultType, lhsInput, rhsInput,
+                                            M, N, K, nullptr, nullptr);
+
     // Output: cube_store (write from cube to L1/UB)
     int64_t resultBytes = getByteSize(resultType);
-    rewriter.create<CubeStoreOp>(loc, matmul.getResult(), resultBytes,
-                                 nullptr, nullptr);
-    
+    rewriter.create<CubeStoreOp>(loc, matmul.getResult(), resultBytes, nullptr,
+                                 nullptr);
+
     // Check if result is used by vector operations (or loop yield)
     // If so, insert vector_load to bring data into vector core
     bool usedByVectorOps = false;
@@ -244,19 +248,19 @@ struct ConvertTritonDot : public RewritePattern {
         break;
       }
     }
-    
+
     if (usedByVectorOps) {
       // Vector load (read into vector core for subsequent vector ops)
       auto resultTensorType = dyn_cast<RankedTensorType>(resultType);
       Value placeholder = createPlaceholderSource(resultType, loc, rewriter);
       auto vecLoad = rewriter.create<VectorLoadOp>(
-          loc, resultType, placeholder ? placeholder : matmul.getResult(), 
+          loc, resultType, placeholder ? placeholder : matmul.getResult(),
           resultBytes, nullptr, nullptr);
       rewriter.replaceOp(op, vecLoad.getResult());
     } else {
       rewriter.replaceOp(op, matmul.getResult());
     }
-    
+
     return success();
   }
 };
@@ -296,12 +300,12 @@ struct ConvertTritonLoad : public RewritePattern {
     bool usedByDot = op->hasAttr("ascend.used_by_dot");
 
     if (usedByDot) {
-      auto cubeLoad = rewriter.create<CubeLoadOp>(
-          loc, resultType, source, bytes, nullptr, nullptr);
+      auto cubeLoad = rewriter.create<CubeLoadOp>(loc, resultType, source,
+                                                  bytes, nullptr, nullptr);
       rewriter.replaceOp(op, cubeLoad.getResult());
     } else {
-      auto vecLoad = rewriter.create<VectorLoadOp>(
-          loc, resultType, source, bytes, nullptr, nullptr);
+      auto vecLoad = rewriter.create<VectorLoadOp>(loc, resultType, source,
+                                                   bytes, nullptr, nullptr);
       rewriter.replaceOp(op, vecLoad.getResult());
     }
     return success();
@@ -385,11 +389,10 @@ struct EraseDeadTritonAddrOps : public RewritePattern {
 
     StringRef name = op->getName().getStringRef();
     bool isAddrOrNoCost =
-        (name == "tt.addptr" || name == "tt.splat" ||
-         name == "tt.make_range" || name == "tt.expand_dims" ||
-         name == "tt.get_program_id" || name == "tt.int_to_ptr" ||
-         name == "tt.ptr_to_int" || name == "tt.bitcast" ||
-         name == "tt.trans" || name == "tt.reshape");
+        (name == "tt.addptr" || name == "tt.splat" || name == "tt.make_range" ||
+         name == "tt.expand_dims" || name == "tt.get_program_id" ||
+         name == "tt.int_to_ptr" || name == "tt.ptr_to_int" ||
+         name == "tt.bitcast" || name == "tt.trans" || name == "tt.reshape");
 
     if (!isAddrOrNoCost)
       return failure();
@@ -525,26 +528,26 @@ struct ConvertArithBinaryOp : public RewritePattern {
     Operation *newOp = nullptr;
 
     if (name == "arith.addf" || name == "arith.addi") {
-      newOp = rewriter.create<AddOp>(loc, resultType, lhs, rhs,
-                                     nullptr, nullptr);
+      newOp =
+          rewriter.create<AddOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
     } else if (name == "arith.subf" || name == "arith.subi") {
-      newOp = rewriter.create<SubOp>(loc, resultType, lhs, rhs,
-                                     nullptr, nullptr);
+      newOp =
+          rewriter.create<SubOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
     } else if (name == "arith.mulf" || name == "arith.muli") {
-      newOp = rewriter.create<MulOp>(loc, resultType, lhs, rhs,
-                                     nullptr, nullptr);
+      newOp =
+          rewriter.create<MulOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
     } else if (name == "arith.divf" || name == "arith.divsi" ||
                name == "arith.divui") {
-      newOp = rewriter.create<DivOp>(loc, resultType, lhs, rhs,
-                                     nullptr, nullptr);
+      newOp =
+          rewriter.create<DivOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
     } else if (name == "arith.maxnumf" || name == "arith.maximumf" ||
                name == "arith.maxsi" || name == "arith.maxui") {
-      newOp = rewriter.create<MaxOp>(loc, resultType, lhs, rhs,
-                                     nullptr, nullptr);
+      newOp =
+          rewriter.create<MaxOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
     } else if (name == "arith.minnumf" || name == "arith.minimumf" ||
                name == "arith.minsi" || name == "arith.minui") {
-      newOp = rewriter.create<MinOp>(loc, resultType, lhs, rhs,
-                                     nullptr, nullptr);
+      newOp =
+          rewriter.create<MinOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
     } else {
       return failure();
     }
@@ -561,11 +564,11 @@ struct ConvertArithCmpOp : public RewritePattern {
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
     StringRef name = op->getName().getStringRef();
-    
+
     // Match arith.cmpf and arith.cmpi
     if (!name.starts_with("arith.cmpf") && !name.starts_with("arith.cmpi"))
       return failure();
-    
+
     if (op->getNumResults() == 0 || op->getNumOperands() < 2)
       return failure();
 
@@ -576,74 +579,87 @@ struct ConvertArithCmpOp : public RewritePattern {
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
     Location loc = op->getLoc();
-    
+
     // Get the predicate attribute
     auto predicateAttr = op->getAttrOfType<mlir::IntegerAttr>("predicate");
     if (!predicateAttr)
       return failure();
-    
+
     int64_t predicate = predicateAttr.getInt();
     Operation *newOp = nullptr;
-    
+
     if (name == "arith.cmpf") {
       // Float comparison predicates (arith::CmpFPredicate)
-      // 1=OEQ, 2=OGT, 3=OGE, 4=OLT, 5=OLE, 6=ONE, 8=UEQ, 9=UGT, 10=UGE, 11=ULT, 12=ULE, 13=UNE
+      // 1=OEQ, 2=OGT, 3=OGE, 4=OLT, 5=OLE, 6=ONE, 8=UEQ, 9=UGT, 10=UGE, 11=ULT,
+      // 12=ULE, 13=UNE
       switch (predicate) {
-        case 1:  // OEQ - ordered equal
-        case 8:  // UEQ - unordered equal
-          newOp = rewriter.create<CmpEqOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 6:  // ONE - ordered not equal
-        case 13: // UNE - unordered not equal
-          newOp = rewriter.create<CmpNeOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 4:  // OLT - ordered less than
-        case 11: // ULT - unordered less than
-          newOp = rewriter.create<CmpLtOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 5:  // OLE - ordered less or equal
-        case 12: // ULE - unordered less or equal
-          newOp = rewriter.create<CmpLeOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 2:  // OGT - ordered greater than
-        case 9:  // UGT - unordered greater than
-          newOp = rewriter.create<CmpGtOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 3:  // OGE - ordered greater or equal
-        case 10: // UGE - unordered greater or equal
-          newOp = rewriter.create<CmpGeOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        default:
-          return failure();
+      case 1: // OEQ - ordered equal
+      case 8: // UEQ - unordered equal
+        newOp = rewriter.create<CmpEqOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 6:  // ONE - ordered not equal
+      case 13: // UNE - unordered not equal
+        newOp = rewriter.create<CmpNeOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 4:  // OLT - ordered less than
+      case 11: // ULT - unordered less than
+        newOp = rewriter.create<CmpLtOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 5:  // OLE - ordered less or equal
+      case 12: // ULE - unordered less or equal
+        newOp = rewriter.create<CmpLeOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 2: // OGT - ordered greater than
+      case 9: // UGT - unordered greater than
+        newOp = rewriter.create<CmpGtOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 3:  // OGE - ordered greater or equal
+      case 10: // UGE - unordered greater or equal
+        newOp = rewriter.create<CmpGeOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      default:
+        return failure();
       }
     } else if (name == "arith.cmpi") {
       // Integer comparison predicates (arith::CmpIPredicate)
       // 0=eq, 1=ne, 2=slt, 3=sle, 4=sgt, 5=sge, 6=ult, 7=ule, 8=ugt, 9=uge
       switch (predicate) {
-        case 0:  // eq
-          newOp = rewriter.create<CmpEqOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 1:  // ne
-          newOp = rewriter.create<CmpNeOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 2:  // slt
-        case 6:  // ult
-          newOp = rewriter.create<CmpLtOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 3:  // sle
-        case 7:  // ule
-          newOp = rewriter.create<CmpLeOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 4:  // sgt
-        case 8:  // ugt
-          newOp = rewriter.create<CmpGtOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        case 5:  // sge
-        case 9:  // uge
-          newOp = rewriter.create<CmpGeOp>(loc, resultType, lhs, rhs, nullptr, nullptr);
-          break;
-        default:
-          return failure();
+      case 0: // eq
+        newOp = rewriter.create<CmpEqOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 1: // ne
+        newOp = rewriter.create<CmpNeOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 2: // slt
+      case 6: // ult
+        newOp = rewriter.create<CmpLtOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 3: // sle
+      case 7: // ule
+        newOp = rewriter.create<CmpLeOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 4: // sgt
+      case 8: // ugt
+        newOp = rewriter.create<CmpGtOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      case 5: // sge
+      case 9: // uge
+        newOp = rewriter.create<CmpGeOp>(loc, resultType, lhs, rhs, nullptr,
+                                         nullptr);
+        break;
+      default:
+        return failure();
       }
     } else {
       return failure();
@@ -673,26 +689,20 @@ struct ConvertMathUnaryOp : public RewritePattern {
     Operation *newOp = nullptr;
 
     if (name == "math.exp" || name == "math.exp2") {
-      newOp = rewriter.create<ExpOp>(loc, resultType, input,
-                                     nullptr, nullptr);
+      newOp = rewriter.create<ExpOp>(loc, resultType, input, nullptr, nullptr);
     } else if (name == "math.log" || name == "math.log2") {
-      newOp = rewriter.create<LogOp>(loc, resultType, input,
-                                     nullptr, nullptr);
+      newOp = rewriter.create<LogOp>(loc, resultType, input, nullptr, nullptr);
     } else if (name == "math.sqrt") {
-      newOp = rewriter.create<SqrtOp>(loc, resultType, input,
-                                      nullptr, nullptr);
+      newOp = rewriter.create<SqrtOp>(loc, resultType, input, nullptr, nullptr);
     } else if (name == "math.rsqrt") {
-      newOp = rewriter.create<RsqrtOp>(loc, resultType, input,
-                                       nullptr, nullptr);
+      newOp =
+          rewriter.create<RsqrtOp>(loc, resultType, input, nullptr, nullptr);
     } else if (name == "math.tanh") {
-      newOp = rewriter.create<TanhOp>(loc, resultType, input,
-                                      nullptr, nullptr);
+      newOp = rewriter.create<TanhOp>(loc, resultType, input, nullptr, nullptr);
     } else if (name == "arith.negf") {
-      newOp = rewriter.create<NegOp>(loc, resultType, input,
-                                     nullptr, nullptr);
+      newOp = rewriter.create<NegOp>(loc, resultType, input, nullptr, nullptr);
     } else if (name == "math.absf" || name == "math.absi") {
-      newOp = rewriter.create<AbsOp>(loc, resultType, input,
-                                     nullptr, nullptr);
+      newOp = rewriter.create<AbsOp>(loc, resultType, input, nullptr, nullptr);
     } else {
       return failure();
     }
@@ -718,9 +728,8 @@ struct ConvertArithSelect : public RewritePattern {
       return failure();
 
     auto selectOp = rewriter.create<SelectOp>(
-        op->getLoc(), resultType,
-        op->getOperand(0), op->getOperand(1), op->getOperand(2),
-        nullptr, nullptr);
+        op->getLoc(), resultType, op->getOperand(0), op->getOperand(1),
+        op->getOperand(2), nullptr, nullptr);
 
     rewriter.replaceOp(op, selectOp.getResult());
     return success();
@@ -734,13 +743,16 @@ struct ConvertArithCast : public RewritePattern {
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
     StringRef name = op->getName().getStringRef();
-    
+
     // Check if it's a type conversion operation
     // All cast operations (1 cycle each) are unified to ascend.cast
     if (!name.starts_with("arith.ext") && !name.starts_with("arith.trunc") &&
-        !name.starts_with("arith.sitofp") && !name.starts_with("arith.uitofp") &&
-        !name.starts_with("arith.fptosi") && !name.starts_with("arith.fptoui") &&
-        !name.starts_with("arith.bitcast") && !name.starts_with("arith.index_cast"))
+        !name.starts_with("arith.sitofp") &&
+        !name.starts_with("arith.uitofp") &&
+        !name.starts_with("arith.fptosi") &&
+        !name.starts_with("arith.fptoui") &&
+        !name.starts_with("arith.bitcast") &&
+        !name.starts_with("arith.index_cast"))
       return failure();
 
     if (op->getNumResults() == 0 || op->getNumOperands() == 0)
@@ -751,8 +763,8 @@ struct ConvertArithCast : public RewritePattern {
       return failure();
 
     // All cast operations map to ascend.cast (1 cycle per vector op)
-    auto castOp = rewriter.create<CastOp>(
-        op->getLoc(), resultType, op->getOperand(0), nullptr, nullptr);
+    auto castOp = rewriter.create<CastOp>(op->getLoc(), resultType,
+                                          op->getOperand(0), nullptr, nullptr);
 
     rewriter.replaceOp(op, castOp.getResult());
     return success();
@@ -772,13 +784,14 @@ struct ConvertTritonToAscendPass
     MLIRContext *ctx = &getContext();
 
     // === Phase 1: Analysis ===
-    // Mark all tt.load operations that are used by tt.dot (directly or through tt.trans)
-    // This allows ConvertTritonLoad to correctly choose cube_load vs vector_load
+    // Mark all tt.load operations that are used by tt.dot (directly or through
+    // tt.trans) This allows ConvertTritonLoad to correctly choose cube_load vs
+    // vector_load
     module.walk([&](Operation *op) {
       StringRef name = op->getName().getStringRef();
       if (name != "tt.dot")
         return;
-      
+
       // For each operand of tt.dot, trace back to find source tt.load
       for (Value operand : op->getOperands()) {
         Value current = operand;
@@ -805,12 +818,15 @@ struct ConvertTritonToAscendPass
 
     // === High benefit (10): Triton compute ops -> AscendModel ops ===
     // These run first and break pointer chain dependencies.
-    patterns.add<ConvertTritonDot>(ctx);       // tt.dot -> matmul + cube_store
-    patterns.add<ConvertTritonLoad>(ctx);      // tt.load -> cube_load (for dot) or vector_load
-    patterns.add<ConvertTritonTrans>(ctx);     // tt.trans -> pass-through (zero cost)
-    patterns.add<ConvertTritonStore>(ctx);     // tt.store -> ascend.vector_store
-    patterns.add<ConvertTritonReduce>(ctx);    // tt.reduce -> ascend.reduce_*
-    patterns.add<ConvertTritonBroadcast>(ctx); // tt.broadcast -> ascend.broadcast
+    patterns.add<ConvertTritonDot>(ctx); // tt.dot -> matmul + cube_store
+    patterns.add<ConvertTritonLoad>(
+        ctx); // tt.load -> cube_load (for dot) or vector_load
+    patterns.add<ConvertTritonTrans>(
+        ctx); // tt.trans -> pass-through (zero cost)
+    patterns.add<ConvertTritonStore>(ctx);  // tt.store -> ascend.vector_store
+    patterns.add<ConvertTritonReduce>(ctx); // tt.reduce -> ascend.reduce_*
+    patterns.add<ConvertTritonBroadcast>(
+        ctx); // tt.broadcast -> ascend.broadcast
     // NOTE: tt.func/tt.return are left as-is (see comment above)
 
     // === Low benefit (1): cleanup and arith/math conversion ===

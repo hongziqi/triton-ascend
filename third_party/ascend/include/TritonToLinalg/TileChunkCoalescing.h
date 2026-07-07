@@ -57,6 +57,6 @@ namespace TileChunkCoalescing {
 
 void rewriteTileChunkCoalesce(mlir::ModuleOp moduleOp);
 
-}  // namespace TileChunkCoalescing
+} // namespace TileChunkCoalescing
 
-#endif  // TRITON_ASCEND_TILE_CHUNK_COALESCING_H
+#endif // TRITON_ASCEND_TILE_CHUNK_COALESCING_H

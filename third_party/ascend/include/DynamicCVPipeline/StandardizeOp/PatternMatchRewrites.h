@@ -32,28 +32,33 @@
 namespace mlir::triton::CVSplit {
 
 class SplitMatmulPattern : public mlir::OpRewritePattern<linalg::MatmulOp> {
-  public:
-    explicit SplitMatmulPattern(mlir::MLIRContext *context, bool needSplitAll)
-        : OpRewritePattern<linalg::MatmulOp>(context), needSplitAll(needSplitAll) {}
-    llvm::LogicalResult matchAndRewrite(linalg::MatmulOp matmulOp, PatternRewriter &rewriter) const override;
+public:
+  explicit SplitMatmulPattern(mlir::MLIRContext *context, bool needSplitAll)
+      : OpRewritePattern<linalg::MatmulOp>(context),
+        needSplitAll(needSplitAll) {}
+  llvm::LogicalResult matchAndRewrite(linalg::MatmulOp matmulOp,
+                                      PatternRewriter &rewriter) const override;
 
-  private:
-    bool needSplitAll;
+private:
+  bool needSplitAll;
 };
 
-class PatternMatchRewritePass : public PassWrapper<PatternMatchRewritePass, OperationPass<ModuleOp>> {
-  public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PatternMatchRewritePass);
+class PatternMatchRewritePass
+    : public PassWrapper<PatternMatchRewritePass, OperationPass<ModuleOp>> {
+public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PatternMatchRewritePass);
 
-    PatternMatchRewritePass() = default;
-    void runOnOperation() override;
+  PatternMatchRewritePass() = default;
+  void runOnOperation() override;
 
-    void getDependentDialects(mlir::DialectRegistry &registry) const override
-    {
-        registry.insert<mlir::linalg::LinalgDialect, mlir::arith::ArithDialect, mlir::tensor::TensorDialect>();
-    }
+  void getDependentDialects(mlir::DialectRegistry &registry) const override {
+    registry.insert<mlir::linalg::LinalgDialect, mlir::arith::ArithDialect,
+                    mlir::tensor::TensorDialect>();
+  }
 
-    [[nodiscard]] llvm::StringRef getArgument() const final { return "ssbuf-standardize-op-pattern-match"; }
+  [[nodiscard]] llvm::StringRef getArgument() const final {
+    return "ssbuf-standardize-op-pattern-match";
+  }
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createPatternMatchRewritePass();

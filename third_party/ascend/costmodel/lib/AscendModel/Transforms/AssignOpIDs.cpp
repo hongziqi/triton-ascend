@@ -19,32 +19,28 @@ namespace ascend {
 
 namespace {
 
-struct AssignOpIDsPass
-    : public impl::AssignOpIDsPassBase<AssignOpIDsPass> {
+struct AssignOpIDsPass : public impl::AssignOpIDsPassBase<AssignOpIDsPass> {
   using AssignOpIDsPassBase::AssignOpIDsPassBase;
-  
+
   void runOnOperation() override {
     ModuleOp module = getOperation();
     int64_t nextId = 0;
-    
+
     module.walk([&](Operation *op) {
       // Check if this is an AscendModel operation
-      if (op->getDialect() && 
-          op->getDialect()->getNamespace() == "ascend") {
-        
+      if (op->getDialect() && op->getDialect()->getNamespace() == "ascend") {
+
         // Set op_id attribute
-        op->setAttr("op_id", 
-                    IntegerAttr::get(
-                        IntegerType::get(op->getContext(), 64), 
-                        nextId++));
+        op->setAttr(
+            "op_id",
+            IntegerAttr::get(IntegerType::get(op->getContext(), 64), nextId++));
       }
     });
-    
+
     // Store total operation count as module attribute
-    module->setAttr("ascend.total_ops",
-                    IntegerAttr::get(
-                        IntegerType::get(module.getContext(), 64),
-                        nextId));
+    module->setAttr(
+        "ascend.total_ops",
+        IntegerAttr::get(IntegerType::get(module.getContext(), 64), nextId));
   }
 };
 

@@ -26,20 +26,20 @@
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "bishengir/Dialect/Scope/IR/Scope.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/IRMapping.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Debug.h"
 
 static constexpr const char *DEBUG_TYPE = "CloneOps";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...) \
-LLVM_DEBUG({ \
-  DBGS(); \
-  llvm::outs() << __VA_ARGS__; \
-  llvm::outs() << "\n"; \
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::outs() << __VA_ARGS__;                                               \
+    llvm::outs() << "\n";                                                      \
+  })
 
 using namespace mlir;
 using namespace triton;
@@ -49,10 +49,9 @@ using MemDepGraph = std::unique_ptr<CVPipeline::MemoryDependenceGraph>;
 using MemDepGraphT = CVPipeline::MemoryDependenceGraph;
 
 // Update op operands using value mapping, skip yield values of forOp
-static LogicalResult updateCloneMapping(Operation *op,
-    llvm::DenseMap<Value, Value> &valueMap,
-    const llvm::DenseSet<Value> &yieldValues)
-{
+static LogicalResult
+updateCloneMapping(Operation *op, llvm::DenseMap<Value, Value> &valueMap,
+                   const llvm::DenseSet<Value> &yieldValues) {
   if (!op) {
     return failure();
   }
@@ -68,7 +67,8 @@ static LogicalResult updateCloneMapping(Operation *op,
     auto it = valueMap.find(v);
     if (it != valueMap.end()) {
       if (it->second.getType() != v.getType()) {
-        LDBG("[Error]: type mismatch in value mapping: " << v.getType() << " vs " << it->second.getType() << "\n");
+        LDBG("[Error]: type mismatch in value mapping: "
+             << v.getType() << " vs " << it->second.getType() << "\n");
         return failure();
       }
       operand.set(it->second);
@@ -89,12 +89,11 @@ static LogicalResult updateCloneMapping(Operation *op,
 }
 
 // Clone a single op with IRMapping
-static Operation *cloneOpWithMapping(Operation *op,
-    OpBuilder &builder,
-    llvm::DenseMap<Value, Value> &valueMap)
-{
+static Operation *cloneOpWithMapping(Operation *op, OpBuilder &builder,
+                                     llvm::DenseMap<Value, Value> &valueMap) {
   IRMapping mapper;
-  // Populate mapper with ALL previously cloned values (not just the current op's results). 
+  // Populate mapper with ALL previously cloned values (not just the current
+  // op's results).
   for (const auto &entry : valueMap) {
     mapper.map(entry.first, entry.second);
   }
@@ -108,11 +107,11 @@ static Operation *cloneOpWithMapping(Operation *op,
 }
 
 // Clone ops for a single block in vector/cube mode
-static LogicalResult cloneOpsForBlock(int curId, SmallVector<Operation *> &curOps,
-    const SmallVector<int> &earlierIds,
-    const llvm::DenseMap<int, SmallVector<Operation *>> &blockOps,
-    scf::ForOp forOp)
-{
+static LogicalResult
+cloneOpsForBlock(int curId, SmallVector<Operation *> &curOps,
+                 const SmallVector<int> &earlierIds,
+                 const llvm::DenseMap<int, SmallVector<Operation *>> &blockOps,
+                 scf::ForOp forOp) {
   if (curOps.empty() || earlierIds.empty()) {
     return success();
   }
@@ -134,7 +133,9 @@ static LogicalResult cloneOpsForBlock(int curId, SmallVector<Operation *> &curOp
     Operation *cloned = cloneOpWithMapping(op, builder, valueMap);
     cloned->setAttr(CVPipeline::kBlockId, builder.getI32IntegerAttr(curId));
     if (auto origBlockIdOpt = CVPipeline::getOpBlockId(op)) {
-      cloned->setAttr(CVPipeline::kClone, builder.getI32IntegerAttr(static_cast<int32_t>(*origBlockIdOpt)));
+      cloned->setAttr(
+          CVPipeline::kClone,
+          builder.getI32IntegerAttr(static_cast<int32_t>(*origBlockIdOpt)));
     }
     clonedOps.push_back(cloned);
   }
@@ -162,8 +163,7 @@ static LogicalResult cloneOpsForBlock(int curId, SmallVector<Operation *> &curOp
 }
 
 // Clone ops for all blocks in main loop
-LogicalResult CloneOpsPass::cloneOpsInMainLoop(scf::ForOp forOp)
-{
+LogicalResult CloneOpsPass::cloneOpsInMainLoop(scf::ForOp forOp) {
   llvm::DenseMap<int, SmallVector<Operation *>> blockOps;
   if (failed(collectOpsByBlockId(forOp, blockOps))) {
     return failure();
@@ -175,7 +175,8 @@ LogicalResult CloneOpsPass::cloneOpsInMainLoop(scf::ForOp forOp)
     int curId = idsInOrder[i];
     SmallVector<int> earlierIds(idsInOrder.begin(), idsInOrder.begin() + i);
 
-    if (failed(cloneOpsForBlock(curId, blockOps[curId], earlierIds, blockOps, forOp))) {
+    if (failed(cloneOpsForBlock(curId, blockOps[curId], earlierIds, blockOps,
+                                forOp))) {
       return failure();
     }
   }
@@ -184,9 +185,11 @@ LogicalResult CloneOpsPass::cloneOpsInMainLoop(scf::ForOp forOp)
 }
 
 // Check if an op should be erased during cleanup (for cube)
-// memGraph: optional pointer to MemoryDependenceGraph for checking exec-after dependencies
-static bool shouldEraseOpForCube(Operation *op, const CVPipeline::MemoryDependenceGraph *memGraph = nullptr)
-{
+// memGraph: optional pointer to MemoryDependenceGraph for checking exec-after
+// dependencies
+static bool shouldEraseOpForCube(
+    Operation *op,
+    const CVPipeline::MemoryDependenceGraph *memGraph = nullptr) {
   // Rule 1: SyncBlockWaitOp, SyncBlockSetOp, FixpipeOp -> directly erase
   if (isa<SyncBlockWaitOp>(op) || isa<SyncBlockSetOp>(op) ||
       isa<hivm::FixpipeOp>(op)) {
@@ -195,8 +198,9 @@ static bool shouldEraseOpForCube(Operation *op, const CVPipeline::MemoryDependen
 
   auto opBlockId = getForDirectChildBlockId(op);
 
-  // Rule 2: If op has results, check via SSA if result is used by later ops in same block_id
-  // Use for-direct-child block_id (the immediate child of scf.for) for comparison
+  // Rule 2: If op has results, check via SSA if result is used by later ops in
+  // same block_id Use for-direct-child block_id (the immediate child of
+  // scf.for) for comparison
   if (op->getNumResults() > 0) {
     for (auto result : op->getResults()) {
       if (result.use_empty()) {
@@ -208,31 +212,35 @@ static bool shouldEraseOpForCube(Operation *op, const CVPipeline::MemoryDependen
         return false;
       }
       // Check if any user is in the same for-direct-child block_id
-      bool usedInSameBlockId = llvm::any_of(result.getUsers(), [&](Operation *user) {
-        auto userBlockId = getForDirectChildBlockId(user);
-        return userBlockId && *userBlockId == *opBlockId;
-      });
+      bool usedInSameBlockId =
+          llvm::any_of(result.getUsers(), [&](Operation *user) {
+            auto userBlockId = getForDirectChildBlockId(user);
+            return userBlockId && *userBlockId == *opBlockId;
+          });
       if (usedInSameBlockId) {
         // Result used in same for-direct-child block, cannot erase
         return false;
       }
     }
-    // All results are either unused or not used in same for-direct-child block, can erase
+    // All results are either unused or not used in same for-direct-child block,
+    // can erase
     return true;
   }
 
-  // Rule 3: If op has no results, check getExecAfter for same block_id dependencies
+  // Rule 3: If op has no results, check getExecAfter for same block_id
+  // dependencies
   if (memGraph) {
     auto execAfterOps = memGraph->getExecAfter(op);
-    bool hasCloneExecAfterInSameBlockId = llvm::any_of(execAfterOps, [&](Operation *execOp) {
-      // sync_block_wait/sync_block_set ops are not memory side effects in analyzing cleanup ops,
-      // therefore, we need to skip their judgments
-      if (isa<SyncBlockWaitOp>(execOp) || isa<SyncBlockSetOp>(execOp)) {
-        return false;
-      }
-      auto execBlockId = CVPipeline::getOpBlockId(execOp);
-      return execBlockId && opBlockId && *execBlockId == *opBlockId;
-    });
+    bool hasCloneExecAfterInSameBlockId =
+        llvm::any_of(execAfterOps, [&](Operation *execOp) {
+          // sync_block_wait/sync_block_set ops are not memory side effects in
+          // analyzing cleanup ops, therefore, we need to skip their judgments
+          if (isa<SyncBlockWaitOp>(execOp) || isa<SyncBlockSetOp>(execOp)) {
+            return false;
+          }
+          auto execBlockId = CVPipeline::getOpBlockId(execOp);
+          return execBlockId && opBlockId && *execBlockId == *opBlockId;
+        });
     if (hasCloneExecAfterInSameBlockId) {
       return false;
     }
@@ -243,20 +251,19 @@ static bool shouldEraseOpForCube(Operation *op, const CVPipeline::MemoryDependen
 }
 
 // Check if an op should be erased (for vector)
-static bool shouldEraseOpForVector(Operation *op)
-{
+static bool shouldEraseOpForVector(Operation *op) {
   return llvm::none_of(op->getResults(),
                        [](auto result) { return !result.use_empty(); });
 }
 
 // Cleanup for cloned ops in a forOp
-// memGraphFactory: callable that rebuilds MemoryDependenceGraph for current IR state
-static LogicalResult cleanupClonedOps(scf::ForOp forOp,
-    llvm::DenseMap<int, SmallVector<Operation *>> &blockOps,
-    const SmallVector<int> &idsInOrder,
-    bool isCube,
-    std::function<MemDepGraph(scf::ForOp)> memGraphFactory)
-{
+// memGraphFactory: callable that rebuilds MemoryDependenceGraph for current IR
+// state
+static LogicalResult
+cleanupClonedOps(scf::ForOp forOp,
+                 llvm::DenseMap<int, SmallVector<Operation *>> &blockOps,
+                 const SmallVector<int> &idsInOrder, bool isCube,
+                 std::function<MemDepGraph(scf::ForOp)> memGraphFactory) {
   for (int i = idsInOrder.size() - 1; i >= 0; --i) {
     auto &curOps = blockOps[idsInOrder[i]];
     if (curOps.empty()) {
@@ -276,8 +283,8 @@ static LogicalResult cleanupClonedOps(scf::ForOp forOp,
     }
 
     // Erase cloned ops from bottom to top
-    // This ensures that when checking if an op can be erased, its users in same block_id
-    // have already been processed (and erased if applicable)
+    // This ensures that when checking if an op can be erased, its users in same
+    // block_id have already been processed (and erased if applicable)
     for (int j = startIdx; j >= 0; --j) {
       Operation *op = curOps[j];
       if (!op->hasAttr(CVPipeline::kClone)) {
@@ -285,7 +292,8 @@ static LogicalResult cleanupClonedOps(scf::ForOp forOp,
       }
       // Rebuild memGraph after each erasure to reflect current IR state
       auto memGraph = memGraphFactory(forOp);
-      bool shouldErase = isCube ? shouldEraseOpForCube(op, memGraph.get()) : shouldEraseOpForVector(op);
+      bool shouldErase = isCube ? shouldEraseOpForCube(op, memGraph.get())
+                                : shouldEraseOpForVector(op);
       if (shouldErase) {
         op->erase();
       }
@@ -297,7 +305,8 @@ static LogicalResult cleanupClonedOps(scf::ForOp forOp,
     if (op.hasAttr(CVPipeline::kClone)) {
       if (isa<SyncBlockWaitOp>(op) || isa<SyncBlockSetOp>(op) ||
           isa<hivm::FixpipeOp>(op)) {
-        LDBG("[ERROR]: Cloned sync/fixpipe op should have been erased: " << op.getName() << "\n");
+        LDBG("[ERROR]: Cloned sync/fixpipe op should have been erased: "
+             << op.getName() << "\n");
         return failure();
       }
     }
@@ -307,20 +316,21 @@ static LogicalResult cleanupClonedOps(scf::ForOp forOp,
 }
 
 // Cleanup cloned ops for a single main loop
-LogicalResult CloneOpsPass::cleanupClonedOpsInMainLoop(scf::ForOp forOp)
-{
+LogicalResult CloneOpsPass::cleanupClonedOpsInMainLoop(scf::ForOp forOp) {
   ModuleOp module = getOperation();
   scope::ScopeOp scopeOp = forOp->getParentOfType<scope::ScopeOp>();
   if (!scopeOp) {
     return success();
   }
 
-  auto attr = scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(CVPipeline::kTcoreType);
+  auto attr =
+      scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(CVPipeline::kTcoreType);
   if (!attr) {
     return success();
   }
 
-  bool isCube = (attr == hivm::TCoreTypeAttr::get(module.getContext(), hivm::TCoreType::CUBE));
+  bool isCube = (attr == hivm::TCoreTypeAttr::get(module.getContext(),
+                                                  hivm::TCoreType::CUBE));
 
   llvm::DenseMap<int, SmallVector<Operation *>> blockOps;
   if (failed(collectOpsByBlockId(forOp, blockOps))) {
@@ -328,23 +338,25 @@ LogicalResult CloneOpsPass::cleanupClonedOpsInMainLoop(scf::ForOp forOp)
   }
 
   SmallVector<int> idsInOrder = getBlockIdsInOrder(forOp);
-  if (failed(cleanupClonedOps(forOp, blockOps, idsInOrder, isCube, [&](scf::ForOp forOp) -> MemDepGraph {
-    if (!isCube) {
-      return nullptr;
-    }
-    auto &aliasAnalysis = getAnalysis<mlir::AliasAnalysis>();
-    return std::make_unique<MemDepGraphT>(forOp, aliasAnalysis);
-  }))) {
+  if (failed(cleanupClonedOps(forOp, blockOps, idsInOrder, isCube,
+                              [&](scf::ForOp forOp) -> MemDepGraph {
+                                if (!isCube) {
+                                  return nullptr;
+                                }
+                                auto &aliasAnalysis =
+                                    getAnalysis<mlir::AliasAnalysis>();
+                                return std::make_unique<MemDepGraphT>(
+                                    forOp, aliasAnalysis);
+                              }))) {
     return failure();
   }
 
   return success();
 }
 
-// Validate that each block_id's ops form contiguous ranges (not interleaved with other ids)
-// e.g., [1,1,2,2] is valid, but [1,2,1,2] is invalid
-static bool areBlockIdsConsecutive(scf::ForOp forOp)
-{
+// Validate that each block_id's ops form contiguous ranges (not interleaved
+// with other ids) e.g., [1,1,2,2] is valid, but [1,2,1,2] is invalid
+static bool areBlockIdsConsecutive(scf::ForOp forOp) {
   SmallVector<int> idsInOrder;
   for (Operation &op : forOp.getBody()->without_terminator()) {
     auto blockIdOpt = CVPipeline::getOpBlockId(&op);
@@ -378,8 +390,7 @@ static bool areBlockIdsConsecutive(scf::ForOp forOp)
   return true;
 }
 
-LogicalResult CloneOpsPass::validateBlockIdsConsecutive(ModuleOp module)
-{
+LogicalResult CloneOpsPass::validateBlockIdsConsecutive(ModuleOp module) {
   WalkResult result = module.walk([&](Operation *op) -> WalkResult {
     if (!op->hasAttr(CVPipeline::kMainLoop)) {
       return WalkResult::advance();
@@ -402,8 +413,7 @@ LogicalResult CloneOpsPass::validateBlockIdsConsecutive(ModuleOp module)
 
 // Check that no op in a VECTOR scope's main_loop forOp has a tensor result \
 // carrying the ssbuffer.clone attribute.
-LogicalResult CloneOpsPass::validateClonedOpsInVector(ModuleOp module)
-{
+LogicalResult CloneOpsPass::validateClonedOpsInVector(ModuleOp module) {
   WalkResult result = module.walk([&](Operation *op) -> WalkResult {
     if (!op->hasAttr(CVPipeline::kMainLoop)) {
       return WalkResult::advance();
@@ -419,12 +429,14 @@ LogicalResult CloneOpsPass::validateClonedOpsInVector(ModuleOp module)
       return WalkResult::advance();
     }
 
-    auto attr = scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(CVPipeline::kTcoreType);
+    auto attr =
+        scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(CVPipeline::kTcoreType);
     if (!attr) {
       return WalkResult::advance();
     }
 
-    if (attr != hivm::TCoreTypeAttr::get(module.getContext(), hivm::TCoreType::VECTOR)) {
+    if (attr != hivm::TCoreTypeAttr::get(module.getContext(),
+                                         hivm::TCoreType::VECTOR)) {
       return WalkResult::advance();
     }
 
@@ -451,8 +463,7 @@ LogicalResult CloneOpsPass::validateClonedOpsInVector(ModuleOp module)
   return success();
 }
 
-void CloneOpsPass::runOnOperation()
-{
+void CloneOpsPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   LDBG("before cloneOps:\n" << module << "\n");
@@ -487,7 +498,7 @@ void CloneOpsPass::runOnOperation()
     }
     return WalkResult::advance();
   });
-  
+
   LDBG("after cloneOps:\n" << module << "\n");
 
   // Validate no cloned tensor ops remaining in VECTOR main_loop forOp
@@ -495,14 +506,12 @@ void CloneOpsPass::runOnOperation()
     signalPassFailure();
     return;
   }
-
 }
 
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createCloneOpsPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createCloneOpsPass() {
   return std::make_unique<CloneOpsPass>();
 }
 

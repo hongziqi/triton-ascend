@@ -103,7 +103,7 @@ module {
     %mm = linalg.matmul ins(%A, %B : tensor<?x?xf32>, tensor<?x?xf32>) outs(%bias : tensor<?x?xf32>) -> tensor<?x?xf32>
     return %mm : tensor<?x?xf32>
   }
-  
+
   // Case 7: Matmul inside scf.if with both then and else branches.
   // Both branches have matmul with bias from function argument, so both are split.
   // CHECK-LABEL: func.func @case7_if_else
@@ -147,7 +147,7 @@ module {
     %cst = arith.constant 0.0 : f32
     %empty = tensor.empty() : tensor<32x32xf32>
     %zero_init = linalg.fill ins(%cst : f32) outs(%empty : tensor<32x32xf32>) -> tensor<32x32xf32>
-    
+
     %outer_result = scf.for %outer_iv = %c0 to %c10 step %c1 iter_args(%outer_acc = %zero_init) -> (tensor<32x32xf32>) {
       %inner_result = scf.for %inner_iv = %c0 to %c10 step %c1 iter_args(%bias = %outer_acc) -> (tensor<32x32xf32>) {
         %mm = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%bias : tensor<32x32xf32>) -> tensor<32x32xf32>
@@ -183,7 +183,7 @@ module {
     %cst = arith.constant 1.0 : f32
     %empty = tensor.empty() : tensor<32x32xf32>
     %nonzero_init = linalg.fill ins(%cst : f32) outs(%empty : tensor<32x32xf32>) -> tensor<32x32xf32>
-    
+
     %outer_result = scf.for %outer_iv = %c0 to %c10 step %c1 iter_args(%outer_acc = %nonzero_init) -> (tensor<32x32xf32>) {
       %inner_result = scf.for %inner_iv = %c0 to %c10 step %c1 iter_args(%bias = %outer_acc) -> (tensor<32x32xf32>) {
         %mm = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%bias : tensor<32x32xf32>) -> tensor<32x32xf32>
@@ -228,20 +228,20 @@ module {
     %cst_zero = arith.constant 0.0 : f32
     %cst_nonzero = arith.constant 1.0 : f32
     %empty = tensor.empty() : tensor<32x32xf32>
-    
+
     // Chain 1: zero initialization
     %c = linalg.fill ins(%cst_zero : f32) outs(%empty : tensor<32x32xf32>) -> tensor<32x32xf32>
     %1 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%c : tensor<32x32xf32>) -> tensor<32x32xf32>
     %2 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%1 : tensor<32x32xf32>) -> tensor<32x32xf32>
     %3 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%2 : tensor<32x32xf32>) -> tensor<32x32xf32>
-    
-    // Chain 2: non-zero initialization  
+
+    // Chain 2: non-zero initialization
     %empty2 = tensor.empty() : tensor<32x32xf32>
     %d = linalg.fill ins(%cst_nonzero : f32) outs(%empty2 : tensor<32x32xf32>) -> tensor<32x32xf32>
     %4 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%d : tensor<32x32xf32>) -> tensor<32x32xf32>
     %5 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%4 : tensor<32x32xf32>) -> tensor<32x32xf32>
     %6 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%5 : tensor<32x32xf32>) -> tensor<32x32xf32>
-    
+
     // Combine the two chains
     %result = arith.addf %3, %6 : tensor<32x32xf32>
     return %result : tensor<32x32xf32>
@@ -309,11 +309,11 @@ module {
     %c0_idx = arith.constant 0 : index
     %c10_idx = arith.constant 10 : index
     %c1_idx = arith.constant 1 : index
-    
+
     %cst_zero = arith.constant 0.0 : f32
     %cst_nonzero = arith.constant 1.0 : f32
     %empty1 = tensor.empty() : tensor<32x32xf32>
-    
+
     // Chain 1: zero initialization, each matmul in a for loop
     %c = linalg.fill ins(%cst_zero : f32) outs(%empty1 : tensor<32x32xf32>) -> tensor<32x32xf32>
     %for1_result = scf.for %i1 = %c0_idx to %c10_idx step %c1_idx iter_args(%bias1 = %c) -> (tensor<32x32xf32>) {
@@ -328,7 +328,7 @@ module {
       %mm3 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%bias3 : tensor<32x32xf32>) -> tensor<32x32xf32>
       scf.yield %mm3 : tensor<32x32xf32>
     }
-    
+
     // Chain 2: non-zero initialization, each matmul in a for loop
     %empty2 = tensor.empty() : tensor<32x32xf32>
     %d = linalg.fill ins(%cst_nonzero : f32) outs(%empty2 : tensor<32x32xf32>) -> tensor<32x32xf32>
@@ -344,7 +344,7 @@ module {
       %mm6 = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%bias6 : tensor<32x32xf32>) -> tensor<32x32xf32>
       scf.yield %mm6 : tensor<32x32xf32>
     }
-    
+
     // Combine the two chains
     %result = arith.addf %for3_result, %for6_result : tensor<32x32xf32>
     return %result : tensor<32x32xf32>
@@ -371,7 +371,7 @@ module {
     %cst = arith.constant 0.0 : f32
     %empty = tensor.empty() : tensor<32x32xf32>
     %zero_init = linalg.fill ins(%cst : f32) outs(%empty : tensor<32x32xf32>) -> tensor<32x32xf32>
-    
+
     %result = scf.if %cond -> (tensor<32x32xf32>) {
       %for_result = scf.for %iv = %c0 to %c10 step %c1 iter_args(%acc = %zero_init) -> (tensor<32x32xf32>) {
         %mm = linalg.matmul ins(%A, %B : tensor<32x64xf32>, tensor<64x32xf32>) outs(%acc : tensor<32x32xf32>) -> tensor<32x32xf32>
@@ -384,4 +384,3 @@ module {
     return %result : tensor<32x32xf32>
   }
 }
-

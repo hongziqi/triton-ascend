@@ -34,7 +34,7 @@ void mlir::ascend::setHardwareConfig(std::unique_ptr<HardwareConfig> config) {
 }
 
 bool mlir::ascend::loadHardwareConfigFromFile(llvm::StringRef path,
-                                               std::string &error) {
+                                              std::string &error) {
   auto config = HardwareConfig::loadFromFile(path);
   if (!config) {
     error = "Failed to load hardware config from: " + path.str();
@@ -49,7 +49,7 @@ bool mlir::ascend::loadHardwareConfigFromFile(llvm::StringRef path,
 
 std::shared_ptr<const HardwareConfig>
 mlir::ascend::loadHardwareConfigForAnalysis(llvm::StringRef path,
-                                             std::string &error) {
+                                            std::string &error) {
   if (path.empty()) {
     static std::once_flag defaultConfigOnce;
     static std::shared_ptr<const HardwareConfig> defaultConfig;
@@ -124,19 +124,20 @@ HardwareConfig::loadFromJSON(const llvm::json::Value &json) {
 std::unique_ptr<HardwareConfig> HardwareConfig::getDefault910B() {
   // Try to load from standard config locations
   std::vector<std::string> searchPaths = {
-    "configs/ascend_910b.json",           // Current directory
-    "../configs/ascend_910b.json",        // Parent directory
-    "../../configs/ascend_910b.json",     // Two levels up
-    "../config/ascend_910b.json",         // Alternative naming
-    "config/ascend_910b.json",
+      "configs/ascend_910b.json",       // Current directory
+      "../configs/ascend_910b.json",    // Parent directory
+      "../../configs/ascend_910b.json", // Two levels up
+      "../config/ascend_910b.json",     // Alternative naming
+      "config/ascend_910b.json",
   };
-  
+
   // Also check environment variable for config path
-  if (const char* envPath = std::getenv("ASCEND_CONFIG_PATH")) {
-    searchPaths.insert(searchPaths.begin(), std::string(envPath) + "/ascend_910b.json");
+  if (const char *envPath = std::getenv("ASCEND_CONFIG_PATH")) {
+    searchPaths.insert(searchPaths.begin(),
+                       std::string(envPath) + "/ascend_910b.json");
   }
-  
-  for (const auto& path : searchPaths) {
+
+  for (const auto &path : searchPaths) {
     if (llvm::sys::fs::exists(path)) {
       auto config = loadFromFile(path);
       if (config) {
@@ -144,9 +145,10 @@ std::unique_ptr<HardwareConfig> HardwareConfig::getDefault910B() {
       }
     }
   }
-  
+
   // Fallback to defaults if no config file found
-  llvm::errs() << "Warning: Costmodel config file not found, using default ascend_910b.json\n";
+  llvm::errs() << "Warning: Costmodel config file not found, using default "
+                  "ascend_910b.json\n";
   return createHardcodedDefault910B();
 }
 
@@ -200,7 +202,7 @@ std::unique_ptr<HardwareConfig> HardwareConfig::createHardcodedDefault910B() {
     l0a.name = "l0a";
     l0a.type = MemoryType::RegisterFile;
     l0a.sizeBytes = 64 * 1024;
-    l0a.bandwidthBytesPerCycle = 0;  // Internal
+    l0a.bandwidthBytesPerCycle = 0; // Internal
     l0a.latencyCycles = 0;
     l0a.description = "Left matrix input for Cube";
     config->memorySpaces["l0a"] = std::move(l0a);
@@ -277,11 +279,10 @@ std::unique_ptr<HardwareConfig> HardwareConfig::createHardcodedDefault910B() {
     vector.widthElements = 128;
     vector.widthBytes = 256;
     vector.computeSpace = "ub";
-    vector.supportedOps = {"add",     "sub",        "mul",   "div",
-                           "max",     "min",        "exp",   "log",
-                           "sqrt",    "rsqrt",      "tanh",  "sigmoid",
-                           "relu",    "reduce_sum", "reduce_max",
-                           "cast",    "broadcast"};
+    vector.supportedOps = {
+        "add",  "sub",        "mul",        "div",   "max",      "min",
+        "exp",  "log",        "sqrt",       "rsqrt", "tanh",     "sigmoid",
+        "relu", "reduce_sum", "reduce_max", "cast",  "broadcast"};
     vector.supportedDtypes = {"fp32", "fp16", "bf16", "int32", "int8"};
     config->computeUnits["vector"] = std::move(vector);
   }
@@ -671,8 +672,8 @@ double HardwareConfig::getMemoryBandwidthTBps(llvm::StringRef name) const {
   return 0;
 }
 
-double HardwareConfig::getMemoryBandwidthBytesPerCycle(
-    llvm::StringRef name) const {
+double
+HardwareConfig::getMemoryBandwidthBytesPerCycle(llvm::StringRef name) const {
   if (const auto *space = getMemorySpace(name)) {
     return space->bandwidthBytesPerCycle;
   }
@@ -710,7 +711,7 @@ double HardwareConfig::getCubeTFlopsFP16() const {
   if (const auto *cube = getComputeUnit("cube")) {
     return cube->tflopsFP16;
   }
-  return 320;  // Default
+  return 320; // Default
 }
 
 void HardwareConfig::getCubeTileSize(int &m, int &n, int &k) const {
@@ -720,10 +721,11 @@ void HardwareConfig::getCubeTileSize(int &m, int &n, int &k) const {
     k = cube->tileK;
     return;
   }
-  m = n = k = 16;  // Default
+  m = n = k = 16; // Default
 }
 
-void HardwareConfig::getCubeFractalSize(int elementBits, int &m, int &n, int &k) const {
+void HardwareConfig::getCubeFractalSize(int elementBits, int &m, int &n,
+                                        int &k) const {
   if (const auto *cube = getComputeUnit("cube")) {
     // Determine dtype key from element bits
     llvm::StringRef dtypeKey;
@@ -769,21 +771,21 @@ double HardwareConfig::getVectorTFlopsFP32() const {
   if (const auto *vec = getComputeUnit("vector")) {
     return vec->tflopsFP32;
   }
-  return 10;  // Default
+  return 10; // Default
 }
 
 int HardwareConfig::getVectorWidthElements() const {
   if (const auto *vec = getComputeUnit("vector")) {
     return vec->widthElements;
   }
-  return 128;  // Default
+  return 128; // Default
 }
 
 int HardwareConfig::getVectorWidthBytes() const {
   if (const auto *vec = getComputeUnit("vector")) {
     return vec->widthBytes;
   }
-  return 256;  // Default
+  return 256; // Default
 }
 
 llvm::StringRef HardwareConfig::getVectorComputeSpace() const {
@@ -808,20 +810,16 @@ double HardwareConfig::getHBMBandwidthGBs() const {
     // Convert bytes/cycle to GB/s
     return hbm->bandwidthBytesPerCycle * clockFreqGHz * 1e9 / 1e9;
   }
-  return 1600.0;  // Default: 1.6 TB/s = 1600 GB/s
+  return 1600.0; // Default: 1.6 TB/s = 1600 GB/s
 }
 
 double HardwareConfig::getHBMBandwidthTBs() const {
   return getHBMBandwidthGBs() / 1000.0;
 }
 
-double HardwareConfig::getCubeTFLOPS() const {
-  return getCubeTFlopsFP16();
-}
+double HardwareConfig::getCubeTFLOPS() const { return getCubeTFlopsFP16(); }
 
-double HardwareConfig::getVectorTFLOPS() const {
-  return getVectorTFlopsFP32();
-}
+double HardwareConfig::getVectorTFLOPS() const { return getVectorTFlopsFP32(); }
 
 int HardwareConfig::getMTE2StartupLatency() const {
   // MTE2 DMA pipeline startup: address translation + HBM access setup.
@@ -831,17 +829,11 @@ int HardwareConfig::getMTE2StartupLatency() const {
   return 50;
 }
 
-int HardwareConfig::getMTE3StartupLatency() const {
-  return 40;
-}
+int HardwareConfig::getMTE3StartupLatency() const { return 40; }
 
-int HardwareConfig::getFixPipeStartupLatency() const {
-  return 30;
-}
+int HardwareConfig::getFixPipeStartupLatency() const { return 30; }
 
-int HardwareConfig::getCubeStartupLatency() const {
-  return 20;
-}
+int HardwareConfig::getCubeStartupLatency() const { return 20; }
 
 int HardwareConfig::getVectorStartupLatency() const {
   // Calibrated: 35 cycles (was 10).
@@ -894,7 +886,8 @@ std::vector<std::string> HardwareConfig::getDataMoverNames() const {
 // Performance Estimation
 //===----------------------------------------------------------------------===//
 
-int64_t HardwareConfig::estimateCubeCycles(int64_t M, int64_t N, int64_t K) const {
+int64_t HardwareConfig::estimateCubeCycles(int64_t M, int64_t N,
+                                           int64_t K) const {
   int tileM = 16;
   int tileN = 16;
   int tileK = 16;
@@ -902,7 +895,8 @@ int64_t HardwareConfig::estimateCubeCycles(int64_t M, int64_t N, int64_t K) cons
   auto ceilDiv = [](int64_t a, int64_t b) -> int64_t {
     return b > 0 ? (a + b - 1) / b : 0;
   };
-  return std::max<int64_t>(1, ceilDiv(M, tileM) * ceilDiv(N, tileN) * ceilDiv(K, tileK));
+  return std::max<int64_t>(1, ceilDiv(M, tileM) * ceilDiv(N, tileN) *
+                                  ceilDiv(K, tileK));
 }
 
 int64_t HardwareConfig::estimateVectorCycles(int64_t numElements) const {
@@ -917,8 +911,8 @@ int64_t HardwareConfig::estimateMemoryCycles(llvm::StringRef moverName,
   const DataMover *mover = getDataMover(moverName);
   if (!mover || mover->bandwidthBytesPerCycle <= 0.0)
     return std::max<int64_t>(1, bytes);
-  return std::max<int64_t>(
-      1, static_cast<int64_t>(std::ceil(bytes / mover->bandwidthBytesPerCycle)));
+  return std::max<int64_t>(1, static_cast<int64_t>(std::ceil(
+                                  bytes / mover->bandwidthBytesPerCycle)));
 }
 
 int64_t HardwareConfig::estimateMemoryCyclesWithLatency(llvm::StringRef space,
@@ -926,9 +920,9 @@ int64_t HardwareConfig::estimateMemoryCyclesWithLatency(llvm::StringRef space,
   const MemorySpace *mem = getMemorySpace(space);
   if (!mem || mem->bandwidthBytesPerCycle <= 0.0)
     return std::max<int64_t>(1, bytes);
-  return std::max<int64_t>(
-      1, mem->latencyCycles +
-             static_cast<int64_t>(std::ceil(bytes / mem->bandwidthBytesPerCycle)));
+  return std::max<int64_t>(1, mem->latencyCycles +
+                                  static_cast<int64_t>(std::ceil(
+                                      bytes / mem->bandwidthBytesPerCycle)));
 }
 
 //===----------------------------------------------------------------------===//

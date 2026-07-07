@@ -37,11 +37,11 @@ def InsertDataTransfersPass : Pass<"insert-data-transfers", "ModuleOp"> {
   let description = [{
     This pass analyzes data dependencies between Cube (matrix) and Vector
     (SIMD) operations and inserts the necessary memory transfer operations.
-    
+
     On Ascend 910B, Cube and Vector have separate memory hierarchies:
     - Cube: HBM → L1 → L0A/L0B → Cube → L0C → HBM
     - Vector: HBM → UB → Vector → UB → HBM
-    
+
     When data flows between them, explicit transfers are needed:
     - Vector → Cube: insert vector_store (UB→HBM) + cube_load (HBM→L1)
     - Cube → Vector: insert cube_store (L0C→HBM) + vector_load (HBM→UB)
@@ -69,28 +69,28 @@ def EstimateCyclesPass : Pass<"estimate-cycles", "ModuleOp"> {
   let description = [{
     This pass estimates the execution cycles for each AscendModel operation
     based on hardware parameters from JSON config file.
-    
+
     For loops with dynamic bounds, provide bindings via arg-bindings option:
-    
+
     Example for Triton kernels (options are space-separated):
       inproc-costmodel --estimate-cycles="arg-bindings=arg2=100,pid_x=0" input.mlir
-    
+
     Supported binding formats:
       - argN=value or N=value  : function argument %argN
       - pid_x=value            : tt.get_program_id x
-      - pid_y=value            : tt.get_program_id y  
+      - pid_y=value            : tt.get_program_id y
       - pid_z=value            : tt.get_program_id z
-    
+
     Alternatively, use loop-trip-counts to directly override trip counts:
       inproc-costmodel --estimate-cycles="loop-trip-counts=4,6588" input.mlir
-    
+
     To use custom hardware config:
       inproc-costmodel --estimate-cycles="hardware-config=path/to/config.json" input.mlir
-    
+
     Multiple options (use space, not comma, to separate):
       inproc-costmodel --estimate-cycles="hardware-config=config.json arg-bindings=pid_x=0" input.mlir
   }];
-  
+
   let options = [
     Option<"argBindingsStr", "arg-bindings", "std::string",
            /*default=*/"\"\"",
@@ -113,17 +113,17 @@ def PipelineAnalysisPass : Pass<"analyze-pipeline", "ModuleOp"> {
   let description = [{
     This pass performs pipeline scheduling analysis for AscendModel operations,
     considering hardware unit parallelism and dependencies.
-    
+
     For loops with dynamic bounds (options are space-separated):
       inproc-costmodel --analyze-pipeline="arg-bindings=arg2=100,pid_x=0" input.mlir
-    
+
     To use custom hardware config:
       inproc-costmodel --analyze-pipeline="hardware-config=path/to/config.json" input.mlir
-    
+
     Multiple options (use space, not comma, to separate):
       inproc-costmodel --analyze-pipeline="hardware-config=config.json arg-bindings=pid_x=0" input.mlir
   }];
-  
+
   let options = [
     Option<"argBindingsStr", "arg-bindings", "std::string",
            /*default=*/"\"\"",

@@ -26,52 +26,50 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 
-#include "ascend/include/DynamicCVPipeline/PreCheckAvailable.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "ascend/include/DynamicCVPipeline/PreCheckAvailable.h"
 
 using namespace mlir;
 using namespace triton;
 
-static constexpr const char *DEBUG_TYPE = "pre-check-dynamic-cv-pipeline-available";
+static constexpr const char *DEBUG_TYPE =
+    "pre-check-dynamic-cv-pipeline-available";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...)\
-  LLVM_DEBUG({\
-    DBGS();\
-    llvm::dbgs() << __VA_ARGS__ << "\n";\
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__ << "\n";                                       \
+  })
 
-void PreCheckAvailablePass::runOnOperation()
-{
-    ModuleOp module = getOperation();
+void PreCheckAvailablePass::runOnOperation() {
+  ModuleOp module = getOperation();
 
-    LDBG("Enter PreCheckAvailable pass.");
-    PassManager pm(&getContext(), module.getOperationName());
+  LDBG("Enter PreCheckAvailable pass.");
+  PassManager pm(&getContext(), module.getOperationName());
 
-    LDBG("Before PreCheck:\n" << module);
-    pm.addPass(createPreCheckBlacklistPass());
-    pm.addPass(createPreCheckMatmulPass());
+  LDBG("Before PreCheck:\n" << module);
+  pm.addPass(createPreCheckBlacklistPass());
+  pm.addPass(createPreCheckMatmulPass());
 
-    if (failed(runPipeline(pm, module))) {
-        CVPipeline::setFallbackAttr(module);
-        signalPassFailure();
-    }
+  if (failed(runPipeline(pm, module))) {
+    CVPipeline::setFallbackAttr(module);
+    signalPassFailure();
+  }
 
-    LDBG("Exit PreCheckAvailable pass.");
+  LDBG("Exit PreCheckAvailable pass.");
 }
 
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createPreCheckAvailablePass()
-{
-    return std::make_unique<PreCheckAvailablePass>();
+std::unique_ptr<OperationPass<ModuleOp>> createPreCheckAvailablePass() {
+  return std::make_unique<PreCheckAvailablePass>();
 }
 
-void registerPreCheckAvailablePasses()
-{
-    registerPass(createPreCheckBlacklistPass);
-    registerPass(createPreCheckMatmulPass);
-    registerPass(createPreCheckAvailablePass);
+void registerPreCheckAvailablePasses() {
+  registerPass(createPreCheckBlacklistPass);
+  registerPass(createPreCheckMatmulPass);
+  registerPass(createPreCheckAvailablePass);
 }
 
 } // namespace triton

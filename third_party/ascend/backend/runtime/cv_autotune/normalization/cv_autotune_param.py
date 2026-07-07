@@ -17,7 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 """
 Unified parameter structure for CV autotune algorithms.
 
@@ -157,13 +156,9 @@ class CvAutotuneParam:
             Dict: All fields required to initialize ``KernelMeta``.
         """
         return {
-            'axis_sizes': self.axis_sizes,
-            'split_params': self.split_params,
-            'fixed_split_params': self.fixed_split_params,
-            'tiling_params': self.tiling_params,
-            'low_dims': self.low_dims,
-            'dtype': self.dtype,
-            'persistent_reduction': False,  # Default value.
+            'axis_sizes': self.axis_sizes, 'split_params': self.split_params, 'fixed_split_params':
+            self.fixed_split_params, 'tiling_params': self.tiling_params, 'low_dims': self.low_dims, 'dtype':
+            self.dtype, 'persistent_reduction': False,  # Default value.
             'dual_reduction': False,  # Default value.
             'num_buffers': 3,  # Default value.
             'is_simt_mode': False,  # Default value.
@@ -266,9 +261,7 @@ class CvAutotuneParam:
         if self.cv_parse_result is None:
             errors.append("cv_parse_result cannot be None")
         elif self.cv_parse_result.status != "ok":
-            errors.append(
-                f"cv_parse_result status is not OK: {self.cv_parse_result.status}"
-            )
+            errors.append(f"cv_parse_result status is not OK: {self.cv_parse_result.status}")
 
         # 2. Check runtime_params.
         if not self.runtime_params:
@@ -332,27 +325,21 @@ class CvAutotuneParam:
 
     def __repr__(self) -> str:
         """Return a readable string representation."""
-        return (
-            f"CvAutotuneParam(\n"
-            f"  mode={self.parser_mode},\n"
-            f"  tunable_params={len(self.tunable_params)},\n"
-            f"  dot_sites={self.dot_sites_count},\n"
-            f"  runtime_params={len(self.runtime_params)},\n"
-            f"  dtype={self.dtype}\n"
-            f")"
-        )
+        return (f"CvAutotuneParam(\n"
+                f"  mode={self.parser_mode},\n"
+                f"  tunable_params={len(self.tunable_params)},\n"
+                f"  dot_sites={self.dot_sites_count},\n"
+                f"  runtime_params={len(self.runtime_params)},\n"
+                f"  dtype={self.dtype}\n"
+                f")")
 
 
 # ==================== Factory ====================
 
-def create_cv_autotune_param(
-    cv_parse_result: CvParseResult,
-    runtime_params: Dict[str, Any],
-    dtype: Optional[str] = None,
-    parser_mode: Optional[str] = None,
-    hardware_constraints: Optional[Dict[str, Any]] = None,
-    **kwargs
-) -> CvAutotuneParam:
+
+def create_cv_autotune_param(cv_parse_result: CvParseResult, runtime_params: Dict[str, Any],
+                             dtype: Optional[str] = None, parser_mode: Optional[str] = None,
+                             hardware_constraints: Optional[Dict[str, Any]] = None, **kwargs) -> CvAutotuneParam:
     """
     Factory for creating ``CvAutotuneParam`` instances.
 
@@ -367,11 +354,5 @@ def create_cv_autotune_param(
     Returns:
         CvAutotuneParam instance.
     """
-    return CvAutotuneParam(
-        cv_parse_result=cv_parse_result,
-        runtime_params=runtime_params,
-        dtype=dtype,
-        parser_mode=parser_mode,
-        hardware_constraints=hardware_constraints,
-        **kwargs
-    )
+    return CvAutotuneParam(cv_parse_result=cv_parse_result, runtime_params=runtime_params, dtype=dtype,
+                           parser_mode=parser_mode, hardware_constraints=hardware_constraints, **kwargs)

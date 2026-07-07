@@ -3,10 +3,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
-
-DEFAULT_UTILS_PATH = (
-    Path(__file__).resolve().parents[2] / "backend" / "utils.py"
-)
+DEFAULT_UTILS_PATH = (Path(__file__).resolve().parents[2] / "backend" / "utils.py")
 
 
 def _get_utils_path():
@@ -29,12 +26,8 @@ def _assert_npu_utils_uses_special_flags(utils, monkeypatch, tmp_path):
     monkeypatch.setattr(utils, "_get_ascend_path", lambda: str(tmp_path / "ascend"))
     monkeypatch.setattr(utils.pybind11, "get_include", lambda: "/pybind11")
     monkeypatch.setattr(utils.sysconfig, "get_config_var", lambda name: ".so")
-    monkeypatch.setattr(
-        utils.sysconfig, "get_default_scheme", lambda: "posix_prefix", raising=False
-    )
-    monkeypatch.setattr(
-        utils.sysconfig, "get_paths", lambda scheme=None: {"include": "/pyinclude"}
-    )
+    monkeypatch.setattr(utils.sysconfig, "get_default_scheme", lambda: "posix_prefix", raising=False)
+    monkeypatch.setattr(utils.sysconfig, "get_paths", lambda scheme=None: {"include": "/pyinclude"})
 
     calls = []
 

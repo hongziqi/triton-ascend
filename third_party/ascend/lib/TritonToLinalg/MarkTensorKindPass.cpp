@@ -51,7 +51,8 @@ struct has_getSrc<T, std::void_t<decltype(std::declval<T>().getSrc())>>
 
 template <typename T, typename = void> struct has_getDst : std::false_type {};
 template <typename T>
-struct has_getDst<T, std::void_t<decltype(std::declval<T>().getDst())>> : std::true_type {};
+struct has_getDst<T, std::void_t<decltype(std::declval<T>().getDst())>>
+    : std::true_type {};
 
 template <typename T, typename = void> struct has_getBase : std::false_type {};
 template <typename T>
@@ -151,17 +152,18 @@ void MarkTensorKindPass::runOnOperation() {
                             triton::ascend::IndexSelectSimdOp>,
       MarkTensorKindPattern<TensorKind::INPUT, triton::ascend::GatherOutToUbOp>,
       MarkTensorKindPattern<TensorKind::INPUT, triton::ascend::IndirectLoadOp>,
-      MarkTensorKindPattern<TensorKind::INPUT, triton::ascend::StrideLoadOp>
-  >(&getContext());
+      MarkTensorKindPattern<TensorKind::INPUT, triton::ascend::StrideLoadOp>>(
+      &getContext());
 
   // OUTPUT tensors
   patterns.add<
       MarkTensorKindPattern<TensorKind::OUTPUT, triton::StoreOp>,
       MarkTensorKindPattern<TensorKind::OUTPUT, triton::ascend::IndexPutOp>,
-      MarkTensorKindPattern<TensorKind::OUTPUT, triton::ascend::ScatterUbToOutOp>,
+      MarkTensorKindPattern<TensorKind::OUTPUT,
+                            triton::ascend::ScatterUbToOutOp>,
       MarkTensorKindPattern<TensorKind::OUTPUT, triton::ascend::StrideStoreOp>,
-      MarkTensorKindPattern<TensorKind::OUTPUT, triton::ascend::IndirectStoreOp>
-  >(&getContext());
+      MarkTensorKindPattern<TensorKind::OUTPUT,
+                            triton::ascend::IndirectStoreOp>>(&getContext());
 
   // INPUT_OUTPUT tensors
   patterns.add<

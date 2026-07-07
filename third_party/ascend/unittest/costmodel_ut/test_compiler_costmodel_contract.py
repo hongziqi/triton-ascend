@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 class CompilerCostmodelContractTest(unittest.TestCase):
+
     @staticmethod
     def _load_compiler_module():
         ctypes_stub = types.ModuleType("ctypes")
@@ -13,6 +14,7 @@ class CompilerCostmodelContractTest(unittest.TestCase):
         sys.modules["ctypes"] = ctypes_stub
 
         class Dummy:
+
             def __getattr__(self, _):
                 return Dummy()
 
@@ -28,24 +30,24 @@ class CompilerCostmodelContractTest(unittest.TestCase):
 
         utils_mod = types.ModuleType("triton.backends.ascend.utils")
         for name in [
-            "_check_bishengir_api_change",
-            "_check_bishengir_able_save_ir",
-            "_check_bishengir_is_regbased",
-            "_enable_print_ub_bits",
-            "_enable_dump_memory_info",
-            "_get_kernel_target",
-            "_get_llvm_path",
-            "_get_mlir_path",
-            "_get_npucompiler_path",
-            "_get_triton_adapter_opt_path",
-            "_is_ascend_sanitizer_enabled",
-            "_is_debug_line_info_disabled",
-            "_is_auto_map_parallel_blocks_enabled",
-            "_get_auto_blockify_blacklist_reasons",
-            "_warn_auto_blockify_disabled",
-            "downgrade_llir",
-            "force_disable_ffts",
-            "get_cann_version_file_hash",
+                "_check_bishengir_api_change",
+                "_check_bishengir_able_save_ir",
+                "_check_bishengir_is_regbased",
+                "_enable_print_ub_bits",
+                "_enable_dump_memory_info",
+                "_get_kernel_target",
+                "_get_llvm_path",
+                "_get_mlir_path",
+                "_get_npucompiler_path",
+                "_get_triton_adapter_opt_path",
+                "_is_ascend_sanitizer_enabled",
+                "_is_debug_line_info_disabled",
+                "_is_auto_map_parallel_blocks_enabled",
+                "_get_auto_blockify_blacklist_reasons",
+                "_warn_auto_blockify_disabled",
+                "downgrade_llir",
+                "force_disable_ffts",
+                "get_cann_version_file_hash",
         ]:
             setattr(utils_mod, name, lambda *args, **kwargs: False)
         utils_mod._get_auto_blockify_blacklist_reasons = lambda *args, **kwargs: []
@@ -58,10 +60,12 @@ class CompilerCostmodelContractTest(unittest.TestCase):
         compiler_base_mod = types.ModuleType("triton.backends.compiler")
 
         class BaseBackend:
+
             def __init__(self, target):
                 self.target = target
 
         class GPUTarget:
+
             def __init__(self, backend="npu", arch="910B"):
                 self.backend = backend
                 self.arch = arch
@@ -77,6 +81,7 @@ class CompilerCostmodelContractTest(unittest.TestCase):
         cache_mod = types.ModuleType("triton.runtime.cache")
 
         class DumpManager:
+
             def __init__(self):
                 self.cache_dir = "/tmp/fake_cache"
                 self.records = []
@@ -90,19 +95,17 @@ class CompilerCostmodelContractTest(unittest.TestCase):
         tools_mod = types.ModuleType("triton.tools.get_ascend_devices")
         tools_mod.is_compile_on_910_95 = lambda: False
 
-        sys.modules.update(
-            {
-                "triton": triton_mod,
-                "triton._C": triton_c_mod,
-                "triton._C.libtriton": libtriton_mod,
-                "triton.backends.ascend.utils": utils_mod,
-                "triton.backends.ascend.driver": driver_mod,
-                "triton.backends.compiler": compiler_base_mod,
-                "triton.runtime": runtime_mod,
-                "triton.runtime.cache": cache_mod,
-                "triton.tools.get_ascend_devices": tools_mod,
-            }
-        )
+        sys.modules.update({
+            "triton": triton_mod,
+            "triton._C": triton_c_mod,
+            "triton._C.libtriton": libtriton_mod,
+            "triton.backends.ascend.utils": utils_mod,
+            "triton.backends.ascend.driver": driver_mod,
+            "triton.backends.compiler": compiler_base_mod,
+            "triton.runtime": runtime_mod,
+            "triton.runtime.cache": cache_mod,
+            "triton.tools.get_ascend_devices": tools_mod,
+        })
 
         module_path = Path(__file__).resolve().parents[2] / "backend" / "compiler.py"
         spec = importlib.util.spec_from_file_location("ascend_compiler_under_test", module_path)

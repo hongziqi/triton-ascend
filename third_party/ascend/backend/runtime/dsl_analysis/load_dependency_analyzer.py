@@ -25,13 +25,8 @@ from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple
 
 
 def _is_tl_load_call(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr == "load"
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl" and node.func.attr == "load")
 
 
 def _expr_has_tl_load(expr: ast.AST) -> bool:
@@ -249,11 +244,8 @@ def _visit_stmt(
         target_names = _extract_target_names(stmt.target)
         if not target_names:
             return
-        is_derived = (
-            _expr_has_tl_load(stmt.value)
-            or _expr_uses_symbols(stmt.value, load_derived)
-            or any(name in load_derived for name in target_names)
-        )
+        is_derived = (_expr_has_tl_load(stmt.value) or _expr_uses_symbols(stmt.value, load_derived)
+                      or any(name in load_derived for name in target_names))
         if is_derived:
             for name in target_names:
                 load_derived.add(name)

@@ -42,15 +42,17 @@ bool canUseIndirectAtomicFastPath(triton::AtomicCASOp op,
 
 // Lowers tt.atomic_rmw to the indirect atomic custom op and restores the
 // flattened custom result back to the original result tensor type.
-FailureOr<Value> tryConvertAtomicRmwToIndirectCustom(
-    triton::AtomicRMWOp op, Value srcPtr, Value offsetValue,
-    PatternRewriter &rewriter);
+FailureOr<Value> tryConvertAtomicRmwToIndirectCustom(triton::AtomicRMWOp op,
+                                                     Value srcPtr,
+                                                     Value offsetValue,
+                                                     PatternRewriter &rewriter);
 
 // Lowers tt.atomic_cas to the indirect atomic custom op and restores the
 // flattened custom result back to the original result tensor type.
-FailureOr<Value> tryConvertAtomicCasToIndirectCustom(
-    triton::AtomicCASOp op, Value srcPtr, Value offsetValue,
-    PatternRewriter &rewriter);
+FailureOr<Value> tryConvertAtomicCasToIndirectCustom(triton::AtomicCASOp op,
+                                                     Value srcPtr,
+                                                     Value offsetValue,
+                                                     PatternRewriter &rewriter);
 
 } // namespace IndirectAtomicUtils
 

@@ -18,7 +18,7 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
       %extracted = tensor.extract %select[%c0] {ssbuffer.block_id = 7 : i32} : tensor<1xi64>
       %cmp = arith.cmpi ne, %c0_i64, %extracted {ssbuffer.block_id = 7 : i32} : i64
       scf.if %cmp{
-      } {ssbuffer.block_id = 23 : i32} 
+      } {ssbuffer.block_id = 23 : i32}
       scf.for %iv = %c0 to %c10 step %c1 iter_args(%idx = %c0) -> (index) {
         %200 = tensor.empty() {ssbuffer.block_id = 1 : i32} : tensor<32x32xf32>
         %300 = linalg.fill {ssbuffer.block_id = 1 : i32} ins(%cst_0 : f32) outs(%200 : tensor<32x32xf32>) -> tensor<32x32xf32>
@@ -40,7 +40,7 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
       %extracted = tensor.extract %select[%c0] {ssbuffer.block_id = 7 : i32} : tensor<1xi64>
       %cmp = arith.cmpi ne, %c0_i64, %extracted {ssbuffer.block_id = 7 : i32} : i64
       scf.if %cmp{
-      } {ssbuffer.block_id = 23 : i32} 
+      } {ssbuffer.block_id = 23 : i32}
 
       scf.for %iv = %c0 to %c10 step %c1 iter_args(%idx = %c0) -> (index) {
         scf.yield %idx : index

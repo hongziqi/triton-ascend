@@ -84,7 +84,7 @@ void triton::UseAnalysis::visitOperation(Operation *op,
           propagateUse(operands[2], UseType::MetaUse);
         }
       })
-      .Case<triton::PrintOp>([&](auto print){
+      .Case<triton::PrintOp>([&](auto print) {
         for (auto operand : operands)
           propagateUse(operand, UseType::DataUse);
       })
@@ -159,12 +159,10 @@ void triton::UseAnalysis::visitOperation(Operation *op,
           propagateUse(operand, UseType::DataUse);
         }
       })
-      .Case<hivm::FixpipeOp>([&](auto fixpipeOp) {
-        propagateUse(operands[0], UseType::DataUse);
-      })
-      .Case<hivm::CopyOp>([&](auto copyOp) {
-        propagateUse(operands[0], UseType::DataUse);
-      })
+      .Case<hivm::FixpipeOp>(
+          [&](auto fixpipeOp) { propagateUse(operands[0], UseType::DataUse); })
+      .Case<hivm::CopyOp>(
+          [&](auto copyOp) { propagateUse(operands[0], UseType::DataUse); })
       .Case<hivm::CustomOp, hivm::CustomMacroOp>([&](auto customOp) {
         for (auto operand : operands) {
           propagateUse(operand, UseType::MixUse);
@@ -196,8 +194,7 @@ void setMixUseRecursively(Operation *rootOp, bool applyRoot = true) {
       },
       // StopFn
       [rootOp](Operation *curOp) {
-        return isa<triton::LoadOp>(curOp) &&
-               curOp != rootOp;
+        return isa<triton::LoadOp>(curOp) && curOp != rootOp;
       },
       // ActionFn
       [](OpBuilder &b, Operation *op) {
@@ -396,7 +393,8 @@ LogicalResult triton::runUseAnalysis(triton::FuncOp &funcOp) {
             })
             .Case<triton::ascend::IndirectStoreOp>([&](auto indirectstore) {
               auto src = indirectstore.getSrc();
-              // Only src is MetaUse (see visitOperation). offsets/value/mask are DataUse
+              // Only src is MetaUse (see visitOperation). offsets/value/mask
+              // are DataUse
               if (result == src) {
                 metaUsers.insert(user);
               }

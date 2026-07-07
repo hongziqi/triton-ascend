@@ -34,4 +34,3 @@ module {
 // CHECK-NOT: arith.cmpi eq
 // CHECK-NOT: linalg.reduce ins(%{{.*}} : tensor<2x4xf32>) outs(%{{.*}} : tensor<2xf32>) dimensions = [1]
 // CHECK: tensor.expand_shape %[[MAX]]#0 {{\[\[}}0, 1{{\]\]}} output_shape [2, 1]
-

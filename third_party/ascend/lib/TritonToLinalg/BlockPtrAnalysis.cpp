@@ -501,7 +501,7 @@ void BlockDataParser::parse(
                             opResult.getResultNumber());
   } else if (auto genericOp = operand.getDefiningOp<linalg::GenericOp>()) {
     if (genericOp->hasAttr("tt.from_make_range")) {
-        parseLinalgGenericFromMakeRange(genericOp, data, loc, rewriter, known);
+      parseLinalgGenericFromMakeRange(genericOp, data, loc, rewriter, known);
     } else {
       operand.dump();
       llvm_unreachable(
@@ -1027,41 +1027,42 @@ void parseIndirectLoad(OpTy op, BlockData &data, const Location &loc,
 
 namespace {
 template <typename CustomOpT>
-void parseStructuredCustomOpImpl(CustomOpT op, BlockData &data, const Location &loc,
-                                 ConversionPatternRewriter &rewriter,
-                                 const llvm::SmallDenseMap<Value, BlockData> &known,
-                                 unsigned resultIdx)
-{
-  auto srcValArrayAttr =
-      op->template getAttrOfType<DenseI32ArrayAttr>(ConverterUtils::customSrcPtrIndexAttrName);
-  assert(srcValArrayAttr && "structure hivm custom op should present src tensor<tt.ptr>");
+void parseStructuredCustomOpImpl(
+    CustomOpT op, BlockData &data, const Location &loc,
+    ConversionPatternRewriter &rewriter,
+    const llvm::SmallDenseMap<Value, BlockData> &known, unsigned resultIdx) {
+  auto srcValArrayAttr = op->template getAttrOfType<DenseI32ArrayAttr>(
+      ConverterUtils::customSrcPtrIndexAttrName);
+  assert(srcValArrayAttr &&
+         "structure hivm custom op should present src tensor<tt.ptr>");
   auto srcValArray = srcValArrayAttr.asArrayRef();
   assert(srcValArray[resultIdx] != -1 &&
          "tensor<tt.ptr> result should map to src tensor<tt.ptr>");
-  BlockDataParser::parse(op->getOperand(srcValArray[resultIdx]), data, loc, rewriter, known);
+  BlockDataParser::parse(op->getOperand(srcValArray[resultIdx]), data, loc,
+                         rewriter, known);
   data.setSource(rewriter.getRemappedValue(op->getResult(resultIdx)));
 }
 
 template <typename CustomOpT>
-CustomOpT createRewrittenStructuredCustomOp(ConversionPatternRewriter &rewriter, Location loc,
-                                            llvm::ArrayRef<Type> resultTypes, CustomOpT op,
-                                            typename CustomOpT::Adaptor &adaptor,
-                                            ValueRange newOutputs)
-{
+CustomOpT createRewrittenStructuredCustomOp(
+    ConversionPatternRewriter &rewriter, Location loc,
+    llvm::ArrayRef<Type> resultTypes, CustomOpT op,
+    typename CustomOpT::Adaptor &adaptor, ValueRange newOutputs) {
   if constexpr (std::is_same_v<CustomOpT, hivm::CustomMacroOp>) {
     return rewriter.create<hivm::CustomMacroOp>(
         loc, resultTypes, op.getName(), adaptor.getInputs(), newOutputs,
         adaptor.getTempBuffers(), adaptor.getSyncRelatedArgs());
   } else {
-    return rewriter.create<hivm::CustomOp>(loc, resultTypes, op.getName(), adaptor.getInputs(),
-                                           newOutputs, adaptor.getTempBuffers());
+    return rewriter.create<hivm::CustomOp>(loc, resultTypes, op.getName(),
+                                           adaptor.getInputs(), newOutputs,
+                                           adaptor.getTempBuffers());
   }
 }
 
 template <typename CustomOpT>
-void rewriteStructuredCustomOpImpl(CustomOpT op, typename CustomOpT::Adaptor &adaptor,
-                                   ConversionPatternRewriter &rewriter)
-{
+void rewriteStructuredCustomOpImpl(CustomOpT op,
+                                   typename CustomOpT::Adaptor &adaptor,
+                                   ConversionPatternRewriter &rewriter) {
   if (isDistributedTypeCustomOp(op)) {
     auto ip = rewriter.saveInsertionPoint();
     rewriter.setInsertionPoint(op);
@@ -1082,7 +1083,8 @@ void rewriteStructuredCustomOpImpl(CustomOpT op, typename CustomOpT::Adaptor &ad
         continue;
       }
       if (auto tensorTy = llvm::dyn_cast<RankedTensorType>(ty)) {
-        if (auto ptrTy = llvm::dyn_cast<triton::PointerType>(tensorTy.getElementType())) {
+        if (auto ptrTy = llvm::dyn_cast<triton::PointerType>(
+                tensorTy.getElementType())) {
           resultTypes.emplace_back(
               MemRefType::get(tensorTy.getShape(), ptrTy.getPointeeType()));
           continue;
@@ -1090,17 +1092,18 @@ void rewriteStructuredCustomOpImpl(CustomOpT op, typename CustomOpT::Adaptor &ad
       }
       resultTypes.emplace_back(ty);
     }
-    auto newOp = createRewrittenStructuredCustomOp(rewriter, loc, resultTypes, op, adaptor,
-                                                   newOutputs);
+    auto newOp = createRewrittenStructuredCustomOp(rewriter, loc, resultTypes,
+                                                   op, adaptor, newOutputs);
     auto operandSegmentSizesAttr = newOp->getAttr("operandSegmentSizes");
     newOp->setAttrs(op->getAttrs());
     newOp->setAttr("operandSegmentSizes", operandSegmentSizesAttr);
     rewriter.replaceOp(op, newOp.getResults());
     rewriter.restoreInsertionPoint(ip);
   } else {
-    SmallVector<Type> resultTypes(op->getResultTypes().begin(), op->getResultTypes().end());
-    auto newOp = createRewrittenStructuredCustomOp(rewriter, op.getLoc(), resultTypes, op,
-                                                   adaptor, adaptor.getOutputs());
+    SmallVector<Type> resultTypes(op->getResultTypes().begin(),
+                                  op->getResultTypes().end());
+    auto newOp = createRewrittenStructuredCustomOp(
+        rewriter, op.getLoc(), resultTypes, op, adaptor, adaptor.getOutputs());
     auto operandSegmentSizesAttr = newOp->getAttr("operandSegmentSizes");
     newOp->setAttrs(op->getAttrs());
     newOp->setAttr("operandSegmentSizes", operandSegmentSizesAttr);
@@ -1109,26 +1112,25 @@ void rewriteStructuredCustomOpImpl(CustomOpT op, typename CustomOpT::Adaptor &ad
 }
 } // namespace
 
-void BlockDataParser::rewriteStructuredCustomOp(hivm::CustomOp op, hivm::CustomOp::Adaptor &adaptor,
-                                                ConversionPatternRewriter &rewriter)
-{
+void BlockDataParser::rewriteStructuredCustomOp(
+    hivm::CustomOp op, hivm::CustomOp::Adaptor &adaptor,
+    ConversionPatternRewriter &rewriter) {
   rewriteStructuredCustomOpImpl(op, adaptor, rewriter);
 }
 
-void BlockDataParser::rewriteStructuredCustomOp(hivm::CustomMacroOp op,
-                                                hivm::CustomMacroOp::Adaptor &adaptor,
-                                                ConversionPatternRewriter &rewriter)
-{
+void BlockDataParser::rewriteStructuredCustomOp(
+    hivm::CustomMacroOp op, hivm::CustomMacroOp::Adaptor &adaptor,
+    ConversionPatternRewriter &rewriter) {
   rewriteStructuredCustomOpImpl(op, adaptor, rewriter);
 }
 
-void BlockDataParser::parseStructuredCustomOp(Operation *op, BlockData &data, const Location &loc,
-                                              ConversionPatternRewriter &rewriter,
-                                              const llvm::SmallDenseMap<Value, BlockData> &known,
-                                              unsigned resultIdx)
-{
+void BlockDataParser::parseStructuredCustomOp(
+    Operation *op, BlockData &data, const Location &loc,
+    ConversionPatternRewriter &rewriter,
+    const llvm::SmallDenseMap<Value, BlockData> &known, unsigned resultIdx) {
   if (auto customOp = dyn_cast<hivm::CustomOp>(op)) {
-    parseStructuredCustomOpImpl(customOp, data, loc, rewriter, known, resultIdx);
+    parseStructuredCustomOpImpl(customOp, data, loc, rewriter, known,
+                                resultIdx);
   } else if (auto macroOp = dyn_cast<hivm::CustomMacroOp>(op)) {
     parseStructuredCustomOpImpl(macroOp, data, loc, rewriter, known, resultIdx);
   } else {
@@ -1136,9 +1138,8 @@ void BlockDataParser::parseStructuredCustomOp(Operation *op, BlockData &data, co
   }
 }
 
-void BlockDataParser::rewriteStructuredCustomOp(Operation *op,
-                                                ConversionPatternRewriter &rewriter)
-{
+void BlockDataParser::rewriteStructuredCustomOp(
+    Operation *op, ConversionPatternRewriter &rewriter) {
   if (auto customOp = dyn_cast<hivm::CustomOp>(op)) {
     hivm::CustomOp::Adaptor adaptor(customOp);
     rewriteStructuredCustomOpImpl(customOp, adaptor, rewriter);
@@ -1150,10 +1151,10 @@ void BlockDataParser::rewriteStructuredCustomOp(Operation *op,
   }
 }
 
-void BlockDataParser::parseFill(linalg::FillOp op, BlockData &data,
-                                const Location &loc,
-                                ConversionPatternRewriter &rewriter,
-                                const llvm::SmallDenseMap<Value, BlockData> &known) {
+void BlockDataParser::parseFill(
+    linalg::FillOp op, BlockData &data, const Location &loc,
+    ConversionPatternRewriter &rewriter,
+    const llvm::SmallDenseMap<Value, BlockData> &known) {
   auto src = op.getInputs()[0];
   auto dst = op.getResult(0);
   auto dstShape = dyn_cast<ShapedType>(dst.getType()).getShape();
@@ -1339,7 +1340,8 @@ void BlockDataParser::rewriteAddPtr(
                        << constVal.value() << " at dim " << i << "\n";
         });
 
-        Value negOffsetVal = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), constVal.value());
+        Value negOffsetVal = rewriter.create<arith::ConstantIndexOp>(
+            op.getLoc(), constVal.value());
         offsets[i] = negOffsetVal;
       }
     }
@@ -2436,7 +2438,8 @@ void BlockDataParser::rewriteLoopOp(
       if (isDistributedTypeCustomOp(&bodyOp)) {
         rewriteStructuredCustomOp(&bodyOp, rewriter);
       } else if (auto addptrOp = dyn_cast<triton::AddPtrOp>(bodyOp)) {
-        // FIXME: Constructed adaptor here does not hold the transformed op info.
+        // FIXME: Constructed adaptor here does not hold the transformed op
+        // info.
         auto adaptor = triton::AddPtrOp::Adaptor(addptrOp);
         rewriteAddPtr(addptrOp, adaptor, rewriter, known);
       } else if (auto advanceOp = dyn_cast<triton::AdvanceOp>(bodyOp)) {

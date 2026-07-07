@@ -22,23 +22,23 @@
 
 #include "ascend/include/DynamicCVPipeline/AnalyzeDataFlow.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "bishengir/Dialect/HIVM/IR/HIVM.h"
+#include "bishengir/Dialect/Scope/IR/Scope.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "bishengir/Dialect/Scope/IR/Scope.h"
-#include "bishengir/Dialect/HIVM/IR/HIVM.h"
-#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 
 static constexpr const char *DEBUG_TYPE = "analyze-scope";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...) \
-LLVM_DEBUG({ \
-  DBGS(); \
-  llvm::dbgs() << __VA_ARGS__; \
-  llvm::dbgs() << "\n"; \
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__;                                               \
+    llvm::dbgs() << "\n";                                                      \
+  })
 
 using namespace llvm;
 using namespace mlir;
@@ -46,16 +46,16 @@ using namespace triton;
 using namespace CVPipeline;
 
 namespace {
-static bool isVectorScope(scope::ScopeOp scopeOp)
-{
-    auto coreTypeAttr = scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(hivm::TCoreTypeAttr::name);
-    if (!coreTypeAttr) {
-        return false;
-    }
-    return coreTypeAttr.getTcoretype() == hivm::TCoreType::VECTOR;
+static bool isVectorScope(scope::ScopeOp scopeOp) {
+  auto coreTypeAttr =
+      scopeOp->getAttrOfType<hivm::TCoreTypeAttr>(hivm::TCoreTypeAttr::name);
+  if (!coreTypeAttr) {
+    return false;
+  }
+  return coreTypeAttr.getTcoretype() == hivm::TCoreType::VECTOR;
 }
 
-static bool checkTransferInteraction(mlir::Operation* op) {
+static bool checkTransferInteraction(mlir::Operation *op) {
   bool hasCVInteraction = false;
   // check v->c data interaction
   if (isa<hivm::CopyOp>(op)) {
@@ -103,7 +103,8 @@ static bool checkVecScopeMainLoop(ModuleOp module) {
           return WalkResult::advance();
         }
 
-        // ops with "ssbuffer.transfer_id" are injected in SplitDataflowPass for data transfer
+        // ops with "ssbuffer.transfer_id" are injected in SplitDataflowPass for
+        // data transfer
         if (op->hasAttr(CVPipeline::kTransferId)) {
           hasCVInteraction = checkTransferInteraction(op);
           if (hasCVInteraction) {
@@ -114,8 +115,8 @@ static bool checkVecScopeMainLoop(ModuleOp module) {
         return WalkResult::advance();
       });
 
-      // As long as there is a forOp with "ssbuffer.main_loop" not a real mainloop, 
-      // the processing conditions are not met, need to skip.
+      // As long as there is a forOp with "ssbuffer.main_loop" not a real
+      // mainloop, the processing conditions are not met, need to skip.
       if (!hasCVInteraction) {
         allForSatisfy = false;
         return WalkResult::interrupt();
@@ -134,8 +135,7 @@ static bool checkVecScopeMainLoop(ModuleOp module) {
   return hasMainLoopFor && allForSatisfy;
 }
 
-static LogicalResult verifyMainLoop(ModuleOp module)
-{
+static LogicalResult verifyMainLoop(ModuleOp module) {
   // Only skip if ALL forOps lack main_loop attr
   bool hasMainLoopForOp = false;
   module.walk([&](scf::ForOp forOp) {
@@ -145,7 +145,8 @@ static LogicalResult verifyMainLoop(ModuleOp module)
   });
 
   if (!hasMainLoopForOp) {
-    LDBG("[INFO]: No cycle of multiple iterations, the DynamicCVPipeline pass will be interrupted, and resumed to the original workflow.");
+    LDBG("[INFO]: No cycle of multiple iterations, the DynamicCVPipeline pass "
+         "will be interrupted, and resumed to the original workflow.");
     CVPipeline::setFallbackAttr(module);
     return failure();
   }
@@ -161,8 +162,7 @@ static LogicalResult verifyMainLoop(ModuleOp module)
 
 } // namespace
 
-void AnalyzeScopePass::runOnOperation()
-{
+void AnalyzeScopePass::runOnOperation() {
   ModuleOp module = getOperation();
 
   LDBG("Before AnalyzeScope:\n" << module << "\n");
@@ -178,8 +178,7 @@ void AnalyzeScopePass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeScopePass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeScopePass() {
   return std::make_unique<AnalyzeScopePass>();
 }
 

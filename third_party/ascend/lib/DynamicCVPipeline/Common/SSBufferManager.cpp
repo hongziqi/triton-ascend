@@ -21,8 +21,8 @@
  */
 
 #include "ascend/include/DynamicCVPipeline/Common/SSBufferManager.h"
-#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 using namespace mlir;
 using namespace triton;
@@ -30,8 +30,7 @@ using namespace triton;
 // Helper function to check if a type is a scalar type
 // Scalar types include: IntegerType (i1, i8, i16, i32, i64, etc.)
 // and FloatType (f16, f32, f64, bf16, f8, etc.)
-bool SSBufferManager::isScalarType(Type type)
-{
+bool SSBufferManager::isScalarType(Type type) {
   // Check if it's a scalar type
   if (isa<IntegerType>(type)) {
     return true;
@@ -44,8 +43,7 @@ bool SSBufferManager::isScalarType(Type type)
 }
 
 // Allocate SSBuffer address for a value
-std::optional<int64_t> SSBufferManager::allocateAddr(Value value)
-{
+std::optional<int64_t> SSBufferManager::allocateAddr(Value value) {
   // Check if the value's type is a scalar type
   Type valueType = value.getType();
   if (!isScalarType(valueType)) {
@@ -62,7 +60,8 @@ std::optional<int64_t> SSBufferManager::allocateAddr(Value value)
 
   // Allocate a new SSBuffer address based on current map size
   // Address = base_addr + map_size * offset
-  int64_t addrValue = SSBUF_BASE_ADDR + valueToAddrMap.size() * SSBUF_ADDR_OFFSET;
+  int64_t addrValue =
+      SSBUF_BASE_ADDR + valueToAddrMap.size() * SSBUF_ADDR_OFFSET;
 
   // Check if address exceeds maximum limit
   if (addrValue > SSBUF_ADDR_MAX) {
@@ -76,8 +75,8 @@ std::optional<int64_t> SSBufferManager::allocateAddr(Value value)
 }
 
 // Find the Value and its type for a given address
-std::optional<std::pair<Value, Type>> SSBufferManager::findValueByAddr(int64_t addr)
-{
+std::optional<std::pair<Value, Type>>
+SSBufferManager::findValueByAddr(int64_t addr) {
   // Use reverse mapping table for fast lookup
   auto it = addrToValueMap.find(addr);
   if (it == addrToValueMap.end()) {
@@ -92,9 +91,9 @@ std::optional<std::pair<Value, Type>> SSBufferManager::findValueByAddr(int64_t a
 }
 
 // Write a value to SSBuffer and return the SSBuffer address (int64_t)
-std::optional<int64_t> SSBufferManager::writeToSSBuffer(Value value, OpBuilder &builder,
-                                                        SmallVectorImpl<Operation *> &createdOps)
-{
+std::optional<int64_t>
+SSBufferManager::writeToSSBuffer(Value value, OpBuilder &builder,
+                                 SmallVectorImpl<Operation *> &createdOps) {
   // Allocate or get existing SSBuffer address
   auto addrResult = allocateAddr(value);
   if (!addrResult) {
@@ -105,29 +104,32 @@ std::optional<int64_t> SSBufferManager::writeToSSBuffer(Value value, OpBuilder &
   int64_t addrValue = addrResult.value();
   Location loc = builder.getUnknownLoc();
   auto i64Type = builder.getIntegerType(ADDR_INT_TYPE);
-  auto ptrType = LLVM::LLVMPointerType::get(builder.getContext(), SSBUF_ADDR_SPACE);
+  auto ptrType =
+      LLVM::LLVMPointerType::get(builder.getContext(), SSBUF_ADDR_SPACE);
 
   // Create address constant
   auto addrAttr = builder.getIntegerAttr(i64Type, addrValue);
   auto addrConst = builder.create<LLVM::ConstantOp>(loc, i64Type, addrAttr);
-  createdOps.push_back(addrConst);  // Record the created operation
+  createdOps.push_back(addrConst); // Record the created operation
 
   // Convert integer address to pointer
-  auto ptr = builder.create<LLVM::IntToPtrOp>(loc, ptrType, addrConst.getResult());
-  createdOps.push_back(ptr);  // Record the created operation
+  auto ptr =
+      builder.create<LLVM::IntToPtrOp>(loc, ptrType, addrConst.getResult());
+  createdOps.push_back(ptr); // Record the created operation
 
   // Store the value to SSBuffer
-  auto storeOp = builder.create<LLVM::StoreOp>(loc, value, ptr.getResult(), 0, /*volatile=*/true);
-  createdOps.push_back(storeOp);  // Record the created operation
+  auto storeOp = builder.create<LLVM::StoreOp>(loc, value, ptr.getResult(), 0,
+                                               /*volatile=*/true);
+  createdOps.push_back(storeOp); // Record the created operation
 
   // Return the address value (int64_t), not the pointer
   return addrValue;
 }
 
 // Read a value from SSBuffer based on the given address (int64_t)
-std::optional<Value> SSBufferManager::readFromSSBuffer(int64_t addr, OpBuilder &builder,
-                                                        SmallVectorImpl<Operation *> &createdOps)
-{
+std::optional<Value>
+SSBufferManager::readFromSSBuffer(int64_t addr, OpBuilder &builder,
+                                  SmallVectorImpl<Operation *> &createdOps) {
   // Find the Value and its type for the given address
   auto findResult = findValueByAddr(addr);
   if (!findResult) {
@@ -140,21 +142,23 @@ std::optional<Value> SSBufferManager::readFromSSBuffer(int64_t addr, OpBuilder &
 
   Location loc = builder.getUnknownLoc();
   auto i64Type = builder.getIntegerType(ADDR_INT_TYPE);
-  auto ptrType = LLVM::LLVMPointerType::get(builder.getContext(), SSBUF_ADDR_SPACE);
+  auto ptrType =
+      LLVM::LLVMPointerType::get(builder.getContext(), SSBUF_ADDR_SPACE);
 
   // Create address constant
   auto addrAttr = builder.getIntegerAttr(i64Type, addr);
   auto addrConst = builder.create<LLVM::ConstantOp>(loc, i64Type, addrAttr);
-  createdOps.push_back(addrConst);  // Record the created operation
+  createdOps.push_back(addrConst); // Record the created operation
 
   // Convert integer address to pointer
-  auto ptr = builder.create<LLVM::IntToPtrOp>(loc, ptrType, addrConst.getResult());
-  createdOps.push_back(ptr);  // Record the created operation
+  auto ptr =
+      builder.create<LLVM::IntToPtrOp>(loc, ptrType, addrConst.getResult());
+  createdOps.push_back(ptr); // Record the created operation
 
   // Load the value from SSBuffer address with the retrieved data type
-  auto loadOp = builder.create<LLVM::LoadOp>(
-      loc, dataType, ptr.getResult(), 0, /*volatile=*/true);
-  createdOps.push_back(loadOp);  // Record the created operation
+  auto loadOp = builder.create<LLVM::LoadOp>(loc, dataType, ptr.getResult(), 0,
+                                             /*volatile=*/true);
+  createdOps.push_back(loadOp); // Record the created operation
 
   return loadOp.getResult();
 }

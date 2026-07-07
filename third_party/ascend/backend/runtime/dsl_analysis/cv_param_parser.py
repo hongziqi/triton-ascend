@@ -24,13 +24,10 @@ import ast
 from typing import Dict, List, Mapping, Optional, Sequence, Set
 
 from .dynamic_source_utils import resolve_dynamic_source
-from .entry import (analyze_axis_length_state, analyze_dot_site_mnk,
-                    analyze_signature_and_missing_tunable)
+from .entry import (analyze_axis_length_state, analyze_dot_site_mnk, analyze_signature_and_missing_tunable)
 from .load_dependency_analyzer import collect_load_derived_symbols
-from .schema import (AXIS_LENGTH_STATE_TUNABLE, CV_PARSE_STATUS_FAILED,
-                     CV_PARSE_STATUS_OK, CV_PARSE_STATUS_PARTIAL,
-                     CV_PARSER_VERSION_V1, CvAxisLengthInfo, CvAxisRole,
-                     CvDotSiteInfo, CvParseResult, CvParserMode,
+from .schema import (AXIS_LENGTH_STATE_TUNABLE, CV_PARSE_STATUS_FAILED, CV_PARSE_STATUS_OK, CV_PARSE_STATUS_PARTIAL,
+                     CV_PARSER_VERSION_V1, CvAxisLengthInfo, CvAxisRole, CvDotSiteInfo, CvParseResult, CvParserMode,
                      CvTunableParamInfo)
 
 
@@ -98,24 +95,15 @@ def _to_cv_axis_length_info(
         )
 
     state = getattr(state_info, "state", "unknown")
-    base_tunable_symbol = _normalize_tunable_param_symbol(
-        getattr(state_info, "length_symbol", None)
-    )
+    base_tunable_symbol = _normalize_tunable_param_symbol(getattr(state_info, "length_symbol", None))
     tunable_param = base_tunable_symbol if state == AXIS_LENGTH_STATE_TUNABLE else None
     length_expr = None
-    has_effective_override = (
-        override_length_expr is not None
-        and override_length_expr != axis_symbol
-    )
+    has_effective_override = (override_length_expr is not None and override_length_expr != axis_symbol)
     # If we cannot infer a separate/global length expression and the axis symbol
     # equals the tunable split parameter itself (e.g. BLOCK_M/BLOCK_N/BLOCK_K),
     # keep length_expr as None to let downstream fallback logic decide defaults.
-    suppress_axis_self_length = (
-        not has_effective_override
-        and axis_symbol is not None
-        and tunable_param is not None
-        and axis_symbol == tunable_param
-    )
+    suppress_axis_self_length = (not has_effective_override and axis_symbol is not None and tunable_param is not None
+                                 and axis_symbol == tunable_param)
     if override_length_expr is not None and override_length_expr != axis_symbol:
         length_expr = override_length_expr
     if length_expr is None and not suppress_axis_self_length:
@@ -190,9 +178,7 @@ def parse_cv_params(
     except ValueError:
         raise
     except Exception as exc:
-        diagnostics.append(
-            "signature/missing_tunable analysis failed: {}".format(type(exc).__name__)
-        )
+        diagnostics.append("signature/missing_tunable analysis failed: {}".format(type(exc).__name__))
 
     dot_sites_raw = []
     try:
@@ -218,9 +204,7 @@ def parse_cv_params(
         )
         axis_states = dict(axis_state_result.axis_states)
     except Exception as exc:
-        diagnostics.append(
-            "axis-length-state analysis failed: {}".format(type(exc).__name__)
-        )
+        diagnostics.append("axis-length-state analysis failed: {}".format(type(exc).__name__))
 
     try:
         analysis_root = module_ast if module_ast is not None else func_ast
@@ -258,8 +242,7 @@ def parse_cv_params(
                     load_derived_symbols=load_derived_symbols,
                 ),
                 scope=None,
-            )
-        )
+            ))
 
     if not dot_sites:
         diagnostics.append("no tl.dot/tl.conv site resolved in cube/mix parser.")
@@ -269,18 +252,14 @@ def parse_cv_params(
     seen = set()
     for name in missing_tunable_params:
         role = _infer_role(name, role_param_names)
-        tunable_params.append(
-            CvTunableParamInfo(name=name, role=role, source="signature")
-        )
+        tunable_params.append(CvTunableParamInfo(name=name, role=role, source="signature"))
         seen.add(name)
 
     for role in ("M", "N", "K"):
         for name in sorted(role_param_names[role]):
             if name in seen:
                 continue
-            tunable_params.append(
-                CvTunableParamInfo(name=name, role=role, source="axis_length")
-            )
+            tunable_params.append(CvTunableParamInfo(name=name, role=role, source="axis_length"))
             seen.add(name)
 
     status = CV_PARSE_STATUS_OK

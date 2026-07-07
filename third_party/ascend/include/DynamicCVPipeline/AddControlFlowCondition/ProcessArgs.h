@@ -48,8 +48,9 @@ struct SharedArgInfo {
         newArgIndex(newIdx), nonOwnerBlockId(nonOwner) {}
 };
 
-class ProcessArgsPass : public PassWrapper<ProcessArgsPass, OperationPass<ModuleOp>> {
- public:
+class ProcessArgsPass
+    : public PassWrapper<ProcessArgsPass, OperationPass<ModuleOp>> {
+public:
   ProcessArgsPass() = default;
 
   void runOnOperation() override;

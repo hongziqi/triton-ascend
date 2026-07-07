@@ -1,5 +1,5 @@
-#include "AscendModel/IR/AscendModelDialect.h"
 #include "AscendModel/Transforms/Passes.h"
+#include "AscendModel/IR/AscendModelDialect.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -149,15 +149,12 @@ TEST(CostModelPassesTest, PipelineAnalysisSetsCycleSummaryAttrs) {
                         createEstimateCyclesPass(),
                         createPipelineAnalysisPass()));
 
-  auto scheduled =
-      module->getOperation()->getAttrOfType<mlir::IntegerAttr>(
-          "ascend.scheduled_cycles_one_iter");
-  auto roofline =
-      module->getOperation()->getAttrOfType<mlir::IntegerAttr>(
-          "ascend.roofline_cycles");
-  auto simple =
-      module->getOperation()->getAttrOfType<mlir::IntegerAttr>(
-          "ascend.simple_sum_cycles");
+  auto scheduled = module->getOperation()->getAttrOfType<mlir::IntegerAttr>(
+      "ascend.scheduled_cycles_one_iter");
+  auto roofline = module->getOperation()->getAttrOfType<mlir::IntegerAttr>(
+      "ascend.roofline_cycles");
+  auto simple = module->getOperation()->getAttrOfType<mlir::IntegerAttr>(
+      "ascend.simple_sum_cycles");
   ASSERT_TRUE(scheduled);
   ASSERT_TRUE(roofline);
   ASSERT_TRUE(simple);
@@ -173,6 +170,5 @@ TEST(CostModelPassesTest, PerfReportPassAcceptsEstimatedPipeline) {
 
   EXPECT_TRUE(runPasses(*module, createAssignOpIDsPass(),
                         createEstimateCyclesPass(),
-                        createPipelineAnalysisPass(),
-                        createPerfReportPass()));
+                        createPipelineAnalysisPass(), createPerfReportPass()));
 }

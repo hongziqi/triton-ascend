@@ -25,8 +25,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from .axis_length_resolver import classify_length_symbol
-from .axis_semantic_schema import (AxisExtent, AxisSemanticInfo,
-                                   AxisSemanticResult, AxisSplit, AxisTiling)
+from .axis_semantic_schema import (AxisExtent, AxisSemanticInfo, AxisSemanticResult, AxisSplit, AxisTiling)
 from .dynamic_source_utils import resolve_dynamic_source
 from .load_semantics import (
     build_assignment_expr_map,
@@ -40,8 +39,7 @@ from .load_semantics import (
     pick_param_candidate,
 )
 from .load_dependency_analyzer import collect_load_derived_symbols
-from .schema import (AXIS_LENGTH_STATE_FIXED_COMPILE_TIME,
-                     AXIS_LENGTH_STATE_TUNABLE)
+from .schema import (AXIS_LENGTH_STATE_FIXED_COMPILE_TIME, AXIS_LENGTH_STATE_TUNABLE)
 from .signature_analyzer import extract_signature_info
 
 _VALID_AXIS_NAMES = ("x", "y", "z", "w", "v", "t")
@@ -120,13 +118,8 @@ def _normalize_tunable_param_symbol(symbol: Optional[str]) -> Optional[str]:
 
 
 def _is_tl_call(node: ast.AST, name: str) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr == name
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl" and node.func.attr == name)
 
 
 def _find_function_node(tree: ast.AST) -> ast.AST:
@@ -228,9 +221,7 @@ def _extract_make_block_ptr_spec(call_node: ast.Call) -> Optional[_MakeBlockPtrS
     shape_items = _extract_tuple_items(_extract_call_arg(call_node, "shape", 1))
     if not shape_items:
         return None
-    block_shape_items = _extract_tuple_items(
-        _extract_call_arg(call_node, "block_shape", 4)
-    )
+    block_shape_items = _extract_tuple_items(_extract_call_arg(call_node, "block_shape", 4))
     offset_items = _extract_tuple_items(_extract_call_arg(call_node, "offsets", 3))
     return _MakeBlockPtrSpec(
         shape_dims=[_ast_to_text(item) for item in shape_items],
@@ -509,12 +500,7 @@ def _iter_expr_closure(expr: ast.AST, assignment_expr_map: Mapping[str, Sequence
 
 
 def _is_slice_all(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Slice)
-        and node.lower is None
-        and node.upper is None
-        and node.step is None
-    )
+    return (isinstance(node, ast.Slice) and node.lower is None and node.upper is None and node.step is None)
 
 
 def _is_none_const(node: ast.AST) -> bool:
@@ -734,19 +720,10 @@ def _collect_ptr_axis_symbols(
             # prefer the assignment owner (`row_offsets`) over the inline
             # arange stop symbol (`XBLOCK_SUB`), so downstream split/tiling
             # extraction can trace program_id/loop evidence from the offset var.
-            if (
-                _is_tl_call(node.value, "arange")
-                and isinstance(owner_symbol, str)
-                and owner_symbol != root_ptr_name
-            ):
+            if (_is_tl_call(node.value, "arange") and isinstance(owner_symbol, str) and owner_symbol != root_ptr_name):
                 symbol = owner_symbol
-            elif (
-                isinstance(owner_symbol, str)
-                and owner_symbol != root_ptr_name
-                and axis_candidates
-                and owner_symbol in axis_candidates
-                and symbol not in axis_candidates
-            ):
+            elif (isinstance(owner_symbol, str) and owner_symbol != root_ptr_name and axis_candidates
+                  and owner_symbol in axis_candidates and symbol not in axis_candidates):
                 symbol = owner_symbol
             symbol_by_index[axis_index] = symbol
             is_low_dim_by_index[axis_index] = axis_index == (ndim - 1)
@@ -767,17 +744,12 @@ def _collect_ptr_axis_symbols(
     # patterns when fallback symbols mix real vector offsets with base-pointer
     # symbols (e.g. `base + pid * stride + offset`).
     if axis_candidates:
-        preferred_symbols = [
-            symbol for symbol in fallback_symbols if symbol in axis_candidates
-        ]
+        preferred_symbols = [symbol for symbol in fallback_symbols if symbol in axis_candidates]
         if preferred_symbols:
             fallback_symbols = preferred_symbols
 
     symbol_by_index = {idx: symbol for idx, symbol in enumerate(fallback_symbols)}
-    is_low_dim_by_index = {
-        idx: idx == (len(fallback_symbols) - 1)
-        for idx in range(len(fallback_symbols))
-    }
+    is_low_dim_by_index = {idx: idx == (len(fallback_symbols) - 1) for idx in range(len(fallback_symbols))}
     return list(range(len(fallback_symbols))), symbol_by_index, is_low_dim_by_index
 
 
@@ -787,11 +759,7 @@ def _normalize_mask_extent_candidate_expr(
     symbol: str,
     assignment_expr_map: Mapping[str, Sequence[ast.AST]],
 ) -> Optional[str]:
-    if not (
-        isinstance(rhs_expr, ast.Call)
-        and isinstance(rhs_expr.func, ast.Name)
-        and rhs_expr.func.id == "min"
-    ):
+    if not (isinstance(rhs_expr, ast.Call) and isinstance(rhs_expr.func, ast.Name) and rhs_expr.func.id == "min"):
         return None
 
     args = list(rhs_expr.args)
@@ -875,12 +843,8 @@ def _extract_range_stop_and_step(node: ast.For) -> Tuple[Optional[ast.AST], Opti
         return None, None
     iter_fn = node.iter.func
     is_range = isinstance(iter_fn, ast.Name) and iter_fn.id == "range"
-    is_tl_range = (
-        isinstance(iter_fn, ast.Attribute)
-        and isinstance(iter_fn.value, ast.Name)
-        and iter_fn.value.id == "tl"
-        and iter_fn.attr == "range"
-    )
+    is_tl_range = (isinstance(iter_fn, ast.Attribute) and isinstance(iter_fn.value, ast.Name)
+                   and iter_fn.value.id == "tl" and iter_fn.attr == "range")
     if not (is_range or is_tl_range):
         return None, None
 
@@ -1199,9 +1163,7 @@ def _infer_axis_pid_dim_for_symbol(
     return None
 
 
-def _select_best_split(
-    candidates: Sequence[Tuple[str, int, str, float]],
-) -> Tuple[AxisSplit, List[str]]:
+def _select_best_split(candidates: Sequence[Tuple[str, int, str, float]], ) -> Tuple[AxisSplit, List[str]]:
     if not candidates:
         return AxisSplit(param=None, pid_dim=None, source="infer", confidence=0.0), []
 
@@ -1210,9 +1172,7 @@ def _select_best_split(
     diagnostics: List[str] = []
     distinct = {(param, pid_dim) for param, pid_dim, _, _ in ordered}
     if len(distinct) > 1:
-        diagnostics.append(
-            "multiple split candidates resolved, selected {}".format(best[0])
-        )
+        diagnostics.append("multiple split candidates resolved, selected {}".format(best[0]))
     return AxisSplit(param=best[0], pid_dim=best[1], source=best[2], confidence=best[3]), diagnostics
 
 
@@ -1230,24 +1190,16 @@ def _select_best_tiling(
         best = filtered[0]
     else:
         best = ordered[0]
-        diagnostics.append(
-            "tiling candidate {} equals split candidate, use single-parameter mode".format(
-                best[0]
-            )
-        )
+        diagnostics.append("tiling candidate {} equals split candidate, use single-parameter mode".format(best[0]))
         return AxisTiling(param=None, loop_var=best[1], source=best[2], confidence=best[3]), diagnostics
 
     distinct = {param for param, _, _, _ in ordered}
     if len(distinct) > 1:
-        diagnostics.append(
-            "multiple tiling candidates resolved, selected {}".format(best[0])
-        )
+        diagnostics.append("multiple tiling candidates resolved, selected {}".format(best[0]))
     return AxisTiling(param=best[0], loop_var=best[1], source=best[2], confidence=best[3]), diagnostics
 
 
-def _select_best_fixed_tiling_expr(
-    candidates: Sequence[Tuple[str, str, float]],
-) -> Tuple[Optional[str], List[str]]:
+def _select_best_fixed_tiling_expr(candidates: Sequence[Tuple[str, str, float]], ) -> Tuple[Optional[str], List[str]]:
     if not candidates:
         return None, []
 
@@ -1256,9 +1208,7 @@ def _select_best_fixed_tiling_expr(
     diagnostics: List[str] = []
     distinct = {expr for expr, _, _ in ordered}
     if len(distinct) > 1:
-        diagnostics.append(
-            "multiple fixed tiling candidates resolved, selected {}".format(best[0])
-        )
+        diagnostics.append("multiple fixed tiling candidates resolved, selected {}".format(best[0]))
     return best[0], diagnostics
 
 
@@ -1323,9 +1273,7 @@ def _select_best_extent(
         best = filtered[0]
     else:
         best = ordered[0]
-        diagnostics.append(
-            "extent fallback to tile parameter {} because no better candidate".format(best[0])
-        )
+        diagnostics.append("extent fallback to tile parameter {} because no better candidate".format(best[0]))
 
     state, const_value = classify_length_symbol(
         best[0],
@@ -1350,11 +1298,10 @@ def _select_best_extent(
     )
 
 
-def _resolve_tunable_params(signature, provided_args: Mapping[str, object], hints: Optional[Mapping[str, object]]) -> Set[str]:
+def _resolve_tunable_params(signature, provided_args: Mapping[str, object],
+                            hints: Optional[Mapping[str, object]]) -> Set[str]:
     constexpr_names = set(signature.constexpr_names())
-    missing_constexpr = {
-        name for name in constexpr_names if name not in dict(provided_args or {}).keys()
-    }
+    missing_constexpr = {name for name in constexpr_names if name not in dict(provided_args or {}).keys()}
 
     explicit_tunable = set()
     if hints and isinstance(hints.get("tunable_parameter"), list):
@@ -1374,12 +1321,8 @@ def _collect_reduction_axis_indices(func_node: ast.AST, axis_count: int) -> List
     for node in ast.walk(func_node):
         if not isinstance(node, ast.Call):
             continue
-        if not (
-            isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "tl"
-            and node.func.attr in _REDUCTION_FUNCS
-        ):
+        if not (isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "tl" and node.func.attr in _REDUCTION_FUNCS):
             continue
 
         axis_node = None
@@ -1396,12 +1339,8 @@ def _collect_reduction_axis_indices(func_node: ast.AST, axis_count: int) -> List
         axis_idx = None
         if isinstance(axis_node, ast.Constant) and isinstance(axis_node.value, int):
             axis_idx = axis_node.value
-        elif (
-            isinstance(axis_node, ast.UnaryOp)
-            and isinstance(axis_node.op, ast.USub)
-            and isinstance(axis_node.operand, ast.Constant)
-            and isinstance(axis_node.operand.value, int)
-        ):
+        elif (isinstance(axis_node, ast.UnaryOp) and isinstance(axis_node.op, ast.USub)
+              and isinstance(axis_node.operand, ast.Constant) and isinstance(axis_node.operand.value, int)):
             axis_idx = -axis_node.operand.value
 
         if axis_idx is None:
@@ -1426,8 +1365,7 @@ def _axis_sort_key(axis_name: str) -> Tuple[int, str]:
 
 
 def _choose_best_site_evidence(
-    site_evidences: Sequence[Dict[int, _SemanticAxisEvidence]]
-) -> Dict[int, _SemanticAxisEvidence]:
+        site_evidences: Sequence[Dict[int, _SemanticAxisEvidence]]) -> Dict[int, _SemanticAxisEvidence]:
     if not site_evidences:
         return {}
 
@@ -1453,15 +1391,9 @@ def _choose_best_site_evidence(
 
     def _score(site: Dict[int, _SemanticAxisEvidence]) -> Tuple[int, int, float, int]:
         axis_count = len(site)
-        resolved_extent_axes = sum(
-            1 for evidence in site.values() if len(evidence.extent_candidates) > 0
-        )
-        extent_quality_score = sum(
-            _best_extent_quality(evidence)[0] for evidence in site.values()
-        )
-        extent_confidence_score = sum(
-            _best_extent_quality(evidence)[1] for evidence in site.values()
-        )
+        resolved_extent_axes = sum(1 for evidence in site.values() if len(evidence.extent_candidates) > 0)
+        extent_quality_score = sum(_best_extent_quality(evidence)[0] for evidence in site.values())
+        extent_confidence_score = sum(_best_extent_quality(evidence)[1] for evidence in site.values())
         return (
             resolved_extent_axes,
             extent_quality_score,
@@ -1497,11 +1429,7 @@ def parse_vv_axis_semantic_v2(
     provided_args = dict(provided_args or {})
     load_derived_symbols: Set[str] = set()
     try:
-        analysis_root = (
-            module_ast
-            if isinstance(module_ast, ast.AST) and entry_function_name
-            else func_node
-        )
+        analysis_root = (module_ast if isinstance(module_ast, ast.AST) and entry_function_name else func_node)
         load_derived_symbols = collect_load_derived_symbols(
             analysis_root,
             provided_args=provided_args,
@@ -1509,9 +1437,7 @@ def parse_vv_axis_semantic_v2(
         )
     except Exception as exc:
         load_derived_symbols = set()
-        diagnostics = [
-            "load-dependency analysis failed: {}".format(type(exc).__name__)
-        ]
+        diagnostics = ["load-dependency analysis failed: {}".format(type(exc).__name__)]
     else:
         diagnostics: List[str] = []
 
@@ -1619,9 +1545,9 @@ def parse_vv_axis_semantic_v2(
             _append_extent(site, axis_index, dim, "make_block_ptr", 0.6)
         for axis_index, offset_expr in enumerate(spec.offset_exprs):
             for param, pid_dim, source, confidence in _extract_split_candidates_from_expr(
-                offset_expr,
-                program_id_var_dims,
-                tunable_params,
+                    offset_expr,
+                    program_id_var_dims,
+                    tunable_params,
             ):
                 _append_split(site, axis_index, param, pid_dim, source, confidence)
         for axis_index, block_shape_expr in enumerate(spec.block_shape_exprs):
@@ -1719,17 +1645,17 @@ def parse_vv_axis_semantic_v2(
                 _append_extent(current_site, axis_index, inferred_total_expr, "infer_total", 0.85)
 
             for expr, source, confidence in _collect_mask_extent_candidates_for_symbol(
-                symbol,
-                func_node,
-                assignment_expr_map,
-                load_derived_symbols,
+                    symbol,
+                    func_node,
+                    assignment_expr_map,
+                    load_derived_symbols,
             ):
                 _append_extent(current_site, axis_index, expr, source, confidence)
 
             for expr, source, confidence in _collect_loop_stop_candidates_for_symbol(
-                symbol,
-                func_node,
-                assignment_expr_map,
+                    symbol,
+                    func_node,
+                    assignment_expr_map,
             ):
                 _append_extent(current_site, axis_index, expr, source, confidence)
 
@@ -1738,27 +1664,27 @@ def parse_vv_axis_semantic_v2(
                 _append_extent(current_site, axis_index, fallback_expr, "load", 0.4)
 
             for param, pid_dim, source, confidence in _extract_split_candidates_for_symbol(
-                symbol,
-                assignment_expr_map,
-                program_id_var_dims,
-                tunable_params,
-                symbol_user_expr_map=symbol_user_expr_map,
+                    symbol,
+                    assignment_expr_map,
+                    program_id_var_dims,
+                    tunable_params,
+                    symbol_user_expr_map=symbol_user_expr_map,
             ):
                 _append_split(current_site, axis_index, param, pid_dim, source, confidence)
 
             for param, loop_var, source, confidence in _extract_tiling_candidates_for_symbol(
-                symbol,
-                assignment_expr_map,
-                tunable_params,
-                loop_steps,
+                    symbol,
+                    assignment_expr_map,
+                    tunable_params,
+                    loop_steps,
             ):
                 _append_tiling(current_site, axis_index, param, loop_var, source, confidence)
 
             for expr, source, confidence in _extract_fixed_tiling_candidates_for_symbol(
-                symbol,
-                assignment_expr_map,
-                signature,
-                provided_args,
+                    symbol,
+                    assignment_expr_map,
+                    signature,
+                    provided_args,
             ):
                 _append_fixed_tiling(current_site, axis_index, expr, source, confidence)
 
@@ -1814,9 +1740,7 @@ def parse_vv_axis_semantic_v2(
 
         split, split_diag = _select_best_split(evidence.split_candidates)
         tiling, tiling_diag = _select_best_tiling(evidence.tiling_candidates, split.param)
-        fixed_tiling_expr, fixed_tiling_diag = _select_best_fixed_tiling_expr(
-            evidence.fixed_tiling_candidates
-        )
+        fixed_tiling_expr, fixed_tiling_diag = _select_best_fixed_tiling_expr(evidence.fixed_tiling_candidates)
         extent, extent_diag = _select_best_extent(
             evidence.extent_candidates,
             split.param,
@@ -1884,9 +1808,7 @@ def parse_vv_axis_semantic_v2(
 
     for axis_info in axes.values():
         if axis_info.diagnostics:
-            diagnostics.extend(
-                ["{}: {}".format(axis_info.axis_name, item) for item in axis_info.diagnostics]
-            )
+            diagnostics.extend(["{}: {}".format(axis_info.axis_name, item) for item in axis_info.diagnostics])
 
     status = "ok"
     if diagnostics or any(info.extent.expr is None for info in axes.values()):
@@ -1951,15 +1873,12 @@ def parse_vv_axis_info_v2(
                 is_low_dim=semantic_axis.is_low_dim,
                 is_reduction=semantic_axis.is_reduction,
                 dynamic_source=extent.dynamic_source,
-            )
-        )
+            ))
 
     if not semantic_result.axes:
         source = "none"
     else:
-        extent_sources = {
-            axis_info.extent.source for axis_info in semantic_result.axes.values()
-        }
+        extent_sources = {axis_info.extent.source for axis_info in semantic_result.axes.values()}
         if extent_sources == {"make_block_ptr"}:
             source = "make_block_ptr"
         elif extent_sources.intersection({"mask", "infer_total", "loop", "load"}):

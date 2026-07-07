@@ -39,35 +39,40 @@ namespace triton {
 class FlagIdReuseManager {
 
 public:
-    FlagIdReuseManager() {}
-    
-    void insertRelationBetweenSetAndWait(Operation *before, Operation *after);
-    DenseMap<int, int> reuseInterCoreTransferFlagIds(const llvm::SmallVector<Operation *> &syncOps);
+  FlagIdReuseManager() {}
+
+  void insertRelationBetweenSetAndWait(Operation *before, Operation *after);
+  DenseMap<int, int>
+  reuseInterCoreTransferFlagIds(const llvm::SmallVector<Operation *> &syncOps);
 
 private:
-    static int getFlagId(Operation *op);
-    bool hasPath(llvm::SmallSet<Operation *, CVPipeline::INIT_SIZE> &visited, Operation *from, Operation *to);
-    void preworkForAnalyze(const llvm::SmallVector<Operation *> &syncOps);
+  static int getFlagId(Operation *op);
+  bool hasPath(llvm::SmallSet<Operation *, CVPipeline::INIT_SIZE> &visited,
+               Operation *from, Operation *to);
+  void preworkForAnalyze(const llvm::SmallVector<Operation *> &syncOps);
 
-    enum class SyncDir { VectorToCube, CubeToVector };
-    SyncDir getFlagDirection(int flagId);
+  enum class SyncDir { VectorToCube, CubeToVector };
+  SyncDir getFlagDirection(int flagId);
 
-    // Lifecycle boundary of a flag group: earliest set (acquire) / latest wait (release).
-    Operation *getEarliestSet(int flagId);
-    Operation *getLatestWait(int flagId);
-    // p is provably ordered before q: same op, same-block program order, or
-    // reachable through the happens-before relations graph.
-    bool opPrecedes(Operation *p, Operation *q);
-    // `before`'s release point precedes `after`'s acquire point.
-    bool flagReleasedBefore(int before, int after);
-    // Two flags interfere iff neither is fully released before the other is acquired.
-    bool flagsInterfere(int lhs, int rhs);
-    // Greedy interference-graph coloring + compact renumber. Returns origFlagId -> newFlagId.
-    DenseMap<int, int> colorInterferenceGraph();
+  // Lifecycle boundary of a flag group: earliest set (acquire) / latest wait
+  // (release).
+  Operation *getEarliestSet(int flagId);
+  Operation *getLatestWait(int flagId);
+  // p is provably ordered before q: same op, same-block program order, or
+  // reachable through the happens-before relations graph.
+  bool opPrecedes(Operation *p, Operation *q);
+  // `before`'s release point precedes `after`'s acquire point.
+  bool flagReleasedBefore(int before, int after);
+  // Two flags interfere iff neither is fully released before the other is
+  // acquired.
+  bool flagsInterfere(int lhs, int rhs);
+  // Greedy interference-graph coloring + compact renumber. Returns origFlagId
+  // -> newFlagId.
+  DenseMap<int, int> colorInterferenceGraph();
 
-    DenseMap<Operation*, llvm::SmallVector<Operation*>> relations;
-    DenseMap<int, llvm::SmallVector<Operation*>> flagIdToOps;
-    DenseMap<Operation*, int> opOrder;
+  DenseMap<Operation *, llvm::SmallVector<Operation *>> relations;
+  DenseMap<int, llvm::SmallVector<Operation *>> flagIdToOps;
+  DenseMap<Operation *, int> opOrder;
 };
 
 } // namespace triton

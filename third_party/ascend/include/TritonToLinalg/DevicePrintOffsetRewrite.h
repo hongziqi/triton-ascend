@@ -30,7 +30,7 @@ namespace triton {
 
 void rewriteDevicePrintOffsets(ModuleOp moduleOp);
 
-}  // namespace triton
-}  // namespace mlir
+} // namespace triton
+} // namespace mlir
 
-#endif  // TRITON_ASCEND_TRITONTOLINALG_DEVICEPRINTOFFSETREWRITE_H
+#endif // TRITON_ASCEND_TRITONTOLINALG_DEVICEPRINTOFFSETREWRITE_H

@@ -19,14 +19,14 @@ module {
     %c1 = arith.constant 1 : index
     %c1_i32 = arith.constant 1 : i32
     %init = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     %result = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter = %init) -> (i32) {
       %use1 = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       %use2 = arith.muli %use1, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       %update = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 2 : i32} : i32
       scf.yield %update : i32
     } {ssbuffer.main_loop = 1 : i64}
-    
+
     return %result : i32
   }
 
@@ -46,7 +46,7 @@ module {
     %c1 = arith.constant 1 : index
     %c1_i32 = arith.constant 1 : i32
     %init = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     %result = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter = %init) -> (i32) {
       %use1 = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       %use2 = arith.muli %use1, %c1_i32 {ssbuffer.block_id = 3 : i32} : i32
@@ -54,7 +54,7 @@ module {
       %update = arith.addi %use2, %c1_i32 {ssbuffer.block_id = 2 : i32} : i32
       scf.yield %update : i32
     } {ssbuffer.main_loop = 1 : i64}
-    
+
     return %result : i32
   }
 
@@ -73,7 +73,7 @@ module {
     %c1 = arith.constant 1 : index
     %c1_i32 = arith.constant 1 : i32
     %init = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     %result = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter = %init) -> (i32) {
       // First user in block 1
       %use1 = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
@@ -81,7 +81,7 @@ module {
       %update = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       scf.yield %update : i32
     } {ssbuffer.main_loop = 1 : i64}
-    
+
     return %result : i32
   }
 
@@ -105,17 +105,17 @@ module {
     %c1_i32 = arith.constant 1 : i32
     %init1 = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
     %init2 = arith.muli %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     %result:2 = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter1 = %init1, %iter2 = %init2) -> (i32, i32) {
       %use1 = arith.addi %iter1, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       %use1b = arith.muli %use1, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       %update1 = arith.addi %iter1, %c1_i32 {ssbuffer.block_id = 3 : i32} : i32
       %use2 = arith.muli %iter2, %c1_i32 {ssbuffer.block_id = 2 : i32} : i32
       %update2 = arith.muli %use2, %c1_i32 {ssbuffer.block_id = 3 : i32} : i32
-      
+
       scf.yield %update1, %update2 : i32, i32
     } {ssbuffer.main_loop = 1 : i64}
-    
+
     return %result#0, %result#1 : i32, i32
   }
 
@@ -134,14 +134,14 @@ module {
     %c1 = arith.constant 1 : index
     %c1_i32 = arith.constant 1 : i32
     %init = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     // No ssbuffer.main_loop attribute, should not be processed
     %result = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter = %init) -> (i32) {
       %use1 = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       %update = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 2 : i32} : i32
       scf.yield %update : i32
     }
-    
+
     return %result : i32
   }
 
@@ -159,13 +159,13 @@ module {
     %c1 = arith.constant 1 : index
     %c1_i32 = arith.constant 1 : i32
     %init = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     %result = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter = %init) -> (i32) {
       %use1 = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
       // Directly yield iter_arg, no refinement needed
       scf.yield %iter : i32
     } {ssbuffer.main_loop = 1 : i64}
-    
+
     return %result : i32
   }
 
@@ -186,7 +186,7 @@ module {
     %c1 = arith.constant 1 : index
     %c1_i32 = arith.constant 1 : i32
     %init = arith.addi %arg0, %c1_i32 {ssbuffer.block_id = 0 : i32} : i32
-    
+
     %result = scf.for %iv = %c0 to %c4 step %c1 iter_args(%iter = %init) -> (i32) {
       // First user (appears first in the block)
       %use1 = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 1 : i32} : i32
@@ -196,7 +196,7 @@ module {
       %update = arith.addi %iter, %c1_i32 {ssbuffer.block_id = 3 : i32} : i32
       scf.yield %update : i32
     } {ssbuffer.main_loop = 1 : i64}
-    
+
     return %result : i32
   }
 
@@ -230,7 +230,7 @@ module {
         %new11 = arith.addf %arg11, %arg11 {ssbuffer.block_id = 5 : i32} : f32
         %new12 = arith.addf %arg10, %arg10 {ssbuffer.block_id = 6 : i32} : f32
         scf.yield %new10, %new11, %new12 : f32, f32, f32
-      } {ssbuffer.main_loop = 0 : i32} 
+      } {ssbuffer.main_loop = 0 : i32}
 
     } {hivm.tcore_type = #hivm.tcore_type<VECTOR>}
     func.return

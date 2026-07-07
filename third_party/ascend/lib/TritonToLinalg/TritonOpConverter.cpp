@@ -59,46 +59,26 @@ using namespace mlir;
 using namespace triton;
 
 static const llvm::SmallVector<llvm::StringRef> libdeviceOps = {
-    "__hmf_trunc_fp32",
-    "__hmf_nearbyint_fp32",
-    "__hmf_copysign_fp32",
-    "__hmf_log10_fp32",
-    "__hmf_asin_fp32",
-    "__hmf_acos_fp32",
-    "__hmf_atan2_fp32",
-    "__hmf_sinh_fp32",
-    "__hmf_cosh_fp32",
-    "__hmf_asinh_fp32",
-    "__hmf_acosh_fp32",
-    "__hmf_atanh_fp32",
-    "__hmf_expm1_fp32",
-    "__hmf_nextafter_fp32",
-    "__hmf_hypot_fp32",
-    "__hmf_cyl_bessel_i0_fp32",
-    "__hmf_erfinv_fp32",
-    "__hmf_lgamma_fp32",
-    "__hmf_signbit_fp32",
-    "__hmf_rint_fp32",
-    "__hmf_round_fp32",
-    "__hmf_tan_fp32",
-    "__hmf_atan_fp32",
-    "__hmf_tanh_fp32",
-    "__hmf_fast_divide_fp32",
-    "__hmf_div_rz_fp32",
-    "__hmf_fmod_fp32",
-    "__hmf_fast_exp_fp32",
-    "__hmf_erf_fp32",
-    "__hmf_ldexp_fp32",
-    "__hmf_pow_fp32",
-    "__hmf_ilogb_fp32",
-    "__hmf_isnan_fp32",
-    "__hmf_isinf_fp32",
-    "__hmf_finite_fp32",
-    "__hmf_log1p_fp32",
-    "__hmf_relu_fp32",
-    "__hmf_tgamma_fp32",
-    "__hmf_float_as_int_fp32",
-    "__hmf_reciprocal_fp32",
+    "__hmf_trunc_fp32",        "__hmf_nearbyint_fp32",
+    "__hmf_copysign_fp32",     "__hmf_log10_fp32",
+    "__hmf_asin_fp32",         "__hmf_acos_fp32",
+    "__hmf_atan2_fp32",        "__hmf_sinh_fp32",
+    "__hmf_cosh_fp32",         "__hmf_asinh_fp32",
+    "__hmf_acosh_fp32",        "__hmf_atanh_fp32",
+    "__hmf_expm1_fp32",        "__hmf_nextafter_fp32",
+    "__hmf_hypot_fp32",        "__hmf_cyl_bessel_i0_fp32",
+    "__hmf_erfinv_fp32",       "__hmf_lgamma_fp32",
+    "__hmf_signbit_fp32",      "__hmf_rint_fp32",
+    "__hmf_round_fp32",        "__hmf_tan_fp32",
+    "__hmf_atan_fp32",         "__hmf_tanh_fp32",
+    "__hmf_fast_divide_fp32",  "__hmf_div_rz_fp32",
+    "__hmf_fmod_fp32",         "__hmf_fast_exp_fp32",
+    "__hmf_erf_fp32",          "__hmf_ldexp_fp32",
+    "__hmf_pow_fp32",          "__hmf_ilogb_fp32",
+    "__hmf_isnan_fp32",        "__hmf_isinf_fp32",
+    "__hmf_finite_fp32",       "__hmf_log1p_fp32",
+    "__hmf_relu_fp32",         "__hmf_tgamma_fp32",
+    "__hmf_float_as_int_fp32", "__hmf_reciprocal_fp32",
 };
 
 /**
@@ -1253,9 +1233,9 @@ LogicalResult ReduceConverter::convertToTargetOpExtended(
   return success();
 }
 
-bool ScanConverter::isReductionOpSupported(Operation *reductionOp) const
-{
-  if (isa<arith::AddFOp, arith::AddIOp, arith::MulFOp, arith::MulIOp>(reductionOp)) {
+bool ScanConverter::isReductionOpSupported(Operation *reductionOp) const {
+  if (isa<arith::AddFOp, arith::AddIOp, arith::MulFOp, arith::MulIOp>(
+          reductionOp)) {
     return true;
   }
   if (compileOn91095Flag &&
@@ -1715,42 +1695,48 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
           elemType = rewriter.getI32Type();
         }
         auto src = rewriter.create<tensor::EmptyOp>(
-              op->getLoc(), tensorType.getShape(), elemType);
+            op->getLoc(), tensorType.getShape(), elemType);
         newOuts.push_back(src);
       }
       ValueRange inputs{op->getOperands()};
       ValueRange outputs{newOuts};
       ValueRange temp_buffers{};
       TypeRange res_types{outputs};
-      std::string sym = llvm::join(llvm::split(op.getSymbol().str(), "__hmf_"), "");
-      auto customRes = rewriter.create<hivm::CustomOp>(op.getLoc(), res_types, sym, inputs, outputs, temp_buffers);
+      std::string sym =
+          llvm::join(llvm::split(op.getSymbol().str(), "__hmf_"), "");
+      auto customRes = rewriter.create<hivm::CustomOp>(
+          op.getLoc(), res_types, sym, inputs, outputs, temp_buffers);
       auto arg_attrs_array = mlir::ArrayAttr::get(customRes->getContext(), {});
-      auto pipeAttr = hivm::PipeAttr::get(customRes->getContext(), hivm::PIPE::PIPE_V);
-      auto tcoreTypeAttr = hivm::TCoreTypeAttr::get(customRes->getContext(), hivm::TCoreType::VECTOR);
-      auto vfModeAttr = hivm::VFModeAttr::get(customRes->getContext(), hivm::VFMode::SIMD);
+      auto pipeAttr =
+          hivm::PipeAttr::get(customRes->getContext(), hivm::PIPE::PIPE_V);
+      auto tcoreTypeAttr = hivm::TCoreTypeAttr::get(customRes->getContext(),
+                                                    hivm::TCoreType::VECTOR);
+      auto vfModeAttr =
+          hivm::VFModeAttr::get(customRes->getContext(), hivm::VFMode::SIMD);
       customRes->setAttr("arg_attrs", arg_attrs_array);
-      customRes->setAttr("bitcode", mlir::StringAttr::get(customRes->getContext(), ""));
+      customRes->setAttr("bitcode",
+                         mlir::StringAttr::get(customRes->getContext(), ""));
       customRes->setAttr("hivm.pipe", pipeAttr);
       customRes->setAttr("hivm.tcore_type", tcoreTypeAttr);
       customRes->setAttr("hivm.vf_mode", vfModeAttr);
-      customRes->setAttr("symbol", mlir::StringAttr::get(customRes->getContext(), sym));
+      customRes->setAttr("symbol",
+                         mlir::StringAttr::get(customRes->getContext(), sym));
       SmallVector<Value> finalResults;
-      for (auto [customResult, origType] : llvm::zip(customRes.getResults(), originalOutputTypes)) {
+      for (auto [customResult, origType] :
+           llvm::zip(customRes.getResults(), originalOutputTypes)) {
         auto origTensorType = dyn_cast<RankedTensorType>(origType);
         Type targetElemType = rewriter.getI8Type();
-        Type targetTensorType = RankedTensorType::get(
-          origTensorType.getShape(),
-          targetElemType
-        );
+        Type targetTensorType =
+            RankedTensorType::get(origTensorType.getShape(), targetElemType);
 
         if (origTensorType.getElementType().isInteger(1)) {
           auto i32ElemType = rewriter.getI32Type();
           auto denseZeroAttr = DenseElementsAttr::get(
               RankedTensorType::get(origTensorType.getShape(), i32ElemType), 0);
-          auto zeroTensor = rewriter.create<arith::ConstantOp>(
-              loc, denseZeroAttr);
+          auto zeroTensor =
+              rewriter.create<arith::ConstantOp>(loc, denseZeroAttr);
           auto cmp = rewriter.create<arith::CmpIOp>(
-            loc, arith::CmpIPredicate::ne, customResult, zeroTensor);
+              loc, arith::CmpIPredicate::ne, customResult, zeroTensor);
 
           finalResults.push_back(cmp);
         } else {
@@ -1761,7 +1747,8 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
       return success();
     } else {
       if (op.getSymbol().contains("fp32") || op.getSymbol().contains("i32")) {
-        llvm::report_fatal_error("unsupported libdevice op symbol: " + op.getSymbol());
+        llvm::report_fatal_error("unsupported libdevice op symbol: " +
+                                 op.getSymbol());
       }
     }
     // 1. get or create the declaration of external elementwise function
@@ -1795,7 +1782,8 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
       extFunc.setPrivate();
       extFunc->setAttr(LLVM::LLVMDialect::getReadnoneAttrName(),
                        UnitAttr::get(rewriter.getContext()));
-      // set coreType for external func, otherwise InferFuncCoreTypePass will fail
+      // set coreType for external func, otherwise InferFuncCoreTypePass will
+      // fail
     }
     assert(isa<FunctionOpInterface>(
         SymbolTable::lookupSymbolIn(mod, op.getSymbol())));
@@ -2378,16 +2366,9 @@ DotScaledConverter::matchAndRewrite(triton::DotScaledOp op, OpAdaptor adaptor,
     auto rhsFmt = convertFormat(rhsElemType);
 
     Value matmulMxResult = rewriter.create<hfusion::MatMulMxOp>(
-      loc,
-      dstType,
-      lhs,
-      rhs,
-      lhsScale,
-      rhsScale,
-      acc,
-      /*lhsFormat(optional)*/nullptr,
-      /*rhsFormat(optional)*/nullptr
-    );
+        loc, dstType, lhs, rhs, lhsScale, rhsScale, acc,
+        /*lhsFormat(optional)*/ nullptr,
+        /*rhsFormat(optional)*/ nullptr);
 
     Value finalResult = matmulMxResult;
     if (dstType.getElementType().isBF16()) {
@@ -2778,12 +2759,13 @@ IndexPutConverter::matchAndRewrite(triton::ascend::IndexPutOp op,
   // convert !tt.ptr<f32> to memref<?xf32>
   auto ptrTy = dyn_cast<MemRefType>(ptr.getType());
   if (!ptrTy) {
-      return rewriter.notifyMatchFailure(op, "expected MemRefType for ptr");
+    return rewriter.notifyMatchFailure(op, "expected MemRefType for ptr");
   }
   SmallVector<Type> inputTypes({ptrTy, index.getType(), value.getType(),
                                 dim.getType(), indexBoundary.getType()});
   inputTypes.append(endOffset.getTypes().begin(), endOffset.getTypes().end());
-  inputTypes.append(startOffset.getTypes().begin(), startOffset.getTypes().end());
+  inputTypes.append(startOffset.getTypes().begin(),
+                    startOffset.getTypes().end());
   inputTypes.append(dstStride.getTypes().begin(), dstStride.getTypes().end());
   auto libFnType = rewriter.getFunctionType(inputTypes, {});
   auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
@@ -2794,8 +2776,8 @@ IndexPutConverter::matchAndRewrite(triton::ascend::IndexPutOp op,
   inputVals.append(endOffset.begin(), endOffset.end());
   inputVals.append(startOffset.begin(), startOffset.end());
   inputVals.append(dstStride.begin(), dstStride.end());
-  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
-                                TypeRange({}), inputVals);
+  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(), TypeRange({}),
+                                inputVals);
   rewriter.eraseOp(op);
   return success();
 }
@@ -2903,10 +2885,9 @@ LogicalResult ScatterUbToOutConverter::matchAndRewrite(
   return success();
 }
 
-LogicalResult
-IndirectLoadConverter::matchAndRewrite(triton::ascend::IndirectLoadOp op, OpAdaptor adaptor,
-                                       ConversionPatternRewriter &rewriter) const
-{
+LogicalResult IndirectLoadConverter::matchAndRewrite(
+    triton::ascend::IndirectLoadOp op, OpAdaptor adaptor,
+    ConversionPatternRewriter &rewriter) const {
   auto loc = op.getLoc();
 
   auto moduleOp = op->getParentOfType<ModuleOp>();
@@ -2925,11 +2906,13 @@ IndirectLoadConverter::matchAndRewrite(triton::ascend::IndirectLoadOp op, OpAdap
   // convert !tt.ptr<f32> to memref<?xf32>
   auto srcTy = dyn_cast<MemRefType>(src.getType());
   if (!srcTy) {
-      return rewriter.notifyMatchFailure(op, "expected MemRefType for src");
+    return rewriter.notifyMatchFailure(op, "expected MemRefType for src");
   }
   SmallVector<Type> inputTypes({srcTy, offsets.getType()});
-  if (mask) inputTypes.push_back(mask.getType());
-  if (other) inputTypes.push_back(other.getType());
+  if (mask)
+    inputTypes.push_back(mask.getType());
+  if (other)
+    inputTypes.push_back(other.getType());
   auto libFnType = rewriter.getFunctionType(inputTypes, {resTy});
   auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
   SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
@@ -2938,11 +2921,12 @@ IndirectLoadConverter::matchAndRewrite(triton::ascend::IndirectLoadOp op, OpAdap
 
   rewriter.setInsertionPoint(op);
   SmallVector<Value> inputVals({src, offsets});
-  if (mask)  inputVals.push_back(mask);
-  if (other) inputVals.push_back(other);
+  if (mask)
+    inputVals.push_back(mask);
+  if (other)
+    inputVals.push_back(other);
   auto callOp = rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
-                                              TypeRange({resTy}),
-                                              inputVals);
+                                              TypeRange({resTy}), inputVals);
   callOp->setAttr("isVolatile", isVolatileAttr);
   rewriter.replaceOp(op, callOp);
   return success();
@@ -2989,8 +2973,8 @@ LogicalResult StrideLoadConverter::matchAndRewrite(
   inputVals.append(numels.begin(), numels.end());
 
   rewriter.setInsertionPoint(op);
-  auto callOp = rewriter.create<func::CallOp>(
-      loc, funcOp.getSymNameAttr(), TypeRange({resTy}), inputVals);
+  auto callOp = rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
+                                              TypeRange({resTy}), inputVals);
   rewriter.replaceOp(op, callOp);
   return success();
 }
@@ -3037,10 +3021,9 @@ LogicalResult StrideStoreConverter::matchAndRewrite(
   return success();
 }
 
-LogicalResult
-IndirectStoreConverter::matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAdaptor adaptor,
-                                        ConversionPatternRewriter &rewriter) const
-{
+LogicalResult IndirectStoreConverter::matchAndRewrite(
+    triton::ascend::IndirectStoreOp op, OpAdaptor adaptor,
+    ConversionPatternRewriter &rewriter) const {
   auto loc = op.getLoc();
 
   auto moduleOp = op->getParentOfType<ModuleOp>();
@@ -3057,10 +3040,11 @@ IndirectStoreConverter::matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAd
   // convert !tt.ptr<f32> to memref<?xf32>
   auto srcTy = dyn_cast<MemRefType>(src.getType());
   if (!srcTy) {
-      return rewriter.notifyMatchFailure(op, "expected MemRefType for src");
+    return rewriter.notifyMatchFailure(op, "expected MemRefType for src");
   }
   SmallVector<Type> inputTypes({srcTy, offsets.getType(), value.getType()});
-  if (mask) inputTypes.push_back(mask.getType());
+  if (mask)
+    inputTypes.push_back(mask.getType());
 
   auto libFnType = rewriter.getFunctionType(inputTypes, {});
   auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
@@ -3068,9 +3052,10 @@ IndirectStoreConverter::matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAd
 
   rewriter.setInsertionPoint(op);
   SmallVector<Value> inputVals({src, offsets, value});
-  if (mask) inputVals.push_back(mask);
-  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
-                                TypeRange({}), inputVals);
+  if (mask)
+    inputVals.push_back(mask);
+  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(), TypeRange({}),
+                                inputVals);
   rewriter.eraseOp(op);
   return success();
 }
@@ -3300,14 +3285,15 @@ LogicalResult IndexSelectSimdConverter::matchAndRewrite(
   return success();
 }
 
-LogicalResult HistogramConverter::matchAndRewrite(
-    triton::HistogramOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
+LogicalResult
+HistogramConverter::matchAndRewrite(triton::HistogramOp op, OpAdaptor adaptor,
+                                    ConversionPatternRewriter &rewriter) const {
   auto loc = op.getLoc();
   Value input = adaptor.getSrc();
   auto resultType = dyn_cast<RankedTensorType>(op.getResult().getType());
   if (!resultType || !resultType.hasStaticShape()) {
-    return rewriter.notifyMatchFailure(op, "expected static shaped tensor result");
+    return rewriter.notifyMatchFailure(op,
+                                       "expected static shaped tensor result");
   }
 
   int64_t numBins = resultType.getDimSize(0);
@@ -3317,8 +3303,8 @@ LogicalResult HistogramConverter::matchAndRewrite(
 
   auto zeroVal = rewriter.create<arith::ConstantOp>(
       loc, rewriter.getIntegerAttr(resultType.getElementType(), 0));
-  auto fillOp = rewriter.create<linalg::FillOp>(
-      loc, ValueRange{zeroVal}, ValueRange{outputTensor});
+  auto fillOp = rewriter.create<linalg::FillOp>(loc, ValueRange{zeroVal},
+                                                ValueRange{outputTensor});
 
   Value numBinsVal = rewriter.create<arith::ConstantIntOp>(loc, numBins, 64);
 
@@ -3326,19 +3312,17 @@ LogicalResult HistogramConverter::matchAndRewrite(
       loc, TypeRange{resultType}, "__builtin_histogram",
       ValueRange{input, numBinsVal}, ValueRange{fillOp.getResult(0)},
       ValueRange{});
-  
+
   customOp->setAttr("symbol", rewriter.getStringAttr("__builtin_histogram"));
-  customOp->setAttr("hivm.tcore_type",
-                     hivm::TCoreTypeAttr::get(rewriter.getContext(),
-                                              hivm::TCoreType::VECTOR));
-  customOp->setAttr("hivm.vf_mode",
-                     hivm::VFModeAttr::get(rewriter.getContext(),
-                                           hivm::VFMode::SIMT));
-  customOp->setAttr("hivm.pipe",
-                     hivm::PipeAttr::get(rewriter.getContext(),
-                                         hivm::PIPE::PIPE_V));
+  customOp->setAttr(
+      "hivm.tcore_type",
+      hivm::TCoreTypeAttr::get(rewriter.getContext(), hivm::TCoreType::VECTOR));
+  customOp->setAttr("hivm.vf_mode", hivm::VFModeAttr::get(rewriter.getContext(),
+                                                          hivm::VFMode::SIMT));
+  customOp->setAttr("hivm.pipe", hivm::PipeAttr::get(rewriter.getContext(),
+                                                     hivm::PIPE::PIPE_V));
   customOp->setAttr("gm_addr_args_indices",
-                     DenseI32ArrayAttr::get(rewriter.getContext(), {}));
+                    DenseI32ArrayAttr::get(rewriter.getContext(), {}));
 
   rewriter.replaceOp(op, customOp->getResult(0));
   return success();

@@ -47,8 +47,8 @@ def _cf_with_scf_for_kernel(out_ptr, arg0, arg1):
 
 def test_control_flow_cf_to_scf_with_scf_for():
     for arg0, arg1 in [(0, 3), (1, 3), (7, 0)]:
-        out = torch.zeros((1,), dtype=torch.int32, device="npu")
-        _cf_with_scf_for_kernel[(1,)](out, arg0, arg1)
+        out = torch.zeros((1, ), dtype=torch.int32, device="npu")
+        _cf_with_scf_for_kernel[(1, )](out, arg0, arg1)
         val = arg1 if arg0 == 0 else arg1 + 10
         assert int(out[0].item()) == val * 10
 
@@ -80,8 +80,8 @@ def test_control_flow_cf_to_scf_with_call():
         (0, 2, 5, 7, 0),
     ]
     for arg0, arg1, arg2, arg3, expected in cases:
-        out = torch.zeros((1,), dtype=torch.int32, device="npu")
-        _cf_with_call_kernel[(1,)](out, arg0, arg1, arg2, arg3)
+        out = torch.zeros((1, ), dtype=torch.int32, device="npu")
+        _cf_with_call_kernel[(1, )](out, arg0, arg1, arg2, arg3)
         assert int(out[0].item()) == expected
 
 
@@ -100,11 +100,11 @@ def _if_else_same_ptr_kernel(in_a_ptr, in_b_ptr, out_ptr, flag, n_elements, bloc
 
 def test_control_flow_driver_if_else_same_tensor_ptr():
     n_elements, block = 128, 32
-    a = torch.randn((n_elements,), dtype=torch.float32, device="npu")
-    b = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    a = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
+    b = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
     for flag in [1, 0]:
-        out = torch.zeros((n_elements,), dtype=torch.float32, device="npu")
-        _if_else_same_ptr_kernel[(triton.cdiv(n_elements, block),)](a, b, out, flag, n_elements, block)
+        out = torch.zeros((n_elements, ), dtype=torch.float32, device="npu")
+        _if_else_same_ptr_kernel[(triton.cdiv(n_elements, block), )](a, b, out, flag, n_elements, block)
         _assert_close(out, a if flag != 0 else b)
 
 
@@ -139,7 +139,7 @@ def test_control_flow_driver_if_else_diff_block_ptr_advance():
     x = torch.randn((1, n_elements), dtype=torch.float32, device="npu")
     for flag in [1, 0]:
         out = torch.empty((1, block), dtype=torch.float32, device="npu")
-        _if_else_diff_advance_kernel[(1,)](x, out, flag, n_elements, block)
+        _if_else_diff_advance_kernel[(1, )](x, out, flag, n_elements, block)
         expected = x[:, 0:block] if flag != 0 else x[:, block:2 * block]
         _assert_close(out, expected)
 
@@ -148,26 +148,26 @@ def test_control_flow_driver_if_else_diff_block_ptr_advance():
 def _while_block_ptr_advance_kernel(in_ptr, out_ptr, n_iters, block: tl.constexpr):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_iters * block,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_iters * block, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     i = 0
     while i < n_iters:
         acc += tl.load(bp)
-        bp = tl.advance(bp, (block,))
+        bp = tl.advance(bp, (block, ))
         i = i + 1
     tl.store(out_ptr + tl.arange(0, block), acc)
 
 
 def test_control_flow_driver_while_block_ptr_advance_const():
     n_iters, block = 4, 16
-    x = torch.randn((n_iters * block,), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _while_block_ptr_advance_kernel[(1,)](x, out, n_iters, block)
+    x = torch.randn((n_iters * block, ), dtype=torch.float32, device="npu")
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _while_block_ptr_advance_kernel[(1, )](x, out, n_iters, block)
     _assert_close(out, x.reshape(n_iters, block).sum(dim=0))
 
 
@@ -175,15 +175,15 @@ def test_control_flow_driver_while_block_ptr_advance_const():
 def _for_dynamic_advance_kernel(in_ptr, out_ptr, n_elements, block: tl.constexpr, n_loops: tl.constexpr):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_elements,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_elements, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     for i in range(0, n_loops):
-        bp = tl.advance(bp, (i,))
+        bp = tl.advance(bp, (i, ))
         acc += tl.load(bp)
     tl.store(out_ptr + tl.arange(0, block), acc)
 
@@ -191,11 +191,11 @@ def _for_dynamic_advance_kernel(in_ptr, out_ptr, n_elements, block: tl.constexpr
 def test_control_flow_driver_for_block_ptr_dynamic_advance():
     block, n_loops = 16, 4
     n_elements = block + (n_loops * (n_loops - 1)) // 2
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _for_dynamic_advance_kernel[(1,)](x, out, n_elements, block, n_loops)
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _for_dynamic_advance_kernel[(1, )](x, out, n_elements, block, n_loops)
     pos = 0
-    expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+    expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
     for i in range(n_loops):
         pos += i
         expected += x[pos:pos + block]
@@ -223,8 +223,8 @@ def _for_advance_baseline_kernel(in_ptr, out_ptr, m_size, n_size, block_n: tl.co
 def test_control_flow_regression_for_block_ptr_advance_baseline():
     m_size, n_size, block_n = 4, 64, 16
     x = torch.randn((m_size, n_size), dtype=torch.float32, device="npu")
-    out = torch.empty((m_size,), dtype=torch.float32, device="npu")
-    _for_advance_baseline_kernel[(m_size,)](x, out, m_size, n_size, block_n, n_size // block_n)
+    out = torch.empty((m_size, ), dtype=torch.float32, device="npu")
+    _for_advance_baseline_kernel[(m_size, )](x, out, m_size, n_size, block_n, n_size // block_n)
     _assert_close(out, x.sum(dim=1))
 
 
@@ -250,8 +250,8 @@ def _for_if_advance_kernel(in_ptr, out_ptr, m_size, n_size, block_n: tl.constexp
 def test_control_flow_regression_for_if_advance():
     m_size, n_size, block_n = 2, 32, 8
     x = torch.randn((m_size, n_size), dtype=torch.float32, device="npu")
-    out = torch.empty((m_size,), dtype=torch.float32, device="npu")
-    _for_if_advance_kernel[(m_size,)](x, out, m_size, n_size, block_n, n_size // block_n)
+    out = torch.empty((m_size, ), dtype=torch.float32, device="npu")
+    _for_if_advance_kernel[(m_size, )](x, out, m_size, n_size, block_n, n_size // block_n)
     _assert_close(out, x.sum(dim=1))
 
 
@@ -277,8 +277,8 @@ def test_control_flow_regression_for_block_ptr_dynamic_upper_bound():
     m_size, n_size, block_n = 2, 64, 16
     n_blocks = n_size // block_n
     x = torch.randn((m_size, n_size), dtype=torch.float32, device="npu")
-    out = torch.empty((m_size,), dtype=torch.float32, device="npu")
-    _for_dynamic_ub_kernel[(m_size,)](x, out, m_size, n_size, n_blocks, block_n)
+    out = torch.empty((m_size, ), dtype=torch.float32, device="npu")
+    _for_dynamic_ub_kernel[(m_size, )](x, out, m_size, n_size, n_blocks, block_n)
     _assert_close(out, x.sum(dim=1))
 
 
@@ -297,9 +297,9 @@ def _while_tensor_ptr_addptr_kernel(in_ptr, out_ptr, n_iters, block: tl.constexp
 
 def test_control_flow_stress_while_tensor_ptr_addptr_const():
     n_iters, block = 4, 16
-    x = torch.randn((n_iters * block,), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _while_tensor_ptr_addptr_kernel[(1,)](x, out, n_iters, block)
+    x = torch.randn((n_iters * block, ), dtype=torch.float32, device="npu")
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _while_tensor_ptr_addptr_kernel[(1, )](x, out, n_iters, block)
     _assert_close(out, x.reshape(n_iters, block).sum(dim=0))
 
 
@@ -315,15 +315,15 @@ def _for_affine_advance_kernel(
 ):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_elements,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_elements, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     for i in range(0, n_loops):
-        bp = tl.advance(bp, (coeff_a * i + coeff_b,))
+        bp = tl.advance(bp, (coeff_a * i + coeff_b, ))
         acc += tl.load(bp)
     tl.store(out_ptr + tl.arange(0, block), acc)
 
@@ -332,11 +332,11 @@ def test_control_flow_stress_for_block_ptr_affine_advance():
     block, n_loops, coeff_a, coeff_b = 16, 4, 2, 3
     max_pos = sum(coeff_a * i + coeff_b for i in range(n_loops))
     n_elements = block + max_pos
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _for_affine_advance_kernel[(1,)](x, out, n_elements, block, n_loops, coeff_a, coeff_b)
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _for_affine_advance_kernel[(1, )](x, out, n_elements, block, n_loops, coeff_a, coeff_b)
     pos = 0
-    expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+    expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
     for i in range(n_loops):
         pos += coeff_a * i + coeff_b
         expected += x[pos:pos + block]
@@ -350,17 +350,17 @@ def _nested_for_while_kernel(in_ptr, out_ptr, m_size, n_size, block: tl.constexp
     for row in range(0, m_size):
         bp = tl.make_block_ptr(
             base=in_ptr + row * n_size,
-            shape=(n_size,),
-            strides=(1,),
-            offsets=(0,),
-            block_shape=(block,),
-            order=(0,),
+            shape=(n_size, ),
+            strides=(1, ),
+            offsets=(0, ),
+            block_shape=(block, ),
+            order=(0, ),
         )
         row_acc = tl.zeros([block], tl.float32)
         j = 0
         while j < n_inner:
             row_acc += tl.load(bp)
-            bp = tl.advance(bp, (block,))
+            bp = tl.advance(bp, (block, ))
             j = j + 1
         acc += row_acc
     tl.store(out_ptr + offs, acc)
@@ -370,8 +370,8 @@ def test_control_flow_stress_nested_for_while_block_ptr():
     m_size, block, n_inner = 3, 16, 4
     n_size = block * n_inner
     x = torch.randn((m_size, n_size), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _nested_for_while_kernel[(1,)](x, out, m_size, n_size, block, n_inner)
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _nested_for_while_kernel[(1, )](x, out, m_size, n_size, block, n_inner)
     _assert_close(out, x.reshape(m_size, n_inner, block).sum(dim=(0, 1)))
 
 
@@ -395,8 +395,8 @@ def test_control_flow_stress_while_without_factual_iv():
     n_iters, block = 4, 16
     x = torch.arange(0, n_iters * block, dtype=torch.float32, device="npu")
     steps = torch.tensor([1, 2, 1, 3], dtype=torch.int32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _while_no_factual_iv_kernel[(1,)](x, steps, out, n_iters, block)
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _while_no_factual_iv_kernel[(1, )](x, steps, out, n_iters, block)
     _assert_close(out, x.reshape(n_iters, block).sum(dim=0))
 
 
@@ -404,33 +404,33 @@ def test_control_flow_stress_while_without_factual_iv():
 def _while_if_else_block_ptr_advance_kernel(in_ptr, out_ptr, n_iters, block: tl.constexpr):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_iters * block,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_iters * block, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     i = 0
     while i < n_iters:
         if i == 1:
-            bp = tl.advance(bp, (3,))
+            bp = tl.advance(bp, (3, ))
         else:
-            bp = tl.advance(bp, (1,))
+            bp = tl.advance(bp, (1, ))
         acc += tl.load(bp)
-        bp = tl.advance(bp, (2,))
+        bp = tl.advance(bp, (2, ))
         i = i + 1
     tl.store(out_ptr + tl.arange(0, block), acc)
 
 
 def test_control_flow_stress_while_if_else_block_ptr_advance():
     n_iters, block = 4, 16
-    x = torch.randn((n_iters * block,), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _while_if_else_block_ptr_advance_kernel[(1,)](x, out, n_iters, block)
+    x = torch.randn((n_iters * block, ), dtype=torch.float32, device="npu")
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _while_if_else_block_ptr_advance_kernel[(1, )](x, out, n_iters, block)
 
     pos = 0
-    expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+    expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
     for i in range(n_iters):
         pos += 3 if i == 1 else 1
         expected += x[pos:pos + block]
@@ -449,19 +449,19 @@ def _for_if_else_block_ptr_load_after_post_advance_kernel(
 ):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_elements,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_elements, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     for _ in range(0, n_loops):
         if flag != 0:
-            bp = tl.advance(bp, (1,))
+            bp = tl.advance(bp, (1, ))
         else:
-            bp = tl.advance(bp, (3,))
-        bp = tl.advance(bp, (2,))
+            bp = tl.advance(bp, (3, ))
+        bp = tl.advance(bp, (2, ))
         acc += tl.load(bp)
     tl.store(out_ptr + tl.arange(0, block), acc)
 
@@ -469,16 +469,14 @@ def _for_if_else_block_ptr_load_after_post_advance_kernel(
 def test_control_flow_stress_for_if_else_block_ptr_load_after_post_advance():
     block, n_loops = 16, 4
     n_elements = block + n_loops * 5
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
 
     for flag in [1, 0]:
-        out = torch.empty((block,), dtype=torch.float32, device="npu")
-        _for_if_else_block_ptr_load_after_post_advance_kernel[(1,)](
-            x, out, flag, n_elements, block, n_loops
-        )
+        out = torch.empty((block, ), dtype=torch.float32, device="npu")
+        _for_if_else_block_ptr_load_after_post_advance_kernel[(1, )](x, out, flag, n_elements, block, n_loops)
 
         pos = 0
-        expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+        expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
         for _ in range(n_loops):
             pos += 1 if flag != 0 else 3
             pos += 2
@@ -513,16 +511,14 @@ def _for_if_else_tensor_ptr_load_after_post_addptr_kernel(
 def test_control_flow_stress_for_if_else_tensor_ptr_load_after_post_addptr():
     block, n_loops = 16, 4
     n_elements = block + n_loops * 5
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
 
     for flag in [1, 0]:
-        out = torch.empty((block,), dtype=torch.float32, device="npu")
-        _for_if_else_tensor_ptr_load_after_post_addptr_kernel[(1,)](
-            x, out, flag, block, n_loops
-        )
+        out = torch.empty((block, ), dtype=torch.float32, device="npu")
+        _for_if_else_tensor_ptr_load_after_post_addptr_kernel[(1, )](x, out, flag, block, n_loops)
 
         pos = 0
-        expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+        expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
         for _ in range(n_loops):
             pos += 1 if flag != 0 else 3
             pos += 2
@@ -542,27 +538,27 @@ def _for_nested_if_block_ptr_load_after_repeated_advance_kernel(
 ):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_elements,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_elements, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     for _ in range(0, n_loops):
         if flag0 != 0:
-            bp = tl.advance(bp, (1,))
+            bp = tl.advance(bp, (1, ))
             if flag1 != 0:
-                bp = tl.advance(bp, (2,))
+                bp = tl.advance(bp, (2, ))
             else:
-                bp = tl.advance(bp, (4,))
+                bp = tl.advance(bp, (4, ))
         else:
-            bp = tl.advance(bp, (3,))
+            bp = tl.advance(bp, (3, ))
             if flag1 != 0:
-                bp = tl.advance(bp, (1,))
+                bp = tl.advance(bp, (1, ))
             else:
-                bp = tl.advance(bp, (2,))
-        bp = tl.advance(bp, (1,))
+                bp = tl.advance(bp, (2, ))
+        bp = tl.advance(bp, (1, ))
         acc += tl.load(bp)
     tl.store(out_ptr + tl.arange(0, block), acc)
 
@@ -570,16 +566,15 @@ def _for_nested_if_block_ptr_load_after_repeated_advance_kernel(
 def test_control_flow_stress_for_nested_if_block_ptr_load_after_repeated_advance():
     block, n_loops = 16, 4
     n_elements = block + n_loops * 6
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
 
     for flag0, flag1 in [(1, 1), (1, 0), (0, 1), (0, 0)]:
-        out = torch.empty((block,), dtype=torch.float32, device="npu")
-        _for_nested_if_block_ptr_load_after_repeated_advance_kernel[(1,)](
-            x, out, flag0, flag1, n_elements, block, n_loops
-        )
+        out = torch.empty((block, ), dtype=torch.float32, device="npu")
+        _for_nested_if_block_ptr_load_after_repeated_advance_kernel[(1, )](x, out, flag0, flag1, n_elements, block,
+                                                                           n_loops)
 
         pos = 0
-        expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+        expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
         for _ in range(n_loops):
             if flag0 != 0:
                 pos += 1
@@ -604,22 +599,22 @@ def _for_while_if_block_ptr_load_after_nested_advance_kernel(
 ):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_elements,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_elements, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     for _ in range(0, outer_loops):
         j = 0
         while j < inner_iters:
             if flag != 0:
-                bp = tl.advance(bp, (1,))
+                bp = tl.advance(bp, (1, ))
             else:
-                bp = tl.advance(bp, (2,))
+                bp = tl.advance(bp, (2, ))
             j = j + 1
-        bp = tl.advance(bp, (3,))
+        bp = tl.advance(bp, (3, ))
         acc += tl.load(bp)
     tl.store(out_ptr + tl.arange(0, block), acc)
 
@@ -627,16 +622,15 @@ def _for_while_if_block_ptr_load_after_nested_advance_kernel(
 def test_control_flow_stress_for_while_if_block_ptr_load_after_nested_advance():
     block, outer_loops, inner_iters = 16, 3, 2
     n_elements = block + outer_loops * (inner_iters * 2 + 3)
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
 
     for flag in [1, 0]:
-        out = torch.empty((block,), dtype=torch.float32, device="npu")
-        _for_while_if_block_ptr_load_after_nested_advance_kernel[(1,)](
-            x, out, flag, n_elements, inner_iters, block, outer_loops
-        )
+        out = torch.empty((block, ), dtype=torch.float32, device="npu")
+        _for_while_if_block_ptr_load_after_nested_advance_kernel[(1, )](x, out, flag, n_elements, inner_iters, block,
+                                                                        outer_loops)
 
         pos = 0
-        expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+        expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
         for _ in range(outer_loops):
             for _ in range(inner_iters):
                 pos += 1 if flag != 0 else 2
@@ -684,9 +678,7 @@ def test_control_flow_for_block_ptr_2d_dynamic_multi_advance():
     n_size = block_n + (n_loops * (n_loops - 1)) // 2
     x = torch.randn((m_size, n_size), dtype=torch.float32, device="npu")
     out = torch.empty((block_m, block_n), dtype=torch.float32, device="npu")
-    _for_2d_multi_advance_kernel[(1,)](
-        x, out, m_size, n_size, block_m, block_n, n_loops
-    )
+    _for_2d_multi_advance_kernel[(1, )](x, out, m_size, n_size, block_m, block_n, n_loops)
 
     row = 0
     col = 0
@@ -707,30 +699,30 @@ def _while_chained_block_ptr_advance_kernel(
 ):
     bp = tl.make_block_ptr(
         base=in_ptr,
-        shape=(n_iters * block + 1,),
-        strides=(1,),
-        offsets=(0,),
-        block_shape=(block,),
-        order=(0,),
+        shape=(n_iters * block + 1, ),
+        strides=(1, ),
+        offsets=(0, ),
+        block_shape=(block, ),
+        order=(0, ),
     )
     acc = tl.zeros([block], tl.float32)
     i = 0
     while i < n_iters:
-        bp = tl.advance(bp, (1,))
+        bp = tl.advance(bp, (1, ))
         acc += tl.load(bp)
-        bp = tl.advance(bp, (block - 1,))
+        bp = tl.advance(bp, (block - 1, ))
         i = i + 1
     tl.store(out_ptr + tl.arange(0, block), acc)
 
 
 def test_control_flow_while_block_ptr_chained_advance():
     n_iters, block = 4, 16
-    x = torch.randn((n_iters * block + 1,), dtype=torch.float32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _while_chained_block_ptr_advance_kernel[(1,)](x, out, n_iters, block)
+    x = torch.randn((n_iters * block + 1, ), dtype=torch.float32, device="npu")
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _while_chained_block_ptr_advance_kernel[(1, )](x, out, n_iters, block)
 
     pos = 0
-    expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+    expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
     for _ in range(n_iters):
         pos += 1
         expected += x[pos:pos + block]
@@ -764,13 +756,13 @@ def test_control_flow_while_tensor_ptr_dynamic_step():
     steps_host = [1, 3, 2, 4]
     n_iters = len(steps_host)
     n_elements = block + sum(steps_host)
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
     steps = torch.tensor(steps_host, dtype=torch.int32, device="npu")
-    out = torch.empty((block,), dtype=torch.float32, device="npu")
-    _while_tensor_ptr_dynamic_step_kernel[(1,)](x, steps, out, n_iters, block)
+    out = torch.empty((block, ), dtype=torch.float32, device="npu")
+    _while_tensor_ptr_dynamic_step_kernel[(1, )](x, steps, out, n_iters, block)
 
     pos = 0
-    expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+    expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
     for step in steps_host:
         pos += step
         expected += x[pos:pos + block]
@@ -814,16 +806,14 @@ def _for_nested_if_tensor_ptr_load_after_repeated_addptr_kernel(
 def test_control_flow_stress_for_nested_if_tensor_ptr_load_after_repeated_addptr():
     block, n_loops = 16, 4
     n_elements = block + n_loops * 6
-    x = torch.randn((n_elements,), dtype=torch.float32, device="npu")
+    x = torch.randn((n_elements, ), dtype=torch.float32, device="npu")
 
     for flag0, flag1 in [(1, 1), (1, 0), (0, 1), (0, 0)]:
-        out = torch.empty((block,), dtype=torch.float32, device="npu")
-        _for_nested_if_tensor_ptr_load_after_repeated_addptr_kernel[(1,)](
-            x, out, flag0, flag1, block, n_loops
-        )
+        out = torch.empty((block, ), dtype=torch.float32, device="npu")
+        _for_nested_if_tensor_ptr_load_after_repeated_addptr_kernel[(1, )](x, out, flag0, flag1, block, n_loops)
 
         pos = 0
-        expected = torch.zeros((block,), dtype=torch.float32, device="npu")
+        expected = torch.zeros((block, ), dtype=torch.float32, device="npu")
         for _ in range(n_loops):
             if flag0 != 0:
                 pos += 1

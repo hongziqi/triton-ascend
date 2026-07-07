@@ -45,16 +45,17 @@ using namespace triton;
 namespace {
 
 // Tunables.
-constexpr int64_t kMinContigBytes = 512;  // floor: smallest merged-block size
+constexpr int64_t kMinContigBytes = 512; // floor: smallest merged-block size
 
 // Upper bound on the number of tiles coalesced per program. We now derive it
 // from a UB (Unified Buffer) footprint budget instead of a single flat cap:
 //
-//   maxH = clamp(kUBBytesBudget / per-program-footprint(H=1), 2, kMaxCoalesceTilesCeil)
+//   maxH = clamp(kUBBytesBudget / per-program-footprint(H=1), 2,
+//   kMaxCoalesceTilesCeil)
 //
-// This lets kernels with a small working set (pure 1-D load->store) coalesce far
-// more aggressively -- bigger contiguous DMAs, fewer persistent-loop trips --
-// while kernels carrying a large on-chip tensor (e.g. a 16x16 segsum matrix)
+// This lets kernels with a small working set (pure 1-D load->store) coalesce
+// far more aggressively -- bigger contiguous DMAs, fewer persistent-loop trips
+// -- while kernels carrying a large on-chip tensor (e.g. a 16x16 segsum matrix)
 // automatically back off so the lifted footprint still fits UB.
 //
 // The footprint is the SUM of every lifted region tensor's bytes at H=1. That
@@ -78,13 +79,13 @@ constexpr llvm::StringLiteral kCoalesceFactorAttr = "hacc.coalesce_factor";
 constexpr llvm::StringLiteral kCoalesceAxisAttr = "hacc.coalesce_axis";
 
 struct TileSeed {
-  triton::GetProgramIdOp pid;  // the (outermost) tile-index program id
-  int32_t axis = 0;            // pid axis == the grid dim the launcher divides
-  int64_t tileLen = 0;         // T  (constexpr tile length / CHUNK_SIZE)
-  int64_t bound = 0;           // BOUND (constexpr problem length / SEQLEN)
-  Value mask;                  // tile OOB mask (cmpi result). It is provably
-                               // all-true (we require bound % tileLen == 0) and
-                               // is dropped from the coalesced load/store.
+  triton::GetProgramIdOp pid; // the (outermost) tile-index program id
+  int32_t axis = 0;           // pid axis == the grid dim the launcher divides
+  int64_t tileLen = 0;        // T  (constexpr tile length / CHUNK_SIZE)
+  int64_t bound = 0;          // BOUND (constexpr problem length / SEQLEN)
+  Value mask;                 // tile OOB mask (cmpi result). It is provably
+                              // all-true (we require bound % tileLen == 0) and
+                              // is dropped from the coalesced load/store.
 };
 
 // Read a constant integer from a scalar i32 or a splat-of-constant tensor.
@@ -127,11 +128,11 @@ static bool isLiftable(Operation *op) {
 //     blk  = muli(program_id_max, C)          (C constexpr, the tile length T)
 //     offs = splat(blk) + make_range[0, C)
 // The boundary mask `cmpi slt(offs, BOUND)` is required: it gives the pass a
-// static tile count and lets the launcher shrink grid[axis] by an exact divisor.
-// Unmasked kernels carry no tile count in the IR; coalescing them would rely on
-// runtime grid[axis] being both >= H and divisible by H, which is not guaranteed.
-// When the mask is present we use it to recover BOUND (and to drop the
-// provably-all-true mask later); when it is a real partial-tile mask
+// static tile count and lets the launcher shrink grid[axis] by an exact
+// divisor. Unmasked kernels carry no tile count in the IR; coalescing them
+// would rely on runtime grid[axis] being both >= H and divisible by H, which is
+// not guaranteed. When the mask is present we use it to recover BOUND (and to
+// drop the provably-all-true mask later); when it is a real partial-tile mask
 // (BOUND % C != 0) we must NOT coalesce, so we bail.
 static std::optional<TileSeed> findSeed(ModuleOp moduleOp) {
   // The coalesced axis must be the OUTERMOST grid axis: the host launcher
@@ -156,11 +157,11 @@ static std::optional<TileSeed> findSeed(ModuleOp moduleOp) {
   if (maxAxisPids != 1)
     return std::nullopt;
 
-  // Full TA path: the launcher divides grid[maxAxis] by H, so the kernel-visible
-  // num_programs(maxAxis) becomes grid/H instead of grid. If the kernel reads it
-  // (e.g. for its own bound arithmetic) coalescing would silently change that
-  // value -> wrong results. Refuse to coalesce such kernels (they keep the
-  // original, uncoalesced -- but correct -- path).
+  // Full TA path: the launcher divides grid[maxAxis] by H, so the
+  // kernel-visible num_programs(maxAxis) becomes grid/H instead of grid. If the
+  // kernel reads it (e.g. for its own bound arithmetic) coalescing would
+  // silently change that value -> wrong results. Refuse to coalesce such
+  // kernels (they keep the original, uncoalesced -- but correct -- path).
   bool readsMaxAxisNumPrograms = false;
   moduleOp.walk([&](triton::GetNumProgramsOp np) {
     if (np.getAxisAsInt() == maxAxis)
@@ -177,11 +178,11 @@ static std::optional<TileSeed> findSeed(ModuleOp moduleOp) {
       auto mul = dyn_cast<arith::MulIOp>(u);
       if (!mul)
         continue;
-      Value other = (mul.getLhs() == pid.getResult()) ? mul.getRhs()
-                                                       : mul.getLhs();
+      Value other =
+          (mul.getLhs() == pid.getResult()) ? mul.getRhs() : mul.getLhs();
       int64_t T = 0;
       if (!getConstInt(other, T) || T <= 1)
-        continue;  // non-const multiplier (e.g. segsum chunk stride) -> skip
+        continue; // non-const multiplier (e.g. segsum chunk stride) -> skip
 
       // muli -> splat -> addi(splat, make_range[0,T))
       for (Operation *mu : mul.getResult().getUsers()) {
@@ -252,16 +253,16 @@ static std::optional<TileSeed> findSeed(ModuleOp moduleOp) {
                 propagates |= d->getNamespace() ==
                               arith::ArithDialect::getDialectNamespace();
               if (!propagates)
-                continue;  // load/store/scan/... results carry data, not offsets
+                continue; // load/store/scan/... results carry data, not offsets
               for (Value r : tu->getResults())
                 if (taint.insert(r).second)
                   twl.push_back(r);
             }
           }
           if (unsafe)
-            return;  // real boundary handling on the chunk axis; abandon pid
+            return; // real boundary handling on the chunk axis; abandon pid
           if (!mask)
-            return;  // unmasked kernel: runtime tile count is absent from IR
+            return; // unmasked kernel: runtime tile count is absent from IR
 
           result = TileSeed{pid, maxAxis, T, bound, mask};
           return;
@@ -289,7 +290,7 @@ static bool collectRegion(TileSeed &seed, ModuleOp moduleOp,
     if (!visited.insert(op).second)
       continue;
     if (!isLiftable(op))
-      return false;  // bail: unknown op in the chain (e.g. tt.dot)
+      return false; // bail: unknown op in the chain (e.g. tt.dot)
     if (isa<triton::StoreOp>(op))
       hasStore = true;
     region.insert(op);
@@ -319,8 +320,8 @@ static bool collectRegion(TileSeed &seed, ModuleOp moduleOp,
 }
 
 // Pick H (number of tiles coalesced per program). The floor `hMin` is the
-// smallest factor whose merged block reaches kMinContigBytes -- the minimum that
-// fixes the tiny-DMA pathology. `maxH` is the UB-footprint-derived ceiling
+// smallest factor whose merged block reaches kMinContigBytes -- the minimum
+// that fixes the tiny-DMA pathology. `maxH` is the UB-footprint-derived ceiling
 // (see kUBBytesBudget); it has already been clamped to kMaxCoalesceTilesCeil.
 //
 // H must divide the statically known tile count so the launcher's
@@ -333,7 +334,7 @@ static int64_t chooseH(int64_t numTiles, int64_t tileLen, int64_t elemBytes,
   if (hMin < 2)
     hMin = 2;
   if (maxH < hMin)
-    return 0;  // UB budget too tight to even reach the contiguity floor
+    return 0; // UB budget too tight to even reach the contiguity floor
 
   if (numTiles <= 0)
     return 0;
@@ -358,10 +359,10 @@ static int64_t chooseH(int64_t numTiles, int64_t tileLen, int64_t elemBytes,
 static void rewriteModule(ModuleOp moduleOp, IRRewriter &rw) {
   // Yield to the higher-priority StridedAxisCoalescing: the launcher divides
   // grid[axis] by a single (hacc.coalesce_factor, hacc.coalesce_axis) pair, so
-  // at most one pass may own it per module. If StridedAxisCoalescing (which runs
-  // first) already claimed it, coalescing again here would lift a second set of
-  // tiles while only one (factor, axis) survives -> wrong block count. Bail and
-  // leave our tiles to the strided dispatch.
+  // at most one pass may own it per module. If StridedAxisCoalescing (which
+  // runs first) already claimed it, coalescing again here would lift a second
+  // set of tiles while only one (factor, axis) survives -> wrong block count.
+  // Bail and leave our tiles to the strided dispatch.
   if (moduleOp->hasAttr(kCoalesceFactorAttr))
     return;
 
@@ -521,10 +522,11 @@ static void rewriteModule(ModuleOp moduleOp, IRRewriter &rw) {
       return rebuilt->second;
     }
     if (!isa<RankedTensorType>(v.getType()))
-      return v;  // region-invariant scalar; caller splats if needed
+      return v; // region-invariant scalar; caller splats if needed
     // region-invariant tensor: prepend a size-1 dim then broadcast over H.
     Value e = rw.create<triton::ExpandDimsOp>(v.getLoc(), v, 0);
-    Value b = rw.create<triton::BroadcastOp>(v.getLoc(), liftTy(v.getType()), e);
+    Value b =
+        rw.create<triton::BroadcastOp>(v.getLoc(), liftTy(v.getType()), e);
     vmap[v] = b;
     return b;
   };
@@ -568,7 +570,7 @@ static void rewriteModule(ModuleOp moduleOp, IRRewriter &rw) {
             rw.create<triton::SplatOp>(loc, liftTy(sp.getType()), lin);
       } else {
         int addDims = cast<RankedTensorType>(sp.getType()).getRank();
-        Value cur = lin;  // tensor<Hx...>
+        Value cur = lin; // tensor<Hx...>
         for (int k = 0; k < addDims; ++k)
           cur = rw.create<triton::ExpandDimsOp>(
               loc, cur, cast<RankedTensorType>(cur.getType()).getRank());
@@ -637,8 +639,8 @@ static void rewriteModule(ModuleOp moduleOp, IRRewriter &rw) {
     // Elementwise / address arithmetic (arith.*, tt.addptr, ...): generic
     // rebuild with lifted operands and prepended result type (mirrors
     // PropagateUnrealizedCastDown::rewriteGeneraleOp).
-    SmallVector<Value> operands =
-        llvm::map_to_vector(op->getOperands(), [&](Value o) { return liftOpd(o); });
+    SmallVector<Value> operands = llvm::map_to_vector(
+        op->getOperands(), [&](Value o) { return liftOpd(o); });
     SmallVector<Type> resTypes = llvm::map_to_vector(
         op->getResultTypes(), [&](Type t) -> Type { return liftTy(t); });
     Operation *nu = rw.create(loc, op->getName().getIdentifier(), operands,
@@ -651,18 +653,19 @@ static void rewriteModule(ModuleOp moduleOp, IRRewriter &rw) {
   for (auto it = ordered.rbegin(); it != ordered.rend(); ++it)
     rw.eraseOp(*it);
 
-  // Record (factor, axis) for the host launcher. compiler.py reads + strips both
-  // attrs; the launcher then divides grid[axis] by H. bishengir is not involved.
+  // Record (factor, axis) for the host launcher. compiler.py reads + strips
+  // both attrs; the launcher then divides grid[axis] by H. bishengir is not
+  // involved.
   auto i32Ty = IntegerType::get(moduleOp.getContext(), 32);
   moduleOp->setAttr(kCoalesceFactorAttr, IntegerAttr::get(i32Ty, H));
   moduleOp->setAttr(kCoalesceAxisAttr, IntegerAttr::get(i32Ty, seed->axis));
 }
 
-}  // namespace
+} // namespace
 
 void rewriteTileChunkCoalesce(ModuleOp moduleOp) {
   IRRewriter rw(moduleOp.getContext());
   rewriteModule(moduleOp, rw);
 }
 
-}  // namespace TileChunkCoalescing
+} // namespace TileChunkCoalescing

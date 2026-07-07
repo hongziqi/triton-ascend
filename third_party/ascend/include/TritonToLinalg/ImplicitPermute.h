@@ -43,7 +43,8 @@ using namespace triton;
 // Tag attached to load/store/atomic ops that this pass rewrote, so downstream
 // sub-steps (e.g. StridedLoadStoreRewrite) can detect "already handled by
 // ImplicitPermute" and avoid double-processing.
-inline constexpr const char *ImplicitPermuteHandledTAG = "ImplicitPermuteHandled";
+inline constexpr const char *ImplicitPermuteHandledTAG =
+    "ImplicitPermuteHandled";
 
 class LoadConverter : public OpRewritePattern<triton::LoadOp> {
 public:
@@ -118,9 +119,10 @@ public:
   Value createNewOther(Value oldOther, const Location loc,
                        PatternRewriter &rewriter);
 
-    SmallVector<int32_t> getBoundaryCheck(ArrayRef<int32_t> oldBoundaryCheck) const;
+  SmallVector<int32_t>
+  getBoundaryCheck(ArrayRef<int32_t> oldBoundaryCheck) const;
 
-    bool applyPermuteOnMask();
+  bool applyPermuteOnMask();
 };
 
 } // namespace ImplicitPermute

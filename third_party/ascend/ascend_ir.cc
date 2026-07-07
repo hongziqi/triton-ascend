@@ -55,8 +55,7 @@ struct AscendNPUIROpBuilder : public TritonOpBuilder {
   explicit AscendNPUIROpBuilder(MLIRContext *context, std::string target = "")
       : TritonOpBuilder(context), target(target) {}
 
-  bool is_910_95() const
-  {
+  bool is_910_95() const {
     // TODO: Use enum instead of strings after enabling HACC in satandalone
     // build
     constexpr size_t kLen910 = sizeof(kTarget910_95) - 1;
@@ -171,8 +170,7 @@ ModeAndPipes GetSyncBlockModeAndPipes(MLIRContext *ctx,
 
 // Extend triton.ir.context with a context manager protocol for ascend tests
 // and examples, without modifying upstream python/src/ir.cc.
-void installTritonContextManager()
-{
+void installTritonContextManager() {
   static bool installed = false;
   if (installed) {
     return;
@@ -600,18 +598,15 @@ void init_ascend_ir(py::module &&m) {
     context.appendDialectRegistry(registry);
     context.loadAllAvailableDialects();
   });
-  m.def("get_int_attr",
-        [](OpState &op, std::string &name) -> py::object {
-          auto ret = op->getAttrOfType<IntegerAttr>(name);
-          if (!ret) {
-            return py::none();
-          }
-          return py::cast(ret.getInt());
-        });
+  m.def("get_int_attr", [](OpState &op, std::string &name) -> py::object {
+    auto ret = op->getAttrOfType<IntegerAttr>(name);
+    if (!ret) {
+      return py::none();
+    }
+    return py::cast(ret.getInt());
+  });
   m.def("remove_attr",
-        [](OpState &op, std::string &name) -> void {
-          op->removeAttr(name);
-        });
+        [](OpState &op, std::string &name) -> void { op->removeAttr(name); });
 
   py::class_<AscendNPUIROpBuilder, TritonOpBuilder>(
       m, "ascendnpu_ir_builder", py::module_local(), py::dynamic_attr())
@@ -622,7 +617,8 @@ void init_ascend_ir(py::module &&m) {
              return IntegerAttr::get(self.getBuilder().getI64Type(), value);
            })
       .def("get_type_array_attr",
-           [](AscendNPUIROpBuilder &self, const std::vector<Type> &array) -> Attribute {
+           [](AscendNPUIROpBuilder &self,
+              const std::vector<Type> &array) -> Attribute {
              return self.getBuilder().getTypeArrayAttr(array);
            })
       .def("get_core_type_attr",
@@ -640,20 +636,24 @@ void init_ascend_ir(py::module &&m) {
            })
       .def(
           "get_sync_event_slot_attr",
-          [](AscendNPUIROpBuilder &self, py::object setPipe, py::object waitPipe,
-             hivm::SyncEventSlotMacroSync macroSync, py::object event) -> Attribute {
+          [](AscendNPUIROpBuilder &self, py::object setPipe,
+             py::object waitPipe, hivm::SyncEventSlotMacroSync macroSync,
+             py::object event) -> Attribute {
             auto *ctx = self.getBuilder().getContext();
             hivm::PipeAttr setPipeAttr;
             hivm::PipeAttr waitPipeAttr;
             hivm::EventAttr eventAttr;
             if (!setPipe.is_none())
-              setPipeAttr = hivm::PipeAttr::get(ctx, py::cast<hivm::PIPE>(setPipe));
+              setPipeAttr =
+                  hivm::PipeAttr::get(ctx, py::cast<hivm::PIPE>(setPipe));
             if (!waitPipe.is_none())
-              waitPipeAttr = hivm::PipeAttr::get(ctx, py::cast<hivm::PIPE>(waitPipe));
+              waitPipeAttr =
+                  hivm::PipeAttr::get(ctx, py::cast<hivm::PIPE>(waitPipe));
             if (!event.is_none())
-              eventAttr = hivm::EventAttr::get(ctx, py::cast<hivm::EVENT>(event));
+              eventAttr =
+                  hivm::EventAttr::get(ctx, py::cast<hivm::EVENT>(event));
             return hivm::SyncEventSlotAttr::get(ctx, setPipeAttr, waitPipeAttr,
-                                                  macroSync, eventAttr);
+                                                macroSync, eventAttr);
           },
           py::arg("set_pipe") = py::none(), py::arg("wait_pipe") = py::none(),
           py::arg("macro_sync") = hivm::SyncEventSlotMacroSync::wait,
@@ -663,16 +663,18 @@ void init_ascend_ir(py::module &&m) {
              return self.getBuilder().getAttr<hivm::VFModeAttr>(mode);
            })
       .def("get_iterator_types_attr",
-          [](AscendNPUIROpBuilder &self, const std::vector<hivm::IteratorType>& array) {
-          auto attrs = llvm::to_vector(llvm::map_range(array, [&self](hivm::IteratorType type) {
-                return cast<Attribute>(self.getBuilder().getAttr<hivm::IteratorTypeAttr>(type));
-          }));
-          return self.getBuilder().getArrayAttr(attrs);
-          })
-      .def("get_array_attr",
-           [](AscendNPUIROpBuilder &self, const std::vector<Attribute> &attrs) -> Attribute {
+           [](AscendNPUIROpBuilder &self,
+              const std::vector<hivm::IteratorType> &array) {
+             auto attrs = llvm::to_vector(
+                 llvm::map_range(array, [&self](hivm::IteratorType type) {
+                   return cast<Attribute>(
+                       self.getBuilder().getAttr<hivm::IteratorTypeAttr>(type));
+                 }));
              return self.getBuilder().getArrayAttr(attrs);
            })
+      .def("get_array_attr",
+           [](AscendNPUIROpBuilder &self, const std::vector<Attribute> &attrs)
+               -> Attribute { return self.getBuilder().getArrayAttr(attrs); })
       .def("get_t_core_type_attr_name",
            [](AscendNPUIROpBuilder &self) -> std::string {
              return hivm::TCoreTypeAttr::name.str();
@@ -857,12 +859,10 @@ void init_ascend_ir(py::module &&m) {
              return std::vector<Value>(results.begin(), results.end());
            })
       .def("create_custom_macro_op",
-           [](AscendNPUIROpBuilder &self,
-               const std::string &name,
-               const py::dict &attrs,
-               const std::vector<Value> &ins,
-               const std::vector<Value> &outs,
-               const std::vector<py::dict> &arg_attrs) -> std::vector<Value> {
+           [](AscendNPUIROpBuilder &self, const std::string &name,
+              const py::dict &attrs, const std::vector<Value> &ins,
+              const std::vector<Value> &outs,
+              const std::vector<py::dict> &arg_attrs) -> std::vector<Value> {
              ValueRange inputs{ins};
              ValueRange outputs{outs};
              ValueRange temp_buffers{};
@@ -891,14 +891,15 @@ void init_ascend_ir(py::module &&m) {
                for (const auto &attr : attrs) {
                  std::string attr_name = py::cast<std::string>(attr.first);
                  Attribute attr_value = py::cast<Attribute>(attr.second);
-                 namedAttrs.push_back(
-                    NamedAttribute(self.getBuilder().getStringAttr(attr_name), attr_value));
+                 namedAttrs.push_back(NamedAttribute(
+                     self.getBuilder().getStringAttr(attr_name), attr_value));
                }
 
                dictAttrs[idx] = self.getBuilder().getDictionaryAttr(namedAttrs);
              }
 
-             ArrayAttr arg_attrs_array = self.getBuilder().getArrayAttr(dictAttrs);
+             ArrayAttr arg_attrs_array =
+                 self.getBuilder().getArrayAttr(dictAttrs);
              op->setAttr("arg_attrs", arg_attrs_array);
 
              auto results = op->getResults();

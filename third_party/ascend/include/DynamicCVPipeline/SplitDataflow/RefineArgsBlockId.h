@@ -29,23 +29,28 @@
 namespace mlir {
 namespace triton {
 
-class RefineArgsBlockIdPass : public PassWrapper<RefineArgsBlockIdPass, OperationPass<ModuleOp>> {
-  public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RefineArgsBlockIdPass)
+class RefineArgsBlockIdPass
+    : public PassWrapper<RefineArgsBlockIdPass, OperationPass<ModuleOp>> {
+public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RefineArgsBlockIdPass)
 
-    RefineArgsBlockIdPass() = default;
+  RefineArgsBlockIdPass() = default;
 
-    void runOnOperation() override;
+  void runOnOperation() override;
 
-    static constexpr ::llvm::StringRef getArgumentName() { return "refine-args-block-id"; }
-    ::llvm::StringRef getArgument() const override { return "refine-args-block-id"; }
-    ::llvm::StringRef getDescription() const override
-    {
-        return "Move update ops for iteration variables to the first block that uses them in main loops";
-    }
-    ::llvm::StringRef getName() const override { return "RefineArgsBlockIdPass"; }
+  static constexpr ::llvm::StringRef getArgumentName() {
+    return "refine-args-block-id";
+  }
+  ::llvm::StringRef getArgument() const override {
+    return "refine-args-block-id";
+  }
+  ::llvm::StringRef getDescription() const override {
+    return "Move update ops for iteration variables to the first block that "
+           "uses them in main loops";
+  }
+  ::llvm::StringRef getName() const override { return "RefineArgsBlockIdPass"; }
 
-  private:
+private:
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createRefineArgsBlockIdPass();

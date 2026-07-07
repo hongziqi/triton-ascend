@@ -32,52 +32,56 @@
 namespace mlir {
 namespace triton {
 
-class PreCheckBlacklistPass : public PassWrapper<PreCheckBlacklistPass, OperationPass<ModuleOp>> {
+class PreCheckBlacklistPass
+    : public PassWrapper<PreCheckBlacklistPass, OperationPass<ModuleOp>> {
 public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PreCheckBlacklistPass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PreCheckBlacklistPass)
 
-    PreCheckBlacklistPass() = default;
+  PreCheckBlacklistPass() = default;
 
-    void runOnOperation() override;
-    void getDependentDialects(DialectRegistry &registry) const override;
+  void runOnOperation() override;
+  void getDependentDialects(DialectRegistry &registry) const override;
 
-    ::llvm::StringRef getArgument() const override { return "pre-check-blacklist"; }
-    ::llvm::StringRef getDescription() const override
-    {
-        return "Check whether the input module contains any blacklist operations";
-    }
+  ::llvm::StringRef getArgument() const override {
+    return "pre-check-blacklist";
+  }
+  ::llvm::StringRef getDescription() const override {
+    return "Check whether the input module contains any blacklist operations";
+  }
 };
 
-class PreCheckMatmul : public PassWrapper<PreCheckMatmul, OperationPass<ModuleOp>> {
+class PreCheckMatmul
+    : public PassWrapper<PreCheckMatmul, OperationPass<ModuleOp>> {
 public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PreCheckMatmul)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PreCheckMatmul)
 
-    PreCheckMatmul() = default;
+  PreCheckMatmul() = default;
 
-    void runOnOperation() override;
+  void runOnOperation() override;
 
-    ::llvm::StringRef getArgument() const override { return "pre-check-matmul"; }
-    ::llvm::StringRef getDescription() const override
-    {
-        return "Check whether the input module contains matmul operations.";
-    }
+  ::llvm::StringRef getArgument() const override { return "pre-check-matmul"; }
+  ::llvm::StringRef getDescription() const override {
+    return "Check whether the input module contains matmul operations.";
+  }
 };
 
-class PreCheckAvailablePass : public PassWrapper<PreCheckAvailablePass, OperationPass<ModuleOp>> {
+class PreCheckAvailablePass
+    : public PassWrapper<PreCheckAvailablePass, OperationPass<ModuleOp>> {
 public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PreCheckAvailablePass)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(PreCheckAvailablePass)
 
-    PreCheckAvailablePass() = default;
+  PreCheckAvailablePass() = default;
 
-    void runOnOperation() override;
+  void runOnOperation() override;
 
-    static constexpr ::llvm::StringRef getArgumentName() { return "pre-check-dynamic-cv-pipeline-available"; }
-    ::llvm::StringRef getArgument() const override { return getArgumentName(); }
-    ::llvm::StringRef getDescription() const override
-    {
-        return "Check whether dynamic CV pipeline can process the input module";
-    }
-    ::llvm::StringRef getName() const override { return "PreCheckAvailablePass"; }
+  static constexpr ::llvm::StringRef getArgumentName() {
+    return "pre-check-dynamic-cv-pipeline-available";
+  }
+  ::llvm::StringRef getArgument() const override { return getArgumentName(); }
+  ::llvm::StringRef getDescription() const override {
+    return "Check whether dynamic CV pipeline can process the input module";
+  }
+  ::llvm::StringRef getName() const override { return "PreCheckAvailablePass"; }
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createPreCheckBlacklistPass();

@@ -28,22 +28,12 @@ from .symbolic_expr import SymbolicExpr
 
 
 def _is_slice_all(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Slice)
-        and node.lower is None
-        and node.upper is None
-        and node.step is None
-    )
+    return (isinstance(node, ast.Slice) and node.lower is None and node.upper is None and node.step is None)
 
 
 def _is_tl_arange_call(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr == "arange"
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl" and node.func.attr == "arange")
 
 
 def _get_arange_stop_expr(call_node: ast.Call) -> Optional[ast.AST]:

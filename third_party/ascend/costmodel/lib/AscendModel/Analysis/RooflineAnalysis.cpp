@@ -5,8 +5,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "AscendModel/Analysis/PipelineAnalysis.h"
-#include "AscendModel/IR/AscendModelDialect.h"
 #include "AscendModel/HardwareParams.h"
+#include "AscendModel/IR/AscendModelDialect.h"
 
 #include "llvm/Support/Format.h"
 #include "llvm/Support/JSON.h"
@@ -44,9 +44,9 @@ void RooflineAnalyzer::computeMetrics() {
   for (const auto &op : scheduler.getAllOps()) {
     if (!op.mlirOp)
       continue;
-    
+
     Operation *mlirOp = op.mlirOp;
-    
+
     // Count FLOPs based on operation type
     if (auto matmulOp = dyn_cast<MatmulOp>(mlirOp)) {
       int64_t m = matmulOp.getM();
@@ -63,7 +63,8 @@ void RooflineAnalyzer::computeMetrics() {
     // Division - more expensive
     else if (isa<DivOp>(mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
-        totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType()) * 10;
+        totalFLOPs +=
+            getNumElementsFromType(mlirOp->getResult(0).getType()) * 10;
       }
     }
     // Simple unary ops
@@ -76,28 +77,30 @@ void RooflineAnalyzer::computeMetrics() {
     // Reflects relative complexity on Ascend 910B Vector unit
     else if (isa<ExpOp>(mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
-        totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType()) * 15;
+        totalFLOPs +=
+            getNumElementsFromType(mlirOp->getResult(0).getType()) * 15;
       }
-    }
-    else if (isa<LogOp>(mlirOp)) {
+    } else if (isa<LogOp>(mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
-        totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType()) * 20;
+        totalFLOPs +=
+            getNumElementsFromType(mlirOp->getResult(0).getType()) * 20;
       }
-    }
-    else if (isa<TanhOp>(mlirOp)) {
+    } else if (isa<TanhOp>(mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
-        totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType()) * 30;
+        totalFLOPs +=
+            getNumElementsFromType(mlirOp->getResult(0).getType()) * 30;
       }
-    }
-    else if (isa<SigmoidOp>(mlirOp)) {
+    } else if (isa<SigmoidOp>(mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
-        totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType()) * 25;
+        totalFLOPs +=
+            getNumElementsFromType(mlirOp->getResult(0).getType()) * 25;
       }
     }
     // Sqrt operations
     else if (isa<SqrtOp, RsqrtOp>(mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
-        totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType()) * 10;
+        totalFLOPs +=
+            getNumElementsFromType(mlirOp->getResult(0).getType()) * 10;
       }
     }
     // Reduction ops
@@ -113,12 +116,13 @@ void RooflineAnalyzer::computeMetrics() {
       }
     }
     // Comparison ops — 1 FLOP per element
-    else if (isa<CmpEqOp, CmpNeOp, CmpLtOp, CmpLeOp, CmpGtOp, CmpGeOp>(mlirOp)) {
+    else if (isa<CmpEqOp, CmpNeOp, CmpLtOp, CmpLeOp, CmpGtOp, CmpGeOp>(
+                 mlirOp)) {
       if (mlirOp->getNumResults() > 0) {
         totalFLOPs += getNumElementsFromType(mlirOp->getResult(0).getType());
       }
     }
-    
+
     // Count bytes for memory operations
     if (auto loadOp = dyn_cast<CubeLoadOp>(mlirOp)) {
       totalBytes += loadOp.getBytes();
@@ -140,7 +144,8 @@ double RooflineAnalyzer::getArithmeticIntensity() const {
 
 bool RooflineAnalyzer::isComputeBound() const {
   double ai = getArithmeticIntensity();
-  double ridgePoint = ::ascend::hw::CUBE_TFLOPS / ::ascend::hw::HBM_BANDWIDTH_GBS;
+  double ridgePoint =
+      ::ascend::hw::CUBE_TFLOPS / ::ascend::hw::HBM_BANDWIDTH_GBS;
   return ai > ridgePoint;
 }
 
@@ -154,24 +159,24 @@ double RooflineAnalyzer::getAchievedPerformance() const {
   int64_t totalCycles = scheduler.getTotalCycles();
   if (totalCycles == 0)
     return 0.0;
-  
+
   double timeSeconds = totalCycles / (::ascend::hw::CORE_FREQUENCY_GHZ * 1e9);
   return (totalFLOPs / 1e12) / timeSeconds;
 }
 
 PerformanceReport RooflineAnalyzer::analyze() {
   PerformanceReport report;
-  
+
   report.totalCycles = scheduler.getTotalCycles();
   report.totalTimeUs = report.totalCycles / ::ascend::hw::CYCLES_PER_US;
-  
+
   for (int i = 0; i <= static_cast<int>(HWUnit::Scalar); ++i) {
     HWUnit unit = static_cast<HWUnit>(i);
     const auto &pipeline = scheduler.getPipeline(unit);
     report.unitBusyCycles[unit] = pipeline.getTotalBusyCycles();
     report.unitUtilization[unit] = pipeline.getUtilization(report.totalCycles);
   }
-  
+
   report.bottleneckUtilization = 0;
   report.bottleneckUnit = HWUnit::Scalar;
   for (const auto &[unit, util] : report.unitUtilization) {
@@ -180,38 +185,38 @@ PerformanceReport RooflineAnalyzer::analyze() {
       report.bottleneckUnit = unit;
     }
   }
-  
+
   report.arithmeticIntensity = getArithmeticIntensity();
   report.achievedTFLOPS = getAchievedPerformance();
   report.peakTFLOPS = ::ascend::hw::CUBE_TFLOPS;
-  report.achievedBandwidth = totalBytes > 0 ? 
-      (totalBytes / 1e9) / (report.totalTimeUs / 1e6) : 0;
+  report.achievedBandwidth =
+      totalBytes > 0 ? (totalBytes / 1e9) / (report.totalTimeUs / 1e6) : 0;
   report.peakBandwidth = ::ascend::hw::HBM_BANDWIDTH_GBS;
   report.isComputeBound = isComputeBound();
-  
+
   std::map<std::string, int64_t> opCounts;
   std::map<std::string, int64_t> opCycles;
-  
+
   for (const auto &op : scheduler.getAllOps()) {
     opCounts[op.opName]++;
     opCycles[op.opName] += op.duration;
   }
-  
+
   for (const auto &[name, count] : opCounts) {
     PerformanceReport::OpStat stat;
     stat.opType = name;
     stat.count = count;
     stat.totalCycles = opCycles[name];
-    stat.percentage = report.totalCycles > 0 ?
-        100.0 * opCycles[name] / report.totalCycles : 0;
+    stat.percentage = report.totalCycles > 0
+                          ? 100.0 * opCycles[name] / report.totalCycles
+                          : 0;
     report.opStats.push_back(stat);
   }
-  
-  std::sort(report.opStats.begin(), report.opStats.end(),
-            [](const auto &a, const auto &b) {
-              return a.percentage > b.percentage;
-            });
-  
+
+  std::sort(
+      report.opStats.begin(), report.opStats.end(),
+      [](const auto &a, const auto &b) { return a.percentage > b.percentage; });
+
   return report;
 }
 
@@ -221,48 +226,78 @@ PerformanceReport RooflineAnalyzer::analyze() {
 
 void PerformanceReport::print(llvm::raw_ostream &os) const {
   os << "\n";
-  os << "+======================================================================+\n";
-  os << "|               Ascend 910B Roofline Performance Report               |\n";
-  os << "+======================================================================+\n";
-  os << "|                                                                      |\n";
-  os << "|  Timing                                                              |\n";
-  os << "|  ------                                                              |\n";
-  os << llvm::format("|    Total Cycles:          %15ld                          |\n", totalCycles);
-  os << llvm::format("|    Estimated Time:        %15.3f us                        |\n", totalTimeUs);
-  os << "|                                                                      |\n";
-  os << "|  Roofline Analysis                                                   |\n";
-  os << "|  -----------------                                                   |\n";
-  os << llvm::format("|    Arithmetic Intensity:  %15.3f FLOP/Byte               |\n", arithmeticIntensity);
-  os << llvm::format("|    Achieved TFLOPS:       %15.3f                          |\n", achievedTFLOPS);
-  os << llvm::format("|    Peak TFLOPS:           %15.1f                          |\n", peakTFLOPS);
-  os << llvm::format("|    Achieved Bandwidth:    %15.3f GB/s                     |\n", achievedBandwidth);
-  os << llvm::format("|    Peak Bandwidth:        %15.1f GB/s                     |\n", peakBandwidth);
+  os << "+====================================================================="
+        "=+\n";
+  os << "|               Ascend 910B Roofline Performance Report               "
+        "|\n";
+  os << "+====================================================================="
+        "=+\n";
+  os << "|                                                                     "
+        " |\n";
+  os << "|  Timing                                                             "
+        " |\n";
+  os << "|  ------                                                             "
+        " |\n";
+  os << llvm::format(
+      "|    Total Cycles:          %15ld                          |\n",
+      totalCycles);
+  os << llvm::format(
+      "|    Estimated Time:        %15.3f us                        |\n",
+      totalTimeUs);
+  os << "|                                                                     "
+        " |\n";
+  os << "|  Roofline Analysis                                                  "
+        " |\n";
+  os << "|  -----------------                                                  "
+        " |\n";
+  os << llvm::format(
+      "|    Arithmetic Intensity:  %15.3f FLOP/Byte               |\n",
+      arithmeticIntensity);
+  os << llvm::format(
+      "|    Achieved TFLOPS:       %15.3f                          |\n",
+      achievedTFLOPS);
+  os << llvm::format(
+      "|    Peak TFLOPS:           %15.1f                          |\n",
+      peakTFLOPS);
+  os << llvm::format(
+      "|    Achieved Bandwidth:    %15.3f GB/s                     |\n",
+      achievedBandwidth);
+  os << llvm::format(
+      "|    Peak Bandwidth:        %15.1f GB/s                     |\n",
+      peakBandwidth);
   os << "|    Bound:                 ";
   os << (isComputeBound ? "   Compute-bound" : "    Memory-bound");
   os << "                            |\n";
-  os << "|                                                                      |\n";
-  os << "|  Bottleneck                                                          |\n";
-  os << "|  ----------                                                          |\n";
+  os << "|                                                                     "
+        " |\n";
+  os << "|  Bottleneck                                                         "
+        " |\n";
+  os << "|  ----------                                                         "
+        " |\n";
   os << "|    Unit:                  ";
   os << llvm::format("%-15s", stringifyHWUnit(bottleneckUnit).str().c_str());
   os << "                         |\n";
-  os << llvm::format("|    Utilization:           %14.2f%%                         |\n", bottleneckUtilization);
-  os << "|                                                                      |\n";
-  os << "+======================================================================+\n";
+  os << llvm::format(
+      "|    Utilization:           %14.2f%%                         |\n",
+      bottleneckUtilization);
+  os << "|                                                                     "
+        " |\n";
+  os << "+====================================================================="
+        "=+\n";
 }
 
 std::string PerformanceReport::toJSON() const {
   llvm::json::Object root;
-  
+
   root["total_cycles"] = totalCycles;
   root["total_time_us"] = totalTimeUs;
-  
+
   llvm::json::Object utilization;
   for (const auto &[unit, util] : unitUtilization) {
     utilization[stringifyHWUnit(unit).str()] = util;
   }
   root["unit_utilization"] = std::move(utilization);
-  
+
   llvm::json::Object roofline;
   roofline["arithmetic_intensity"] = arithmeticIntensity;
   roofline["achieved_tflops"] = achievedTFLOPS;
@@ -271,12 +306,12 @@ std::string PerformanceReport::toJSON() const {
   roofline["peak_bandwidth_gbs"] = peakBandwidth;
   roofline["is_compute_bound"] = isComputeBound;
   root["roofline"] = std::move(roofline);
-  
+
   llvm::json::Object bottleneck;
   bottleneck["unit"] = stringifyHWUnit(bottleneckUnit).str();
   bottleneck["utilization"] = bottleneckUtilization;
   root["bottleneck"] = std::move(bottleneck);
-  
+
   llvm::json::Array opStatsArray;
   for (const auto &stat : opStats) {
     llvm::json::Object statObj;
@@ -287,7 +322,7 @@ std::string PerformanceReport::toJSON() const {
     opStatsArray.push_back(std::move(statObj));
   }
   root["op_stats"] = std::move(opStatsArray);
-  
+
   std::string result;
   llvm::raw_string_ostream stream(result);
   stream << llvm::json::Value(std::move(root));

@@ -348,7 +348,8 @@ public:
   ArgMaxConverter(MLIRContext *context) : ArgMinMaxBaseConverter(context) {}
 };
 
-void populatePostConversionCanonicalizationPatterns(RewritePatternSet &patterns);
+void populatePostConversionCanonicalizationPatterns(
+    RewritePatternSet &patterns);
 
 } // namespace TTOpConverters
 

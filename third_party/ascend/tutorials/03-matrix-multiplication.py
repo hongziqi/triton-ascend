@@ -122,9 +122,7 @@ def matmul_kernel(
     # Comment out the following lines to enable split the workload to two vector cores
     SUB_BLK_M: tl.constexpr = BLOCK_SIZE_M // 2
     for s in range(0, 2):
-        vec_sub_blk = extension.extract_slice(
-            accumulator, (s * SUB_BLK_M, 0), (SUB_BLK_M, BLOCK_SIZE_N), (1, 1)
-        )
+        vec_sub_blk = extension.extract_slice(accumulator, (s * SUB_BLK_M, 0), (SUB_BLK_M, BLOCK_SIZE_N), (1, 1))
         if ACTIVATION == "leaky_relu_custom":
             vec_sub_blk = leaky_relu_custom(vec_sub_blk)
         c_sub_blk = vec_sub_blk.to(tl.float16)

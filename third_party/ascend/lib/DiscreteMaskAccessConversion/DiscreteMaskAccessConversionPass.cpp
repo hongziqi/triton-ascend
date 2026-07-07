@@ -20,13 +20,13 @@
  * THE SOFTWARE.
  */
 
-#include "ascend/include/DiscreteMaskAccessConversion/Passes.h"
 #include "TritonToUnstructure/IndirectAtomicUtils.h"
 #include "Utils/Utils.h"
+#include "ascend/include/DiscreteMaskAccessConversion/Passes.h"
 
 #include "ascend/include/TritonToLinalg/MaskAnalysis.h"
-#include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "ascend/include/TritonToStructured/MemOpConverter.h"
+#include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -50,7 +50,8 @@ using namespace mlir;
 using namespace hivm;
 
 // File-scope flags set by DiscreteMaskAccessConversionPass::runOnOperation()
-// before pattern application, so that OpRewritePattern subclasses can read them.
+// before pattern application, so that OpRewritePattern subclasses can read
+// them.
 static bool compileOn91095Flag = false;
 static bool forceSimtTemplateFlag = false;
 static bool enableSyncBlockLockFlag = true;
@@ -63,113 +64,107 @@ static bool traceUserToTargetOp(Value val) {
   worklist.push_back(val);
 
   while (!worklist.empty()) {
-      Value currVal = worklist.pop_back_val();
-      if (!visited.insert(currVal).second)
+    Value currVal = worklist.pop_back_val();
+    if (!visited.insert(currVal).second)
+      continue;
+
+    for (Operation *user : currVal.getUsers()) {
+      if (auto mulOp = dyn_cast<arith::MulIOp>(user)) {
+        Value lhs = mulOp.getLhs();
+        Value rhs = mulOp.getRhs();
+        Value constVal;
+        if (lhs.getDefiningOp<arith::ConstantOp>()) {
+          constVal = lhs;
+        } else if (rhs.getDefiningOp<arith::ConstantOp>()) {
+          constVal = rhs;
+        } else {
           continue;
+        }
 
-      for (Operation* user : currVal.getUsers()) {
-          if (auto mulOp = dyn_cast<arith::MulIOp>(user)) {
-              Value lhs = mulOp.getLhs();
-              Value rhs = mulOp.getRhs();
-              Value constVal;
-              if (lhs.getDefiningOp<arith::ConstantOp>()) {
-                  constVal = lhs;
-              } else if (rhs.getDefiningOp<arith::ConstantOp>()) {
-                  constVal = rhs;
-              } else {
-                  continue;
-              }
+        auto constDef = constVal.getDefiningOp<arith::ConstantOp>();
+        int64_t blockSize = 0;
+        if (auto intAttr = mlir::dyn_cast<IntegerAttr>(constDef.getValue())) {
+          blockSize = intAttr.getInt();
+        }
 
-              auto constDef = constVal.getDefiningOp<arith::ConstantOp>();
-              int64_t blockSize = 0;
-              if (auto intAttr = mlir::dyn_cast<IntegerAttr>(constDef.getValue())) {
-                  blockSize = intAttr.getInt();
-              }
+        llvm::SmallVector<Value, 8> searchQueue;
+        llvm::SmallPtrSet<Value, 8> searchVis;
+        for (Value mulRes : mulOp->getResults()) {
+          searchQueue.push_back(mulRes);
+          searchVis.insert(mulRes);
+        }
 
-              llvm::SmallVector<Value, 8> searchQueue;
-              llvm::SmallPtrSet<Value, 8> searchVis;
-              for (Value mulRes : mulOp->getResults()) {
-                  searchQueue.push_back(mulRes);
-                  searchVis.insert(mulRes);
-              }
-              
-              bool findMatch = false;
-              while (!searchQueue.empty()) {
-                  Value checkVal = searchQueue.pop_back_val();
-                  for (Operation* subUser : checkVal.getUsers()) {
-                    if (auto addOp = dyn_cast<arith::AddIOp>(subUser))
-                    {
-                        Value otherOperand = (addOp.getLhs() == checkVal)
-                            ? addOp.getRhs() : addOp.getLhs();
-                    
-                        Value curSrc = otherOperand;
-                        bool hitRange = false;
-                        int depth = 0;
-                        while (curSrc.getDefiningOp() && depth < 5)
-                        {
-                            Operation* defOp = curSrc.getDefiningOp();
-                            if (auto rangeOp = dyn_cast<triton::MakeRangeOp>(defOp))
-                            {
-                                if (rangeOp.getEnd() == blockSize)
-                                {
-                                    hitRange = true;
-                                    break;
-                                }
-                            }
+        bool findMatch = false;
+        while (!searchQueue.empty()) {
+          Value checkVal = searchQueue.pop_back_val();
+          for (Operation *subUser : checkVal.getUsers()) {
+            if (auto addOp = dyn_cast<arith::AddIOp>(subUser)) {
+              Value otherOperand = (addOp.getLhs() == checkVal)
+                                       ? addOp.getRhs()
+                                       : addOp.getLhs();
 
-                            if (isa<arith::ExtSIOp, triton::SplatOp,
-                                    triton::ExpandDimsOp, triton::BroadcastOp>(defOp))
-                            {
-                                curSrc = defOp->getOperand(0);
-                                depth++;
-                                continue;
-                            }
-                            break;
-                        }
-                        if (hitRange)
-                        {
-                            findMatch = true;
-                            break;
-                        }
-                    }
-                      if (isa<arith::ExtSIOp, triton::SplatOp,
-                              triton::ExpandDimsOp, triton::BroadcastOp>(subUser)) {
-                          for (Value subRes : subUser->getResults()) {
-                              if (!searchVis.count(subRes)) {
-                                  searchVis.insert(subRes);
-                                  searchQueue.push_back(subRes);
-                              }
-                          }
-                      }
+              Value curSrc = otherOperand;
+              bool hitRange = false;
+              int depth = 0;
+              while (curSrc.getDefiningOp() && depth < 5) {
+                Operation *defOp = curSrc.getDefiningOp();
+                if (auto rangeOp = dyn_cast<triton::MakeRangeOp>(defOp)) {
+                  if (rangeOp.getEnd() == blockSize) {
+                    hitRange = true;
+                    break;
                   }
-                  if (findMatch) break;
-              }
-              if (findMatch) {
-                  return true;
-              }
+                }
 
-              for (Value mulRes : mulOp->getResults()) {
-                  worklist.push_back(mulRes);
+                if (isa<arith::ExtSIOp, triton::SplatOp, triton::ExpandDimsOp,
+                        triton::BroadcastOp>(defOp)) {
+                  curSrc = defOp->getOperand(0);
+                  depth++;
+                  continue;
+                }
+                break;
               }
+              if (hitRange) {
+                findMatch = true;
+                break;
+              }
+            }
+            if (isa<arith::ExtSIOp, triton::SplatOp, triton::ExpandDimsOp,
+                    triton::BroadcastOp>(subUser)) {
+              for (Value subRes : subUser->getResults()) {
+                if (!searchVis.count(subRes)) {
+                  searchVis.insert(subRes);
+                  searchQueue.push_back(subRes);
+                }
+              }
+            }
           }
+          if (findMatch)
+            break;
+        }
+        if (findMatch) {
+          return true;
+        }
 
-          if (isa<arith::ExtSIOp, triton::SplatOp, triton::ExpandDimsOp,
-                  triton::BroadcastOp>(user)) {
-              for (Value res : user->getResults()) {
-                  worklist.push_back(res);
-              }
-          }
+        for (Value mulRes : mulOp->getResults()) {
+          worklist.push_back(mulRes);
+        }
       }
+
+      if (isa<arith::ExtSIOp, triton::SplatOp, triton::ExpandDimsOp,
+              triton::BroadcastOp>(user)) {
+        for (Value res : user->getResults()) {
+          worklist.push_back(res);
+        }
+      }
+    }
   }
   return false;
 }
 
-static bool checkAllProgramIdNonOverlap(ModuleOp module)
-{
+static bool checkAllProgramIdNonOverlap(ModuleOp module) {
   bool allNonOverlap = true;
-  module.walk([&](triton::GetProgramIdOp pidOp){
-    if(!traceUserToTargetOp(pidOp.getResult()))
-    {
+  module.walk([&](triton::GetProgramIdOp pidOp) {
+    if (!traceUserToTargetOp(pidOp.getResult())) {
       allNonOverlap = false;
     }
   });
@@ -283,8 +278,10 @@ struct DiscreteMaskStoreConversion : OpRewritePattern<triton::StoreOp> {
 
     auto ptr = op.getPtr();
     auto ptrType = dyn_cast<RankedTensorType>(ptr.getType());
-    bool rankWithinIndirectFastPathLimit = ptrType && ptrType.getShape().size() <= 5;
-    if (compileOn91095Flag && forceSimtTemplateFlag && rankWithinIndirectFastPathLimit) {
+    bool rankWithinIndirectFastPathLimit =
+        ptrType && ptrType.getShape().size() <= 5;
+    if (compileOn91095Flag && forceSimtTemplateFlag &&
+        rankWithinIndirectFastPathLimit) {
       op->setAttr(routeDiscreteMaskToSimtAttrName, rewriter.getUnitAttr());
       return failure();
     }
@@ -351,8 +348,10 @@ struct DiscreteMaskLoadConversion : OpRewritePattern<triton::LoadOp> {
       return failure();
 
     auto ptrType = dyn_cast<RankedTensorType>(ptr.getType());
-    bool rankWithinIndirectFastPathLimit = ptrType && ptrType.getShape().size() <= 5;
-    if (compileOn91095Flag && forceSimtTemplateFlag && rankWithinIndirectFastPathLimit) {
+    bool rankWithinIndirectFastPathLimit =
+        ptrType && ptrType.getShape().size() <= 5;
+    if (compileOn91095Flag && forceSimtTemplateFlag &&
+        rankWithinIndirectFastPathLimit) {
       op->setAttr(routeDiscreteMaskToSimtAttrName, rewriter.getUnitAttr());
       return failure();
     }
@@ -439,7 +438,8 @@ struct DiscreteMaskAtomicConversion
         typelessVal, src.getType(), loc, rewriter);
     if (failed(fill)) {
       LLVM_DEBUG({
-        llvm::dbgs() << "Unsupported type for constant creation: " << src.getType() << "\n";
+        llvm::dbgs() << "Unsupported type for constant creation: "
+                     << src.getType() << "\n";
       });
       op->emitError("Unsupported atomic operation.");
       return failure();
@@ -492,9 +492,9 @@ void DiscreteMaskAccessConversionPass::runOnOperation() {
 }
 
 void DiscreteMaskAccessConversionPass::getDependentDialects(
-    DialectRegistry &registry) const
-{
-  registry.insert<arith::ArithDialect, triton::TritonDialect, hivm::HIVMDialect>();
+    DialectRegistry &registry) const {
+  registry
+      .insert<arith::ArithDialect, triton::TritonDialect, hivm::HIVMDialect>();
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>

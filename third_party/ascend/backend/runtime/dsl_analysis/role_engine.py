@@ -60,6 +60,7 @@ TransferFn = Callable[[RuleContext, List[ValueState]], ValueState]
 
 
 class RoleTransferRegistry:
+
     def __init__(self):
         self._handlers: Dict[str, TransferFn] = {}
 
@@ -120,6 +121,7 @@ def _swap_role(role: Optional[TensorRole]) -> Optional[TensorRole]:
 
 
 def _to_op_key(call_node: ast.Call) -> str:
+
     def _extract_tl_attr_tail(node: ast.AST) -> Optional[str]:
         attrs = []
         cur = node
@@ -264,8 +266,7 @@ def _rule_dot(_: RuleContext, args: List[ValueState]) -> ValueState:
             col_symbol=rhs_role.col_symbol,
             total_row_symbol=lhs_role.total_row_symbol or lhs_role.row_symbol,
             total_col_symbol=rhs_role.total_col_symbol or rhs_role.col_symbol,
-        )
-    )
+        ))
 
 
 def _rule_unary_passthrough(_: RuleContext, args: List[ValueState]) -> ValueState:
@@ -322,12 +323,7 @@ _TL_BINARY_ELEMENTWISE = {
 
 
 def _is_slice_all(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Slice)
-        and node.lower is None
-        and node.upper is None
-        and node.step is None
-    )
+    return (isinstance(node, ast.Slice) and node.lower is None and node.upper is None and node.step is None)
 
 
 def _get_arange_stop_expr(call_node: ast.Call) -> Optional[ast.AST]:
@@ -398,13 +394,8 @@ def _extract_subscript_axis_kind(node: ast.Subscript) -> Optional[int]:
 
 
 def _is_tl_arange_call(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr == "arange"
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl" and node.func.attr == "arange")
 
 
 def _extract_axis_symbols_from_expr(expr: ast.AST, axis_candidates: set) -> set:
@@ -588,26 +579,19 @@ def _infer_expr_state(
     if isinstance(expr, ast.Call):
         op_key = _to_op_key(expr)
         arg_states: List[ValueState] = []
-        if (
-            isinstance(expr.func, ast.Attribute)
-            and not _is_tl_namespace_attr(expr.func)
-        ):
+        if (isinstance(expr.func, ast.Attribute) and not _is_tl_namespace_attr(expr.func)):
             # Method calls (e.g. tensor.to(...)) should propagate from receiver.
-            arg_states.append(
-                _infer_expr_state(
-                    expr.func.value,
-                    env,
-                    axis_total_symbol_map=axis_total_symbol_map,
-                )
-            )
+            arg_states.append(_infer_expr_state(
+                expr.func.value,
+                env,
+                axis_total_symbol_map=axis_total_symbol_map,
+            ))
         arg_states.extend(
             _infer_expr_state(
                 arg,
                 env,
                 axis_total_symbol_map=axis_total_symbol_map,
-            )
-            for arg in expr.args
-        )
+            ) for arg in expr.args)
 
         handler = _REGISTRY.get(op_key)
         if handler is not None:
@@ -683,13 +667,8 @@ def _visit_stmt(
                 stmt.value,
                 axis_total_symbol_map=axis_total_symbol_map,
             )
-            if alias_role is not None and (
-                not _is_tensor(state)
-                or (
-                    _is_single_axis_role(alias_role)
-                    and _is_single_axis_role(state.role)
-                )
-            ):
+            if alias_role is not None and (not _is_tensor(state) or
+                                           (_is_single_axis_role(alias_role) and _is_single_axis_role(state.role))):
                 state = _tensor(alias_role)
         for target in stmt.targets:
             _assign_target(target, state, env)
@@ -771,10 +750,7 @@ def infer_value_states(
     inherited_roles: Optional[Mapping[str, TensorRole]] = None,
 ) -> Dict[str, ValueState]:
     axis_total_symbol_map = _extract_axis_total_symbol_map(func_ast)
-    env: Dict[str, ValueState] = {
-        name: _tensor(role)
-        for name, role in (inherited_roles or {}).items()
-    }
+    env: Dict[str, ValueState] = {name: _tensor(role) for name, role in (inherited_roles or {}).items()}
 
     if isinstance(func_ast, (ast.FunctionDef, ast.AsyncFunctionDef)):
         body = func_ast.body

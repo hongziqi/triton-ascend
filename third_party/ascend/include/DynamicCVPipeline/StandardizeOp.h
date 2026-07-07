@@ -28,16 +28,15 @@
 
 namespace mlir::triton {
 
-class StandardizeOpPass : public PassWrapper<StandardizeOpPass, OperationPass<ModuleOp>> {
+class StandardizeOpPass
+    : public PassWrapper<StandardizeOpPass, OperationPass<ModuleOp>> {
 public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(StandardizeOpPass);
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(StandardizeOpPass);
 
-    StandardizeOpPass() = default;
-    void runOnOperation() override;
+  StandardizeOpPass() = default;
+  void runOnOperation() override;
 
-    llvm::StringRef getArgument() const final {
-      return "ssbuf-standardize-op";
-    }
+  llvm::StringRef getArgument() const final { return "ssbuf-standardize-op"; }
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createStandardizeOpPass();

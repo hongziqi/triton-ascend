@@ -20,7 +20,6 @@
  * THE SOFTWARE.
  */
 
-
 #ifndef TRITON_DYNAMIC_CV_PIPELINE_ADDMULTIBUFFERCONTROL_BUFFER_COUNT_MANAGER_H
 #define TRITON_DYNAMIC_CV_PIPELINE_ADDMULTIBUFFERCONTROL_BUFFER_COUNT_MANAGER_H
 
@@ -36,27 +35,26 @@ namespace triton {
 
 class BufferCountManager {
 public:
-    static BufferCountManager& getInstance();
+  static BufferCountManager &getInstance();
 
-    enum class DepType { IntraCore, InterCore, LoadStore };
+  enum class DepType { IntraCore, InterCore, LoadStore };
 
-    void setBufferCount(DepType type, int count);
+  void setBufferCount(DepType type, int count);
 
-    void buildBufferCountMap(
-        llvm::DenseMap<Value, std::vector<Value>> &depValueMap,
-        llvm::DenseMap<Value, int> &bufferCountMap,
-        DepType type);
+  void
+  buildBufferCountMap(llvm::DenseMap<Value, std::vector<Value>> &depValueMap,
+                      llvm::DenseMap<Value, int> &bufferCountMap, DepType type);
 
-    int getBufferCountByType(DepType type) const;
+  int getBufferCountByType(DepType type) const;
 
 private:
-    BufferCountManager();
-    BufferCountManager(const BufferCountManager&) = delete;
-    BufferCountManager& operator=(const BufferCountManager&) = delete;
+  BufferCountManager();
+  BufferCountManager(const BufferCountManager &) = delete;
+  BufferCountManager &operator=(const BufferCountManager &) = delete;
 
-    int intraBufferCount_;
-    int interCoreBufferCount_;
-    int loadStoreBufferCount_;
+  int intraBufferCount_;
+  int interCoreBufferCount_;
+  int loadStoreBufferCount_;
 };
 
 #define BUFFER_COUNT (BufferCountManager::getInstance())

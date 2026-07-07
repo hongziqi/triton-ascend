@@ -11,10 +11,10 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
   // - The scf.if operation itself (including its condition dependencies) will
   //   also be assigned the target block_id to maintain consistency
   // - Two scenarios are tested:
-  //   1. VECTOR core: alloc(block_id=7) + fill(block_id=6) + copy(block_id=8) 
+  //   1. VECTOR core: alloc(block_id=7) + fill(block_id=6) + copy(block_id=8)
   //      → unified to block_id=8 (including scf.if condition but exit for create
   //      cycle)
-  //   2. CUBE core: alloc(block_id=3) + fill(block_id=1) + copy(block_id=2) 
+  //   2. CUBE core: alloc(block_id=3) + fill(block_id=1) + copy(block_id=2)
   //      → unified to block_id=2 (including scf.if condition)
   // ============================================
   func.func @_sgemm_lora_a_kernel(%arg2: memref<?xf16> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg3: memref<?xf16> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg5: i32 {tt.divisibility = 16 : i32}, %arg6: i32 {tt.divisibility = 16 : i32}, %arg7: i32) {
@@ -128,22 +128,22 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
   // CHECK-LABEL: func.func @test_no_scfif_should_skip
   func.func @test_no_scfif_should_skip(%arg0: memref<?xf16>) {
     %c0_i64 = arith.constant 0 : index
-    %v = arith.constant {ssbuffer.block_id = 29 : i32, ssbuffer.core_type = "VECTOR"} 0.000000e+00 : f16 
+    %v = arith.constant {ssbuffer.block_id = 29 : i32, ssbuffer.core_type = "VECTOR"} 0.000000e+00 : f16
 
     // alloc with block_id=11 should remain unchanged (no scf.if wrap)
     // CHECK: memref.alloc() {ssbuffer.block_id = 11 : i32, ssbuffer.core_type = "CUBE"} : memref<64x64xf16>
     %alloc = memref.alloc() {ssbuffer.block_id = 11 : i32, ssbuffer.core_type = "CUBE"} : memref<64x64xf16>
-    
+
     // fill without scf.if wrapper should remain unchanged
     // CHECK: linalg.fill {ssbuffer.block_id = 8 : i32, ssbuffer.core_type = "CUBE"} ins(%{{.*}} : f16) outs(%{{.*}} : memref<64x64xf16>)
     linalg.fill {ssbuffer.block_id = 8 : i32, ssbuffer.core_type = "CUBE"} ins(%v : f16) outs(%alloc : memref<64x64xf16>)
-    
+
     %k_sub_124 = arith.constant {ssbuffer.block_id = 21 : i32, ssbuffer.core_type = "VECTOR"} 64 : index
     %c1 = arith.constant 1 : index
     %c64 = arith.constant 64 : index
     %reinterpret_cast = memref.reinterpret_cast %arg0 to offset: [%c0_i64], sizes: [64, 64], strides: [%c64, %c1] {ssbuffer.block_id = 10 : i32, ssbuffer.core_type = "CUBE"} : memref<?xf16> to memref<64x64xf16, strided<[?, ?], offset: ?>>
     %subview = memref.subview %reinterpret_cast[0, 0] [%k_sub_124, 64] [1, 1] {ssbuffer.block_id = 10 : i32, ssbuffer.core_type = "CUBE"} : memref<64x64xf16, strided<[?, ?], offset: ?>> to memref<?x64xf16, strided<[?, ?], offset: ?>>
-    
+
     // Add memref.copy with block_id=15 - pass should not unify because no scf.if
     // CHECK: memref.copy{{.*}}{ssbuffer.block_id = 15 : i32
     %dst_alloc = memref.alloc() {ssbuffer.block_id = 15 : i32, ssbuffer.core_type = "CUBE"} : memref<64x64xf16>
@@ -188,7 +188,7 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
       %reinterpret_cast = memref.reinterpret_cast %arg0 to offset: [%141], sizes: [32, 32], strides: [%c32_idx, %c1] {ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE"} : memref<?xf16> to memref<32x32xf16, strided<[?, ?], offset: ?>>
       %subview_src = memref.subview %reinterpret_cast[0, 0] [%c32, %c32] [1, 1] {ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE"} : memref<32x32xf16, strided<[?, ?], offset: ?>> to memref<?x?xf16, strided<[?, ?], offset: ?>>
       %subview_dst = memref.subview %alloc[0, 0] [%c32, %c32] [1, 1] {ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE"} : memref<32x32xf16> to memref<?x?xf16, strided<[32, 1]>>
-      
+
       // CHECK: memref.copy{{.*}}{ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE"}
       memref.copy %subview_src, %subview_dst {ssbuffer.block_id = 2 : i32, ssbuffer.core_type = "CUBE"} : memref<?x?xf16, strided<[?, ?], offset: ?>> to memref<?x?xf16, strided<[32, 1]>>
 

@@ -32,25 +32,28 @@
 namespace mlir {
 namespace triton {
 
-class ComputeBlockOptPass : public PassWrapper<ComputeBlockOptPass, OperationPass<ModuleOp>> {
-  public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ComputeBlockOptPass)
+class ComputeBlockOptPass
+    : public PassWrapper<ComputeBlockOptPass, OperationPass<ModuleOp>> {
+public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ComputeBlockOptPass)
 
-    ComputeBlockOptPass() = default;
+  ComputeBlockOptPass() = default;
 
-    void getDependentDialects(DialectRegistry &registry) const override {
-        mlir::linalg::registerTransformDialectExtension(registry);
-        mlir::linalg::registerTilingInterfaceExternalModels(registry);
-        mlir::scf::registerTransformDialectExtension(registry);
-    }
+  void getDependentDialects(DialectRegistry &registry) const override {
+    mlir::linalg::registerTransformDialectExtension(registry);
+    mlir::linalg::registerTilingInterfaceExternalModels(registry);
+    mlir::scf::registerTransformDialectExtension(registry);
+  }
 
-    void runOnOperation() override;
+  void runOnOperation() override;
 
-    StringRef getArgument() const override { return "compute-block-opt"; }
+  StringRef getArgument() const override { return "compute-block-opt"; }
 
-    StringRef getDescription() const override { return "Optimize block_id assignment and operation sequencing"; }
+  StringRef getDescription() const override {
+    return "Optimize block_id assignment and operation sequencing";
+  }
 
-  private:
+private:
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createComputeBlockOptPass();

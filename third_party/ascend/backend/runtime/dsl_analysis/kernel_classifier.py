@@ -36,10 +36,8 @@ def _get_hint_kernel_type(hints: Optional[Dict[str, Any]]) -> str:
         kernel_type = kernel_type.strip().lower()
 
     if kernel_type not in SUPPORTED_KERNEL_TYPES:
-        raise ValueError(
-            f"Unsupported kernel_type '{kernel_type}', expected one of: "
-            f"{sorted(SUPPORTED_KERNEL_TYPES)}"
-        )
+        raise ValueError(f"Unsupported kernel_type '{kernel_type}', expected one of: "
+                         f"{sorted(SUPPORTED_KERNEL_TYPES)}")
     return kernel_type
 
 

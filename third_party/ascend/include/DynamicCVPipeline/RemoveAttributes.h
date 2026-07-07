@@ -31,16 +31,15 @@
 namespace mlir {
 namespace triton {
 
-class RemoveSsbufAttrPass : public PassWrapper<RemoveSsbufAttrPass, OperationPass<ModuleOp>> {
+class RemoveSsbufAttrPass
+    : public PassWrapper<RemoveSsbufAttrPass, OperationPass<ModuleOp>> {
 public:
-    MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RemoveSsbufAttrPass);
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RemoveSsbufAttrPass);
 
-    RemoveSsbufAttrPass() = default;
-    void runOnOperation() override;
+  RemoveSsbufAttrPass() = default;
+  void runOnOperation() override;
 
-    llvm::StringRef getArgument() const final {
-      return "remove-ssbuf-attr";
-    }
+  llvm::StringRef getArgument() const final { return "remove-ssbuf-attr"; }
 };
 
 std::unique_ptr<OperationPass<ModuleOp>> createRemoveSsbufAttrPass();

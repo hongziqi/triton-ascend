@@ -23,7 +23,7 @@ def Ascend_MatmulOp : AscendModel_Op<"matmul", [Pure, DeclareOpInterfaceMethods<
     This operation is the primary compute-bound operation on Ascend 910B.
     The Cube Core executes in 16x16x16 blocks for optimal performance.
   }];
-  
+
   let arguments = (ins
     AnyTensor:$lhs,
     AnyTensor:$rhs,
@@ -33,9 +33,9 @@ def Ascend_MatmulOp : AscendModel_Op<"matmul", [Pure, DeclareOpInterfaceMethods<
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
     $lhs `,` $rhs attr-dict `:` `(` type($lhs) `,` type($rhs) `)` `->` type($result)
   }];
@@ -50,7 +50,7 @@ def Ascend_CubeLoadOp : AscendModel_Op<"cube_load", [DeclareOpInterfaceMethods<E
   let description = [{
     Loads tensor data from memory to Cube Core's local buffer via MTE2.
   }];
-  
+
   let arguments = (ins
     AnyType:$source,
     I64Attr:$bytes,
@@ -117,9 +117,9 @@ def Ascend_VectorStoreOp : AscendModel_Op<"vector_store", [DeclareOpInterfaceMet
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs);
-  
+
   let assemblyFormat = [{
     $data attr-dict `:` type($data)
   }];
@@ -130,7 +130,7 @@ def Ascend_VectorStoreOp : AscendModel_Op<"vector_store", [DeclareOpInterfaceMet
 //===----------------------------------------------------------------------===//
 
 // Base class for simple vector binary ops (1 cycle per vector op)
-class Ascend_VectorBinarySimple<string mnemonic> 
+class Ascend_VectorBinarySimple<string mnemonic>
     : AscendModel_Op<mnemonic, [Pure, DeclareOpInterfaceMethods<EstimateCyclesOpInterface, ["getFlops"]>]> {
   let arguments = (ins
     AnyTensor:$lhs,
@@ -138,28 +138,28 @@ class Ascend_VectorBinarySimple<string mnemonic>
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
     $lhs `,` $rhs attr-dict `:` `(` type($lhs) `,` type($rhs) `)` `->` type($result)
   }];
 }
 
 // Base class for complex vector binary ops (multiple cycles per vector op)
-class Ascend_VectorBinaryComplex<string mnemonic, int cycles_per_op> 
+class Ascend_VectorBinaryComplex<string mnemonic, int cycles_per_op>
     : AscendModel_Op<mnemonic, [Pure, DeclareOpInterfaceMethods<EstimateCyclesOpInterface, ["getCyclesPerVectorOp", "getFlops"]>]> {
   int cyclesPerOp = cycles_per_op;
-  
+
   let arguments = (ins
     AnyTensor:$lhs,
     AnyTensor:$rhs,
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
     $lhs `,` $rhs attr-dict `:` `(` type($lhs) `,` type($rhs) `)` `->` type($result)
   }];
@@ -196,7 +196,7 @@ def Ascend_DivOp : Ascend_VectorBinaryComplex<"div", 4> {
 //===----------------------------------------------------------------------===//
 
 // Base class for comparison ops (result is i1 tensor, 1 cycle per vector op)
-class Ascend_VectorCmpOp<string mnemonic> 
+class Ascend_VectorCmpOp<string mnemonic>
     : AscendModel_Op<mnemonic, [Pure, DeclareOpInterfaceMethods<EstimateCyclesOpInterface, ["getFlops"]>]> {
   let arguments = (ins
     AnyTensor:$lhs,
@@ -204,9 +204,9 @@ class Ascend_VectorCmpOp<string mnemonic>
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);  // i1 tensor
-  
+
   let assemblyFormat = [{
     $lhs `,` $rhs attr-dict `:` `(` type($lhs) `,` type($rhs) `)` `->` type($result)
   }];
@@ -241,34 +241,34 @@ def Ascend_CmpGeOp : Ascend_VectorCmpOp<"cmp_ge"> {
 //===----------------------------------------------------------------------===//
 
 // Base class for simple vector unary ops (1 cycle)
-class Ascend_VectorUnarySimple<string mnemonic> 
+class Ascend_VectorUnarySimple<string mnemonic>
     : AscendModel_Op<mnemonic, [Pure, DeclareOpInterfaceMethods<EstimateCyclesOpInterface, ["getFlops"]>]> {
   let arguments = (ins
     AnyTensor:$input,
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
     $input attr-dict `:` type($input) `->` type($result)
   }];
 }
 
 // Base class for complex vector unary ops (multiple cycles)
-class Ascend_VectorUnaryComplex<string mnemonic, int cycles_per_op> 
+class Ascend_VectorUnaryComplex<string mnemonic, int cycles_per_op>
     : AscendModel_Op<mnemonic, [Pure, DeclareOpInterfaceMethods<EstimateCyclesOpInterface, ["getCyclesPerVectorOp", "getFlops"]>]> {
   int cyclesPerOp = cycles_per_op;
-  
+
   let arguments = (ins
     AnyTensor:$input,
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
     $input attr-dict `:` type($input) `->` type($result)
   }];
@@ -325,7 +325,7 @@ def Ascend_SigmoidOp : Ascend_VectorUnaryComplex<"sigmoid", 5> {
 // Vector Core Reduce Operations (向量归约运算)
 //===----------------------------------------------------------------------===//
 
-class Ascend_ReduceOp<string mnemonic> 
+class Ascend_ReduceOp<string mnemonic>
     : AscendModel_Op<mnemonic, [Pure, DeclareOpInterfaceMethods<EstimateCyclesOpInterface, ["getFlops"]>]> {
   let arguments = (ins
     AnyTensor:$input,
@@ -333,7 +333,7 @@ class Ascend_ReduceOp<string mnemonic>
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyType:$result);
 
   let assemblyFormat = [{
@@ -366,16 +366,16 @@ def Ascend_BroadcastOp : AscendModel_Op<"broadcast", [Pure, DeclareOpInterfaceMe
   let description = [{
     Broadcasts a tensor to a larger shape.
   }];
-  
+
   let arguments = (ins
     AnyTensor:$input,
     DenseI64ArrayAttr:$shape,
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
     $input `to` $shape attr-dict `:` type($input) `->` type($result)
   }];
@@ -386,7 +386,7 @@ def Ascend_SelectOp : AscendModel_Op<"select", [Pure, DeclareOpInterfaceMethods<
   let description = [{
     Selects elements from two tensors based on a condition tensor.
   }];
-  
+
   let arguments = (ins
     AnyTensor:$condition,
     AnyTensor:$true_value,
@@ -394,11 +394,11 @@ def Ascend_SelectOp : AscendModel_Op<"select", [Pure, DeclareOpInterfaceMethods<
     OptionalAttr<I64Attr>:$estimated_cycles,
     OptionalAttr<I64Attr>:$op_id
   );
-  
+
   let results = (outs AnyTensor:$result);
-  
+
   let assemblyFormat = [{
-    $condition `,` $true_value `,` $false_value attr-dict `:` 
+    $condition `,` $true_value `,` $false_value attr-dict `:`
     type($condition) `,` type($true_value) `,` type($false_value) `->` type($result)
   }];
 }
@@ -412,13 +412,13 @@ def Ascend_SyncOp : AscendModel_Op<"sync", []> {
   let description = [{
     Synchronization point between different hardware units.
   }];
-  
+
   let arguments = (ins
     StrAttr:$sync_type
   );
-  
+
   let results = (outs);
-  
+
   let assemblyFormat = [{
     $sync_type attr-dict
   }];

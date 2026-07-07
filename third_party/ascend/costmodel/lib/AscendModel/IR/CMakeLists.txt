@@ -7,11 +7,11 @@ add_mlir_library(AscendModelIR
 
   ADDITIONAL_HEADER_DIRS
   ${PROJECT_SOURCE_DIR}/include/AscendModel/IR
- 
+
   DEPENDS
   AscendModelOpsIncGen
   AscendModelInterfacesIncGen
- 
+
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRSupport

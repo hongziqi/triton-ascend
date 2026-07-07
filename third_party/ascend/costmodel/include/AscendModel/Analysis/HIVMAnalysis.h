@@ -26,10 +26,7 @@
 namespace mlir {
 namespace ascend {
 
-enum class HIVMSchedulerMode {
-  Static,
-  DES
-};
+enum class HIVMSchedulerMode { Static, DES };
 
 enum class HIVMPipe {
   Unknown,
@@ -92,8 +89,7 @@ struct HIVMAnalysisReport {
   void print(llvm::raw_ostream &os, const HardwareConfig &config) const;
   void emitPerfettoTrace(llvm::raw_ostream &os,
                          const HardwareConfig &config) const;
-  void emitDESGraph(llvm::raw_ostream &os,
-                    const HardwareConfig &config) const;
+  void emitDESGraph(llvm::raw_ostream &os, const HardwareConfig &config) const;
 };
 
 class HIVMAnalyzer {

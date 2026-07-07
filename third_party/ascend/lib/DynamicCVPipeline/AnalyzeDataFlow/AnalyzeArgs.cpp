@@ -22,21 +22,21 @@
 
 #include "ascend/include/DynamicCVPipeline/AnalyzeDataFlow.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BuiltinTypes.h"
 
 static constexpr const char *DEBUG_TYPE = "analyze-args-in-forOps";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...) \
-LLVM_DEBUG({ \
-  DBGS(); \
-  llvm::dbgs() << __VA_ARGS__; \
-  llvm::dbgs() << "\n"; \
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__;                                               \
+    llvm::dbgs() << "\n";                                                      \
+  })
 
 using namespace llvm;
 using namespace mlir;
@@ -44,13 +44,12 @@ using namespace triton;
 
 namespace {
 
-static constexpr llvm::StringLiteral containedFunc[] {
-  "chunk_gated_delta_rule_bwd_kernel_dhu_k128_blockdim128",
-  "fused_chunk_fwd_kernel",
+static constexpr llvm::StringLiteral containedFunc[]{
+    "chunk_gated_delta_rule_bwd_kernel_dhu_k128_blockdim128",
+    "fused_chunk_fwd_kernel",
 };
 
-static LogicalResult isInterceptedModule(ModuleOp module)
-{
+static LogicalResult isInterceptedModule(ModuleOp module) {
   bool intercepted = false;
 
   module.walk([&](func::FuncOp funcOp) -> WalkResult {
@@ -68,9 +67,9 @@ static LogicalResult isInterceptedModule(ModuleOp module)
   return failure();
 }
 
-// Check if a value is a tensor-type iter_arg and return its index, -1 otherwise.
-static int getTensorIterArgIndex(Value v, scf::ForOp forOp)
-{
+// Check if a value is a tensor-type iter_arg and return its index, -1
+// otherwise.
+static int getTensorIterArgIndex(Value v, scf::ForOp forOp) {
   for (unsigned i = 0; i < forOp.getNumRegionIterArgs(); ++i) {
     if (v == forOp.getRegionIterArgs()[i]) {
       if (isa<RankedTensorType>(forOp.getRegionIterArgs()[i].getType())) {
@@ -81,7 +80,8 @@ static int getTensorIterArgIndex(Value v, scf::ForOp forOp)
   return -1;
 }
 
-// Data collected for each tensor iter_arg: first block_id that uses it, and set of all block_ids
+// Data collected for each tensor iter_arg: first block_id that uses it, and set
+// of all block_ids
 struct TensorArgBlockInfo {
   int firstBlockId = -1;
   llvm::DenseSet<int> blockIds;
@@ -89,8 +89,7 @@ struct TensorArgBlockInfo {
 
 // Collect block info for all tensor-type iter_args in the forOp body
 static llvm::DenseMap<unsigned, TensorArgBlockInfo>
-collectTensorArgBlockInfo(scf::ForOp forOp)
-{
+collectTensorArgBlockInfo(scf::ForOp forOp) {
   llvm::DenseMap<unsigned, TensorArgBlockInfo> result;
 
   Block *body = forOp.getBody();
@@ -121,8 +120,8 @@ collectTensorArgBlockInfo(scf::ForOp forOp)
 }
 
 // Check if any tensor-type iter_arg appears in different block_ids.
-static bool checkMultiBlockUse(const llvm::DenseMap<unsigned, TensorArgBlockInfo> &argBlockInfo)
-{
+static bool checkMultiBlockUse(
+    const llvm::DenseMap<unsigned, TensorArgBlockInfo> &argBlockInfo) {
   for (auto &p : argBlockInfo) {
     if (p.second.blockIds.size() > 1) {
       LDBG("[INFO]: Found tensor iter_arg using in multi block_ids!\n");
@@ -133,9 +132,9 @@ static bool checkMultiBlockUse(const llvm::DenseMap<unsigned, TensorArgBlockInfo
 }
 
 // Check if the first block_id differs from the block_id of yield's defining op.
-static bool checkUseUpdateMismatch(scf::ForOp forOp,
-                                   const llvm::DenseMap<unsigned, TensorArgBlockInfo> &argBlockInfo)
-{
+static bool checkUseUpdateMismatch(
+    scf::ForOp forOp,
+    const llvm::DenseMap<unsigned, TensorArgBlockInfo> &argBlockInfo) {
   Block *body = forOp.getBody();
   auto yieldOp = cast<scf::YieldOp>(body->getTerminator());
 
@@ -154,13 +153,15 @@ static bool checkUseUpdateMismatch(scf::ForOp forOp,
       continue;
     }
 
-    auto defBlockIdAttr = defOp->getAttrOfType<IntegerAttr>("ssbuffer.block_id");
+    auto defBlockIdAttr =
+        defOp->getAttrOfType<IntegerAttr>("ssbuffer.block_id");
     if (!defBlockIdAttr) {
       continue;
     }
 
     if (it->second.firstBlockId != defBlockIdAttr.getInt()) {
-      LDBG("[INFO]: Found tensor iter_arg using and updating in different block_ids!\n");
+      LDBG("[INFO]: Found tensor iter_arg using and updating in different "
+           "block_ids!\n");
       return true;
     }
   }
@@ -168,8 +169,7 @@ static bool checkUseUpdateMismatch(scf::ForOp forOp,
 }
 
 // Main check function that combines both conditions
-static bool hasTensorArgInDifferentBlockIds(scf::ForOp forOp)
-{
+static bool hasTensorArgInDifferentBlockIds(scf::ForOp forOp) {
   auto argBlockInfo = collectTensorArgBlockInfo(forOp);
   return checkMultiBlockUse(argBlockInfo) ||
          checkUseUpdateMismatch(forOp, argBlockInfo);
@@ -177,8 +177,7 @@ static bool hasTensorArgInDifferentBlockIds(scf::ForOp forOp)
 
 } // namespace
 
-bool checkTensorArgsInMainLoop(ModuleOp module)
-{
+bool checkTensorArgsInMainLoop(ModuleOp module) {
   bool shouldReturn = false;
 
   module.walk([&](Operation *op) -> WalkResult {
@@ -202,8 +201,7 @@ bool checkTensorArgsInMainLoop(ModuleOp module)
   return shouldReturn;
 }
 
-void AnalyzeArgsPass::runOnOperation()
-{
+void AnalyzeArgsPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   LDBG("Before AnalyzeArgs:\n" << module << "\n");
@@ -224,8 +222,7 @@ void AnalyzeArgsPass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeArgsPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeArgsPass() {
   return std::make_unique<AnalyzeArgsPass>();
 }
 

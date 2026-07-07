@@ -80,10 +80,7 @@ def my_macro_sync_kernel(x_ptr, y_ptr, out_ptr, n, BLOCK: tl.constexpr):
 
 def _custom_macro_lines(mlir: str, op_name: str):
     quoted = f'"{op_name}"'
-    return [
-        line for line in mlir.splitlines()
-        if "hivm.hir.custom_macro" in line and quoted in line
-    ]
+    return [line for line in mlir.splitlines() if "hivm.hir.custom_macro" in line and quoted in line]
 
 
 def test_custom_macro_op_lowers_to_custom_macro():

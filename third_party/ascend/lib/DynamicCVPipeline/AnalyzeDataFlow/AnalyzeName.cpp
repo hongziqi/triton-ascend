@@ -28,19 +28,19 @@
 
 static constexpr const char *DEBUG_TYPE = "analyze-name";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...)                                                                                                      \
-    LLVM_DEBUG({                                                                                                       \
-        DBGS();                                                                                                        \
-        llvm::dbgs() << __VA_ARGS__;                                                                                   \
-        llvm::dbgs() << "\n";                                                                                          \
-    })
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__;                                               \
+    llvm::dbgs() << "\n";                                                      \
+  })
 
 using namespace mlir;
 using namespace triton;
 
 namespace {
 
-static constexpr llvm::StringLiteral interceptrFunc[] {
+static constexpr llvm::StringLiteral interceptrFunc[]{
     "_attn_bwd",
     "lightning_indexer_grad_kernel",
     "bwd_qkv_kernel",
@@ -49,50 +49,48 @@ static constexpr llvm::StringLiteral interceptrFunc[] {
     "chunk_dplr_fwd_kernel_h",
 };
 
-static LogicalResult verifyFuncNames(ModuleOp module)
-{
-    bool intercepted = false;
+static LogicalResult verifyFuncNames(ModuleOp module) {
+  bool intercepted = false;
 
-    module.walk([&](func::FuncOp funcOp) -> WalkResult {
-        if (!llvm::is_contained(interceptrFunc, funcOp.getSymName())) {
-            return WalkResult::advance();
-        }
-
-        LDBG("[INFO]: DynamicCVPipeline is interrupted by function name: " << funcOp.getSymName());
-        intercepted = true;
-        return WalkResult::interrupt();
-    });
-
-    if (!intercepted) {
-        return success();
+  module.walk([&](func::FuncOp funcOp) -> WalkResult {
+    if (!llvm::is_contained(interceptrFunc, funcOp.getSymName())) {
+      return WalkResult::advance();
     }
 
-    return failure();
+    LDBG("[INFO]: DynamicCVPipeline is interrupted by function name: "
+         << funcOp.getSymName());
+    intercepted = true;
+    return WalkResult::interrupt();
+  });
+
+  if (!intercepted) {
+    return success();
+  }
+
+  return failure();
 }
 
 } // namespace
 
-void AnalyzeNamePass::runOnOperation()
-{
-    ModuleOp module = getOperation();
+void AnalyzeNamePass::runOnOperation() {
+  ModuleOp module = getOperation();
 
-    LDBG("Before AnalyzeName:\n" << module << "\n");
+  LDBG("Before AnalyzeName:\n" << module << "\n");
 
-    if (failed(verifyFuncNames(module))) {
-        CVPipeline::setFallbackAttr(module);
-        signalPassFailure();
-        return;
-    }
+  if (failed(verifyFuncNames(module))) {
+    CVPipeline::setFallbackAttr(module);
+    signalPassFailure();
+    return;
+  }
 
-    LDBG("After AnalyzeName:\n" << module << "\n");
+  LDBG("After AnalyzeName:\n" << module << "\n");
 }
 
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeNamePass()
-{
-    return std::make_unique<AnalyzeNamePass>();
+std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeNamePass() {
+  return std::make_unique<AnalyzeNamePass>();
 }
 
 } // namespace triton

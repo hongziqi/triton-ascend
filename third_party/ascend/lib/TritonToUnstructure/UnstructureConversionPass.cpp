@@ -510,7 +510,8 @@ LogicalResult UnstructuredMemAccessConverter<MemAccOpTy>::matchAndRewrite(
   LLVM_DEBUG({
     auto &os = llvm::dbgs();
     os << "UnStructured Flag check:\n";
-    os << "ptrOffsetInfo.isStructured: " << ptrOffsetInfo.isStructured() << "\n";
+    os << "ptrOffsetInfo.isStructured: " << ptrOffsetInfo.isStructured()
+       << "\n";
     os << "compileOn91095Flag: " << compileOn91095Flag << "\n";
     os << "forceSimtTemplateFlag: " << forceSimtTemplateFlag << "\n";
   });

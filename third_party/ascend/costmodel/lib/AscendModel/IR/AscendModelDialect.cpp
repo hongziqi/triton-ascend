@@ -24,7 +24,7 @@ void AscendModelDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
 #include "AscendModel/IR/AscendModelOps.cpp.inc"
-  >();
+      >();
 }
 
 //===----------------------------------------------------------------------===//

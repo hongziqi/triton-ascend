@@ -99,9 +99,9 @@ TEST(CostModelPipelineSchedulerTest, KernelCyclesApplyBarrierScalarAndWaves) {
 
   const int64_t expectedBarrierCycles =
       2 * config->getPipeBarrierCyclesPerIter();
-  const int64_t expectedPerProgramCycles = static_cast<int64_t>(
-      (100 + expectedBarrierCycles) *
-      (1.0 + config->getAIVScalarOverheadFactor()));
+  const int64_t expectedPerProgramCycles =
+      static_cast<int64_t>((100 + expectedBarrierCycles) *
+                           (1.0 + config->getAIVScalarOverheadFactor()));
   const int64_t expectedWaves = 3; // ceil(81 / 40)
 
   EXPECT_EQ(scheduler.getKernelCycles(/*numPrograms=*/81,

@@ -21,24 +21,24 @@
  */
 
 #include "ascend/include/DynamicCVPipeline/AddControlFlowCondition/ProcessArgs.h"
-#include "ascend/include/DynamicCVPipeline/AddControlFlowCondition/Utils.h"
 #include "ascend/include/DynamicCVPipeline/AddControlFlowCondition.h"
+#include "ascend/include/DynamicCVPipeline/AddControlFlowCondition/Utils.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/IRMapping.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/IR/IRMapping.h"
-#include "mlir/IR/TypeUtilities.h"
 
 static constexpr const char *DEBUG_TYPE = "ProcessArgs";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(...) \
-LLVM_DEBUG({ \
-  DBGS(); \
-  llvm::dbgs() << __VA_ARGS__; \
-  llvm::dbgs() << "\n"; \
-})
+#define LDBG(...)                                                              \
+  LLVM_DEBUG({                                                                 \
+    DBGS();                                                                    \
+    llvm::dbgs() << __VA_ARGS__;                                               \
+    llvm::dbgs() << "\n";                                                      \
+  })
 
 using namespace mlir;
 using namespace triton;
@@ -47,8 +47,7 @@ using namespace triton;
 // For each iter_arg, tracks which block_ids reference it in their operations.
 static LogicalResult collectArgIndexToBlockIds(
     scf::ForOp forOp,
-    llvm::DenseMap<int, llvm::DenseSet<int>> &argIndexToBlockIds)
-{
+    llvm::DenseMap<int, llvm::DenseSet<int>> &argIndexToBlockIds) {
   Block *body = forOp.getBody();
   if (!body || !body->mightHaveTerminator()) {
     LDBG("[Error]: forOp body is invalid or has no terminator\n");
@@ -57,7 +56,8 @@ static LogicalResult collectArgIndexToBlockIds(
 
   for (Operation &op : body->without_terminator()) {
     auto blockIdAttr = op.getAttrOfType<IntegerAttr>("ssbuffer.block_id");
-    if (!blockIdAttr) continue;
+    if (!blockIdAttr)
+      continue;
     int blockId = blockIdAttr.getInt();
 
     for (OpOperand &operand : op.getOpOperands()) {
@@ -78,19 +78,19 @@ static LogicalResult collectArgIndexToBlockIds(
 }
 
 // Finds iter_args used by multiple block_ids (shared args).
-// Determines owner block (first in order) and creates SharedArgInfo for each non-owner.
-// Each non-owner block gets its own extra iter_arg.
+// Determines owner block (first in order) and creates SharedArgInfo for each
+// non-owner. Each non-owner block gets its own extra iter_arg.
 static LogicalResult findSharedArgs(
     const llvm::DenseMap<int, llvm::DenseSet<int>> &argIndexToBlockIds,
     const SmallVector<int> &idsInOrder,
-    SmallVector<SharedArgInfo> &sharedArgsInfo)
-{
+    SmallVector<SharedArgInfo> &sharedArgsInfo) {
   int extraArgCount = 0;
   for (auto &p : argIndexToBlockIds) {
     int argIndex = p.first;
     const llvm::DenseSet<int> &blockIds = p.second;
 
-    if (blockIds.size() <= 1) continue;
+    if (blockIds.size() <= 1)
+      continue;
 
     int ownerBlockId = -1;
     for (int id : idsInOrder) {
@@ -99,7 +99,8 @@ static LogicalResult findSharedArgs(
         break;
       }
     }
-    if (ownerBlockId == -1) continue;
+    if (ownerBlockId == -1)
+      continue;
 
     // Each non-owner block for this argIndex gets its own extra iter_arg
     for (int bid : blockIds) {
@@ -113,14 +114,12 @@ static LogicalResult findSharedArgs(
   return success();
 }
 
-// Finds the computation operation in owner block that produces the iter_arg value.
-// compOp is the defining op of the iter_arg in the scf.yield operand list.
-static LogicalResult findCompOpInOwnerBlock(
-    scf::ForOp forOp,
-    Block *body,
-    const SharedArgInfo &info,
-    Operation *&compOp)
-{
+// Finds the computation operation in owner block that produces the iter_arg
+// value. compOp is the defining op of the iter_arg in the scf.yield operand
+// list.
+static LogicalResult findCompOpInOwnerBlock(scf::ForOp forOp, Block *body,
+                                            const SharedArgInfo &info,
+                                            Operation *&compOp) {
   auto yieldOp = cast<scf::YieldOp>(body->getTerminator());
   Value yieldArg = yieldOp.getOperand(info.argIndex);
 
@@ -132,19 +131,18 @@ static LogicalResult findCompOpInOwnerBlock(
   return failure();
 }
 
-// Collects all operations in the computation chain by backward traversal from compOp.
-// Builds the dependency graph needed to clone the computation for non-owner blocks.
-static void collectChainOps(
-    scf::ForOp forOp,
-    Operation *compOp,
-    llvm::DenseSet<Operation*> &chainOps)
-{
-  SmallVector<Operation*> worklist;
+// Collects all operations in the computation chain by backward traversal from
+// compOp. Builds the dependency graph needed to clone the computation for
+// non-owner blocks.
+static void collectChainOps(scf::ForOp forOp, Operation *compOp,
+                            llvm::DenseSet<Operation *> &chainOps) {
+  SmallVector<Operation *> worklist;
   worklist.push_back(compOp);
 
   while (!worklist.empty()) {
     Operation *op = worklist.pop_back_val();
-    if (chainOps.contains(op)) continue;
+    if (chainOps.contains(op))
+      continue;
     chainOps.insert(op);
 
     for (Value operand : op->getOperands()) {
@@ -159,15 +157,13 @@ static void collectChainOps(
 
 // Builds computation info (compOp and chainOps) for each shared arg.
 static LogicalResult buildCompInfoForSharedArgs(
-    scf::ForOp forOp,
-    Block *body,
-    SmallVector<SharedArgInfo> &sharedArgsInfo,
-    llvm::DenseMap<int, Operation*> &sharedArgToCompOp,
-    llvm::DenseMap<int, llvm::DenseSet<Operation*>> &sharedArgToChainOps)
-{
+    scf::ForOp forOp, Block *body, SmallVector<SharedArgInfo> &sharedArgsInfo,
+    llvm::DenseMap<int, Operation *> &sharedArgToCompOp,
+    llvm::DenseMap<int, llvm::DenseSet<Operation *>> &sharedArgToChainOps) {
   for (auto &info : sharedArgsInfo) {
     int argIndex = info.argIndex;
-    if (sharedArgToCompOp.contains(argIndex)) continue;
+    if (sharedArgToCompOp.contains(argIndex))
+      continue;
 
     Operation *compOp = nullptr;
     if (failed(findCompOpInOwnerBlock(forOp, body, info, compOp))) {
@@ -176,7 +172,7 @@ static LogicalResult buildCompInfoForSharedArgs(
 
     sharedArgToCompOp[argIndex] = compOp;
 
-    llvm::DenseSet<Operation*> chainOps;
+    llvm::DenseSet<Operation *> chainOps;
     collectChainOps(forOp, compOp, chainOps);
     sharedArgToChainOps[argIndex] = chainOps;
   }
@@ -186,12 +182,12 @@ static LogicalResult buildCompInfoForSharedArgs(
 // Creates a new scf.for op with extra iter_args for shared arguments.
 // Copies attributes from the original for op.
 // Each SharedArgInfo entry (non-owner block) gets its own extra iter_arg.
-static scf::ForOp createNewForOp(
-    scf::ForOp forOp,
-    const SmallVector<SharedArgInfo> &sharedArgsInfo)
-{
+static scf::ForOp
+createNewForOp(scf::ForOp forOp,
+               const SmallVector<SharedArgInfo> &sharedArgsInfo) {
   OpBuilder builder(forOp);
-  SmallVector<Value> newInitArgs(forOp.getInitArgs().begin(), forOp.getInitArgs().end());
+  SmallVector<Value> newInitArgs(forOp.getInitArgs().begin(),
+                                 forOp.getInitArgs().end());
 
   // Each non-owner block gets its own extra iter_arg
   for (auto &info : sharedArgsInfo) {
@@ -210,13 +206,13 @@ static scf::ForOp createNewForOp(
 
 // Migrates operations from old block to new block.
 // Redirects block arguments to new block arguments and moves all ops.
-static void migrateBody(Block *oldBlock, Block *newBlock)
-{
+static void migrateBody(Block *oldBlock, Block *newBlock) {
   for (unsigned i = 0; i < oldBlock->getNumArguments(); ++i) {
     oldBlock->getArgument(i).replaceAllUsesWith(newBlock->getArgument(i));
   }
 
-  for (Operation &op : llvm::make_early_inc_range(oldBlock->without_terminator())) {
+  for (Operation &op :
+       llvm::make_early_inc_range(oldBlock->without_terminator())) {
     op.moveBefore(newBlock, newBlock->end());
   }
 }
@@ -225,17 +221,13 @@ static void migrateBody(Block *oldBlock, Block *newBlock)
 // Topologically sorts the chain and clones each op with remapped operands.
 // argRemapping: maps migrated iter_arg Value -> new extra iter_arg Value.
 // resultMapper: maps original op results -> cloned op results.
-// clonedArgIdx: unique index for this non-owner block's clone (used as ssbuffer.arg).
-static LogicalResult cloneChainForBlock(
-    SharedArgInfo &info,
-    Operation *compOp,
-    const llvm::DenseSet<Operation*> &chainOps,
-    Block *newBlock,
-    IRMapping &argRemapping,
-    OpBuilder &cloneBuilder,
-    IRMapping &resultMapper,
-    int clonedArgIdx)
-{
+// clonedArgIdx: unique index for this non-owner block's clone (used as
+// ssbuffer.arg).
+static LogicalResult
+cloneChainForBlock(SharedArgInfo &info, Operation *compOp,
+                   const llvm::DenseSet<Operation *> &chainOps, Block *newBlock,
+                   IRMapping &argRemapping, OpBuilder &cloneBuilder,
+                   IRMapping &resultMapper, int clonedArgIdx) {
   if (!compOp || chainOps.empty()) {
     return failure();
   }
@@ -253,17 +245,21 @@ static LogicalResult cloneChainForBlock(
       if (argRemapping.contains(oldVal)) {
         newVal = argRemapping.lookup(oldVal);
       } else if (resultMapper.contains(oldVal)) {
-        // Operand is a result from earlier in the owner chain, use cloned result
+        // Operand is a result from earlier in the owner chain, use cloned
+        // result
         newVal = resultMapper.lookup(oldVal);
       }
       opMapper.map(oldVal, newVal);
     }
 
-    if (resultMapper.contains(op->getResult(0))) continue;
+    if (resultMapper.contains(op->getResult(0)))
+      continue;
 
     Operation *cloned = cloneBuilder.clone(*op, opMapper);
-    cloned->setAttr("ssbuffer.block_id", cloneBuilder.getI32IntegerAttr(info.nonOwnerBlockId));
-    cloned->setAttr("ssbuffer.arg", cloneBuilder.getI32IntegerAttr(info.argIndex));
+    cloned->setAttr("ssbuffer.block_id",
+                    cloneBuilder.getI32IntegerAttr(info.nonOwnerBlockId));
+    cloned->setAttr("ssbuffer.arg",
+                    cloneBuilder.getI32IntegerAttr(info.argIndex));
 
     resultMapper.map(op->getResult(0), cloned->getResult(0));
     cloneBuilder.setInsertionPointAfter(cloned);
@@ -273,41 +269,39 @@ static LogicalResult cloneChainForBlock(
 
 // Replaces iter_arg uses in non-owner block with the cloned iter_arg.
 // argRemapping maps migrated iter_arg Value -> new extra iter_arg Value.
-static LogicalResult replaceIterArgsInBlock(
-    SharedArgInfo &info,
-    Block *newBlock,
-    IRMapping &argRemapping,
-    OpBuilder &cloneBuilder)
-{
+static LogicalResult replaceIterArgsInBlock(SharedArgInfo &info,
+                                            Block *newBlock,
+                                            IRMapping &argRemapping,
+                                            OpBuilder &cloneBuilder) {
   for (Operation &op : newBlock->without_terminator()) {
     auto blockIdAttr = op.getAttrOfType<IntegerAttr>("ssbuffer.block_id");
-    if (!blockIdAttr || blockIdAttr.getInt() != info.nonOwnerBlockId) continue;
+    if (!blockIdAttr || blockIdAttr.getInt() != info.nonOwnerBlockId)
+      continue;
 
     for (unsigned i = 0; i < op.getNumOperands(); ++i) {
       Value operand = op.getOperand(i);
       if (argRemapping.contains(operand)) {
         Value newVal = argRemapping.lookup(operand);
         op.setOperand(i, newVal);
-        op.setAttr("ssbuffer.arg", cloneBuilder.getI32IntegerAttr(info.argIndex));
+        op.setAttr("ssbuffer.arg",
+                   cloneBuilder.getI32IntegerAttr(info.argIndex));
       }
     }
   }
   return success();
 }
 
-// Processes each shared arg: finds insertion point, clones chain, replaces iter_args.
-// Collects cloned results for building new yield operands.
+// Processes each shared arg: finds insertion point, clones chain, replaces
+// iter_args. Collects cloned results for building new yield operands.
 static LogicalResult processSharedArgsIteration(
-    scf::ForOp forOp,
-    Block *newBlock,
+    scf::ForOp forOp, Block *newBlock,
     SmallVector<SharedArgInfo> &sharedArgsInfo,
-    const llvm::DenseMap<int, Operation*> &sharedArgToCompOp,
-    const llvm::DenseMap<int, llvm::DenseSet<Operation*>> &sharedArgToChainOps,
-    const SmallVector<Value> &oldBlockArgs,
-    SmallVector<Value> &clonedResults)
-{
+    const llvm::DenseMap<int, Operation *> &sharedArgToCompOp,
+    const llvm::DenseMap<int, llvm::DenseSet<Operation *>> &sharedArgToChainOps,
+    const SmallVector<Value> &oldBlockArgs, SmallVector<Value> &clonedResults) {
   unsigned numOriginalIterArgs = forOp.getNumRegionIterArgs();
-  unsigned extraIterArgsBase = 1 + numOriginalIterArgs; // block arg index where extra iter_args start
+  unsigned extraIterArgsBase =
+      1 + numOriginalIterArgs; // block arg index where extra iter_args start
 
   int clonedArgIdx = clonedResults.size();
   for (auto &info : sharedArgsInfo) {
@@ -340,31 +334,30 @@ static LogicalResult processSharedArgsIteration(
     IRMapping resultMapper;
     if (failed(cloneChainForBlock(info, sharedArgToCompOp.lookup(argIndex),
                                   sharedArgToChainOps.lookup(argIndex),
-                                  newBlock, argRemapping,
-                                  cloneBuilder, resultMapper, clonedArgIdx))) {
+                                  newBlock, argRemapping, cloneBuilder,
+                                  resultMapper, clonedArgIdx))) {
       continue;
     }
 
-    if (failed(replaceIterArgsInBlock(info, newBlock, argRemapping, cloneBuilder))) {
+    if (failed(replaceIterArgsInBlock(info, newBlock, argRemapping,
+                                      cloneBuilder))) {
       continue;
     }
 
-    Value clonedResult = resultMapper.lookup(
-        sharedArgToCompOp.lookup(argIndex)->getResult(0));
+    Value clonedResult =
+        resultMapper.lookup(sharedArgToCompOp.lookup(argIndex)->getResult(0));
     clonedResults.push_back(clonedResult);
     clonedArgIdx++;
   }
   return success();
 }
 
-// Prepares all shared args data: collects arg->blockId mapping, finds shared args,
-// and builds computation info for each shared arg.
+// Prepares all shared args data: collects arg->blockId mapping, finds shared
+// args, and builds computation info for each shared arg.
 static LogicalResult prepareSharedArgsData(
-    scf::ForOp forOp,
-    SmallVector<SharedArgInfo> &sharedArgsInfo,
-    llvm::DenseMap<int, Operation*> &sharedArgToCompOp,
-    llvm::DenseMap<int, llvm::DenseSet<Operation*>> &sharedArgToChainOps)
-{
+    scf::ForOp forOp, SmallVector<SharedArgInfo> &sharedArgsInfo,
+    llvm::DenseMap<int, Operation *> &sharedArgToCompOp,
+    llvm::DenseMap<int, llvm::DenseSet<Operation *>> &sharedArgToChainOps) {
   Block *body = forOp.getBody();
   if (!body || !body->mightHaveTerminator()) {
     LDBG("[Error]: forOp body is invalid or has no terminator\n");
@@ -385,10 +378,12 @@ static LogicalResult prepareSharedArgsData(
     return success();
   }
 
-  LDBG("[INFO]: Found " << sharedArgsInfo.size() << " shared iter_args to process\n");
+  LDBG("[INFO]: Found " << sharedArgsInfo.size()
+                        << " shared iter_args to process\n");
 
   if (failed(buildCompInfoForSharedArgs(forOp, body, sharedArgsInfo,
-                                        sharedArgToCompOp, sharedArgToChainOps))) {
+                                        sharedArgToCompOp,
+                                        sharedArgToChainOps))) {
     return failure();
   }
 
@@ -396,10 +391,9 @@ static LogicalResult prepareSharedArgsData(
 }
 
 // Builds new yield op with original operands plus cloned results.
-static LogicalResult buildNewYieldOp(
-    Block *oldBlock, Block *newBlock, scf::ForOp newForOp,
-    const SmallVector<Value> &clonedResults)
-{
+static LogicalResult buildNewYieldOp(Block *oldBlock, Block *newBlock,
+                                     scf::ForOp newForOp,
+                                     const SmallVector<Value> &clonedResults) {
   auto oldYield = cast<scf::YieldOp>(oldBlock->getTerminator());
   SmallVector<Value> yieldOperands;
 
@@ -416,11 +410,11 @@ static LogicalResult buildNewYieldOp(
   return success();
 }
 
-// Replaces all uses of old for op with new for op results and erases old for op.
-// Also transfers intraCoreDependentMap entry from oldForOp to newForOp.
-static LogicalResult replaceForOpAndErase(scf::ForOp oldForOp, scf::ForOp newForOp,
-                                          ControlFlowConditionInfo *info)
-{
+// Replaces all uses of old for op with new for op results and erases old for
+// op. Also transfers intraCoreDependentMap entry from oldForOp to newForOp.
+static LogicalResult replaceForOpAndErase(scf::ForOp oldForOp,
+                                          scf::ForOp newForOp,
+                                          ControlFlowConditionInfo *info) {
   if (oldForOp.getNumResults() > 0) {
     SmallVector<Value> newResults;
     for (unsigned i = 0; i < oldForOp.getNumResults(); ++i) {
@@ -431,7 +425,8 @@ static LogicalResult replaceForOpAndErase(scf::ForOp oldForOp, scf::ForOp newFor
 
   // Transfer intraCoreDependentMap entry from oldForOp to newForOp
   if (info && info->intraCoreDependentMap.count(oldForOp)) {
-    info->intraCoreDependentMap[newForOp] = info->intraCoreDependentMap[oldForOp];
+    info->intraCoreDependentMap[newForOp] =
+        info->intraCoreDependentMap[oldForOp];
     info->intraCoreDependentMap.erase(oldForOp);
   }
 
@@ -440,15 +435,16 @@ static LogicalResult replaceForOpAndErase(scf::ForOp oldForOp, scf::ForOp newFor
 }
 
 // Main entry point for processing shared iter_args in a single for op.
-// Orchestrates data preparation, new for op creation, body migration, and cloning.
-static LogicalResult processSharedIterArgsInForOp(scf::ForOp forOp, ControlFlowConditionInfo *info)
-{
+// Orchestrates data preparation, new for op creation, body migration, and
+// cloning.
+static LogicalResult
+processSharedIterArgsInForOp(scf::ForOp forOp, ControlFlowConditionInfo *info) {
   SmallVector<SharedArgInfo> sharedArgsInfo;
-  llvm::DenseMap<int, Operation*> sharedArgToCompOp;
-  llvm::DenseMap<int, llvm::DenseSet<Operation*>> sharedArgToChainOps;
+  llvm::DenseMap<int, Operation *> sharedArgToCompOp;
+  llvm::DenseMap<int, llvm::DenseSet<Operation *>> sharedArgToChainOps;
 
-  if (failed(prepareSharedArgsData(forOp, sharedArgsInfo,
-                                   sharedArgToCompOp, sharedArgToChainOps))) {
+  if (failed(prepareSharedArgsData(forOp, sharedArgsInfo, sharedArgToCompOp,
+                                   sharedArgToChainOps))) {
     return failure();
   }
 
@@ -469,8 +465,8 @@ static LogicalResult processSharedIterArgsInForOp(scf::ForOp forOp, ControlFlowC
 
   SmallVector<Value> clonedResults;
   if (failed(processSharedArgsIteration(forOp, newBlock, sharedArgsInfo,
-                                       sharedArgToCompOp, sharedArgToChainOps,
-                                       oldBlockArgs, clonedResults))) {
+                                        sharedArgToCompOp, sharedArgToChainOps,
+                                        oldBlockArgs, clonedResults))) {
     return failure();
   }
 
@@ -487,8 +483,7 @@ static LogicalResult processSharedIterArgsInForOp(scf::ForOp forOp, ControlFlowC
 
 // Walks module to find for ops with ssbuffer.main_loop attribute.
 // Processes each main loop to handle shared iter_args.
-LogicalResult ProcessArgsPass::processSharedIterArgs(ModuleOp module)
-{
+LogicalResult ProcessArgsPass::processSharedIterArgs(ModuleOp module) {
   WalkResult result = module.walk([&](Operation *op) -> WalkResult {
     if (!op->hasAttr("ssbuffer.main_loop")) {
       return WalkResult::advance();
@@ -511,8 +506,7 @@ LogicalResult ProcessArgsPass::processSharedIterArgs(ModuleOp module)
   return success();
 }
 
-void ProcessArgsPass::runOnOperation()
-{
+void ProcessArgsPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   LDBG("before processArgs:\n" << module << "\n");
@@ -528,8 +522,7 @@ void ProcessArgsPass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createProcessArgsPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createProcessArgsPass() {
   return std::make_unique<ProcessArgsPass>();
 }
 

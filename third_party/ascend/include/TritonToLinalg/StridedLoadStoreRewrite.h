@@ -54,13 +54,13 @@ inline constexpr const char *InspectedByStridedLoadStoreRewriteTAG =
 //   and is gated on `compileOn91095Flag && forceSimtTemplateFlag`.
 class LoadConverter : public OpRewritePattern<triton::LoadOp> {
 public:
-    explicit LoadConverter(MLIRContext *context)
-        : OpRewritePattern<triton::LoadOp>(context) {}
+  explicit LoadConverter(MLIRContext *context)
+      : OpRewritePattern<triton::LoadOp>(context) {}
 
-    using OpRewritePattern<triton::LoadOp>::OpRewritePattern;
+  using OpRewritePattern<triton::LoadOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(triton::LoadOp op,
-                                  PatternRewriter &rewriter) const override;
+  LogicalResult matchAndRewrite(triton::LoadOp op,
+                                PatternRewriter &rewriter) const override;
 };
 
 // V2: mirror of LoadConverter for tt.store -> tt.stride_store. Same trigger
@@ -69,15 +69,15 @@ public:
 // same MLIR-pattern-contract handling via the Inspected/Rewritten tags.
 class StoreConverter : public OpRewritePattern<triton::StoreOp> {
 public:
-    explicit StoreConverter(MLIRContext *context)
-        : OpRewritePattern<triton::StoreOp>(context) {}
+  explicit StoreConverter(MLIRContext *context)
+      : OpRewritePattern<triton::StoreOp>(context) {}
 
-    using OpRewritePattern<triton::StoreOp>::OpRewritePattern;
+  using OpRewritePattern<triton::StoreOp>::OpRewritePattern;
 
-    LogicalResult matchAndRewrite(triton::StoreOp op,
-                                  PatternRewriter &rewriter) const override;
+  LogicalResult matchAndRewrite(triton::StoreOp op,
+                                PatternRewriter &rewriter) const override;
 };
 
-}  // namespace StridedLoadStoreRewrite
+} // namespace StridedLoadStoreRewrite
 
-#endif  // TRITON_ASCEND_STRIDED_LOAD_STORE_REWRITE_H
+#endif // TRITON_ASCEND_STRIDED_LOAD_STORE_REWRITE_H

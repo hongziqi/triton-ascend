@@ -37,25 +37,25 @@ public:
 
   void runOnOperation() override;
 
-  void setConditionInfo(ControlFlowConditionInfo *info)
-  {
-    this->info = info;
-  }
+  void setConditionInfo(ControlFlowConditionInfo *info) { this->info = info; }
 
-  llvm::StringRef getArgument() const override
-  {
-    return "update-for-ops";
-  }
+  llvm::StringRef getArgument() const override { return "update-for-ops"; }
 
 private:
-  LogicalResult addBlockCountersAndInnerDepConds(ModuleOp module, ControlFlowConditionInfo *info);
+  LogicalResult
+  addBlockCountersAndInnerDepConds(ModuleOp module,
+                                   ControlFlowConditionInfo *info);
 
-  LogicalResult deriveBlockCountersFromIfOps(ModuleOp module, ControlFlowConditionInfo *info);
+  LogicalResult deriveBlockCountersFromIfOps(ModuleOp module,
+                                             ControlFlowConditionInfo *info);
 
   LogicalResult insertInterCorePipeS(ModuleOp module);
 
-  // Analyze the dependencies of the tensor type iter_args in the main_loop with the ssbuffer.if ops
-  LogicalResult analyzeTensorIterArgDependencies(ModuleOp module, ControlFlowConditionInfo *info);
+  // Analyze the dependencies of the tensor type iter_args in the main_loop with
+  // the ssbuffer.if ops
+  LogicalResult
+  analyzeTensorIterArgDependencies(ModuleOp module,
+                                   ControlFlowConditionInfo *info);
 
   ControlFlowConditionInfo *info = nullptr;
 };

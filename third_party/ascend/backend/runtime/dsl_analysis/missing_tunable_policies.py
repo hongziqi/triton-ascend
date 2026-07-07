@@ -42,11 +42,13 @@ def _select_missing_constexpr(context: MissingTunableContext) -> List[str]:
 
 
 class VectorPolicy:
+
     def select_missing_tunable(self, context: MissingTunableContext) -> List[str]:
         return _select_missing_constexpr(context)
 
 
 class CubeMixPolicy:
+
     def select_missing_tunable(self, context: MissingTunableContext) -> List[str]:
         candidates = _select_missing_constexpr(context)
         launch_related_names = set()

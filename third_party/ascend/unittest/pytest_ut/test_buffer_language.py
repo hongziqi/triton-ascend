@@ -48,7 +48,8 @@ def compile_kernel(kernel, signature, constants):
     ir.load_dialects(context)
     buffer_ir.load_dialects(context)
     ascend_ir.load_dialects(context)
-    module = ast_to_ttir(kernel, src, context, Options(), {"create_address_space": al.semantic.create_address_space}, {})
+    module = ast_to_ttir(kernel, src, context, Options(), {"create_address_space": al.semantic.create_address_space},
+                         {})
     return str(module)
 
 
@@ -65,11 +66,11 @@ def kernel_buffer_type_operations(M: tl.constexpr, N: tl.constexpr):
 def kernel_buffer_class_operations(M: tl.constexpr, N: tl.constexpr):
     # Allocate a buffer
     buf = bl.alloc(tl.float32, [M, N], al.ascend_address_space.UB)
-    
+
     # Test __str__ method implicitly
     # Test subview method
     sub = buf.subview([0, 0], [M // 2, N // 2], [1, 1])
-    
+
     # Test to_tensor method
     tensor = buf.to_tensor(writable=True)
 
@@ -83,10 +84,10 @@ def kernel_alloc_operations(M: tl.constexpr, N: tl.constexpr):
     buf_l0a = bl.alloc(tl.float32, [M, N], al.ascend_address_space.L0A)
     buf_l0b = bl.alloc(tl.float32, [M, N], al.ascend_address_space.L0B)
     buf_l0c = bl.alloc(tl.float32, [M, N], al.ascend_address_space.L0C)
-    
+
     # Test alloc with mem_unique flag
     buf_unique = bl.alloc(tl.float32, [M, N], al.ascend_address_space.UB, is_mem_unique=True)
-    
+
     # Test alloc with different data types
     buf_float16 = bl.alloc(tl.float16, [M, N], al.ascend_address_space.UB)
     buf_int32 = bl.alloc(tl.int32, [M, N], al.ascend_address_space.UB)
@@ -100,11 +101,11 @@ def kernel_to_buffer_operations(M: tl.constexpr, N: tl.constexpr):
     x_float32 = tl.full([M, N], 0.0, dtype=tl.float32)
     x_float16 = tl.full([M, N], 0.0, dtype=tl.float16)
     x_int32 = tl.full([M, N], 0, dtype=tl.int32)
-    
+
     # Test to_buffer with different address spaces
     buf_ub = bl.to_buffer(x_float32, al.ascend_address_space.UB)
     buf_l1 = bl.to_buffer(x_float32, al.ascend_address_space.L1)
-    
+
     # Test to_buffer with bind_buffer
     buf_bind = bl.alloc(tl.float32, [M, N], al.ascend_address_space.UB)
     buf_bound = bl.to_buffer(x_float32, al.ascend_address_space.UB, bind_buffer=buf_bind)
@@ -116,13 +117,13 @@ def kernel_to_tensor_operations(M: tl.constexpr, N: tl.constexpr):
     # Allocate buffers of different data types
     buf_float32 = bl.alloc(tl.float32, [M, N], al.ascend_address_space.UB)
     buf_float16 = bl.alloc(tl.float16, [M, N], al.ascend_address_space.UB)
-    
+
     # Test to_tensor with default parameters
     tensor_float32 = bl.to_tensor(buf_float32, writable=True)
-    
+
     # Test to_tensor with writable=False
     tensor_readonly = bl.to_tensor(buf_float32, writable=False)
-    
+
     # Test to_tensor with target shape (must be different from source shape)
     tensor_reshaped = bl.to_tensor(buf_float32, writable=True, target_shape=[M * 2, N * 2])
 
@@ -132,12 +133,12 @@ def kernel_to_tensor_operations(M: tl.constexpr, N: tl.constexpr):
 def kernel_subview_operations(M: tl.constexpr, N: tl.constexpr):
     # Allocate a buffer
     buf = bl.alloc(tl.float32, [M, N], al.ascend_address_space.UB)
-    
+
     # Test subview function with different parameters
     sub1 = bl.subview(buf, [0, 0], [M // 2, N // 2], [1, 1])
     sub2 = bl.subview(buf, [M // 2, 0], [M // 2, N], [1, 1])
     sub3 = bl.subview(buf, [0, N // 2], [M, N // 2], [1, 1])
-    
+
     # Test subview with different offset types
     # Integer offsets
     sub_int = bl.subview(buf, [0, 0], [M // 2, N // 2], [1, 1])

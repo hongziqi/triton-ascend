@@ -41,9 +41,7 @@ class VvConfigAdapterResult:
     diagnostics: List[str] = field(default_factory=list)
 
 
-def _dedup_tunable_by_first_axis(
-    axis_tunable_pairs: Sequence[Tuple[int, str]],
-) -> List[Tuple[int, str]]:
+def _dedup_tunable_by_first_axis(axis_tunable_pairs: Sequence[Tuple[int, str]], ) -> List[Tuple[int, str]]:
     ordered: List[Tuple[int, str]] = []
     seen = set()
     for axis_index, tunable_name in axis_tunable_pairs:
@@ -80,9 +78,7 @@ def adapt_vv_v2_to_vector_inputs(
     direct_low_dim = list(getattr(vv_parse_result, "low_dim_axes", []) or [])
     direct_reduction = list(getattr(vv_parse_result, "reduction_axes", []) or [])
     direct_axis_length_exprs = dict(getattr(vv_parse_result, "axis_length_exprs", {}) or {})
-    direct_fixed_tiling_exprs = dict(
-        getattr(vv_parse_result, "fixed_tiling_exprs", {}) or {}
-    )
+    direct_fixed_tiling_exprs = dict(getattr(vv_parse_result, "fixed_tiling_exprs", {}) or {})
     direct_axis_dynamic_sources = dict(getattr(vv_parse_result, "axis_dynamic_sources", {}) or {})
     direct_axis_pid_dims = dict(getattr(vv_parse_result, "axis_pid_dims", {}) or {})
     direct_inferred_keys = dict(getattr(vv_parse_result, "inferred_keys", {}) or {})
@@ -92,17 +88,9 @@ def adapt_vv_v2_to_vector_inputs(
     if direct_status == "failed":
         return None
 
-    if (
-        direct_split
-        or direct_tiling
-        or direct_low_dim
-        or direct_reduction
-        or direct_axis_length_exprs
-        or direct_fixed_tiling_exprs
-        or direct_axis_dynamic_sources
-        or direct_axis_pid_dims
-        or direct_inferred_keys
-    ):
+    if (direct_split or direct_tiling or direct_low_dim or direct_reduction or direct_axis_length_exprs
+            or direct_fixed_tiling_exprs or direct_axis_dynamic_sources or direct_axis_pid_dims
+            or direct_inferred_keys):
         return VvConfigAdapterResult(
             split_params=direct_split,
             tiling_params=direct_tiling,

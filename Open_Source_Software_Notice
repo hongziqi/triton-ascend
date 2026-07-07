@@ -1,17 +1,17 @@
 OPEN SOURCE SOFTWARE NOTICE
 
-The open source software notice for the open source software used in this Triton-Ascend project (“the Project”) is provided in this document. The open source software licenses are granted by the respective right holders. With regard to the respective open source software contained in the Project, the applicable open source software license will prevail all other license agreement, including but not limited to the MIT  License, in case of any conflicts. 
+The open source software notice for the open source software used in this Triton-Ascend project (“the Project”) is provided in this document. The open source software licenses are granted by the respective right holders. With regard to the respective open source software contained in the Project, the applicable open source software license will prevail all other license agreement, including but not limited to the MIT  License, in case of any conflicts.
 
-Warranty Disclaimer    
-THE OPEN SOURCE SOFTWARE IN THIS OPENEULER DISTRIBUTION IS PROVIDED ON AN "AS IS" BASIS, WITHOUT ANY WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. 
+Warranty Disclaimer
+THE OPEN SOURCE SOFTWARE IN THIS OPENEULER DISTRIBUTION IS PROVIDED ON AN "AS IS" BASIS, WITHOUT ANY WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 See the applicable licenses for more details.
 
-Copyright Notice and License Texts 
+Copyright Notice and License Texts
 
-Software: 
+Software:
 triton-shared、triton、intel-xpu-backend-for-triton、pytorch、parrotserve、flaggems、unsloth
 
-Copyright notice: 
+Copyright notice:
 Copyright (c) Microsoft Corporation.
 Copyright 2018-2020 Philippe Tillet
 Copyright 2023 Intel
@@ -25,7 +25,7 @@ Copyright © 2024 BAAI. All rights reserved.
 Copyright 2023-present Daniel Han-Chen the Unsloth team. All rights reserved.
 Copyright 2023-present Daniel Han-Chen the Unsloth team
 
-License: 
+License:
 Triton-shared:
     MIT License
 

@@ -35,4 +35,3 @@ module {
     return %result : tensor<32x32xf32>
   }
 }
-

@@ -23,26 +23,24 @@
 
 #include <cstdlib>
 
-#include "ascend/include/TritonToLinalg/TritonToLinalgPass.h"
 #include "TritonToLinalg/BlockPtrAnalysis.h"
-#include "ascend/include/TritonToLinalg/ArgMinMaxConverter.h"
-#include "ascend/include/TritonToLinalg/FunctionConverter.h"
-#include "ascend/include/TritonToLinalg/LoadStoreConverter.h"
-#include "ascend/include/TritonToLinalg/TritonOpConverter.h"
-#include "ascend/include/TritonToLinalg/DevicePrintOffsetRewrite.h"
 #include "ascend/include/Dialect/TritonAscend/IR/TritonAscendDialect.h"
 #include "ascend/include/TritonToLinalg/ArgMinMaxConverter.h"
 #include "ascend/include/TritonToLinalg/DescriptorConverter.h"
+#include "ascend/include/TritonToLinalg/DevicePrintOffsetRewrite.h"
 #include "ascend/include/TritonToLinalg/FunctionConverter.h"
 #include "ascend/include/TritonToLinalg/HoistBroadcast.h"
 #include "ascend/include/TritonToLinalg/ImplicitPermute.h"
-#include "ascend/include/TritonToLinalg/UseAnalysis.h"
-#include "ascend/include/TritonToLinalg/StridedLoadStoreRewrite.h"
-#include "ascend/include/TritonToLinalg/StridedAxisCoalescing.h"
-#include "ascend/include/TritonToLinalg/TileChunkCoalescing.h"
+#include "ascend/include/TritonToLinalg/LoadStoreConverter.h"
 #include "ascend/include/TritonToLinalg/MarkTensorKindPass.h"
-#include "ascend/include/TritonToUnstructure/UnstructureConversionPass.h"
+#include "ascend/include/TritonToLinalg/StridedAxisCoalescing.h"
+#include "ascend/include/TritonToLinalg/StridedLoadStoreRewrite.h"
+#include "ascend/include/TritonToLinalg/TileChunkCoalescing.h"
+#include "ascend/include/TritonToLinalg/TritonOpConverter.h"
+#include "ascend/include/TritonToLinalg/TritonToLinalgPass.h"
+#include "ascend/include/TritonToLinalg/UseAnalysis.h"
 #include "ascend/include/TritonToStructured/CannonicalizerConverter.h"
+#include "ascend/include/TritonToUnstructure/UnstructureConversionPass.h"
 #include "ascend/include/Utils/InterleaveOptimization.h"
 
 #include "bishengir/Dialect/HFusion/IR/HFusion.h"
@@ -100,25 +98,26 @@ bool existDotFlag = false;
 
 // Convert structured custom ops after operand type converted,
 // for example tt.ptr converted to memref.
-template <typename CustomOpT> class StructuredCustomOpConverter : public OpConversionPattern<CustomOpT> {
-  public:
-    using OpConversionPattern<CustomOpT>::OpConversionPattern;
+template <typename CustomOpT>
+class StructuredCustomOpConverter : public OpConversionPattern<CustomOpT> {
+public:
+  using OpConversionPattern<CustomOpT>::OpConversionPattern;
 
-    LogicalResult matchAndRewrite(CustomOpT op, typename CustomOpT::Adaptor adaptor,
-                                  ConversionPatternRewriter &rewriter) const override
-    {
-        BlockDataParser::rewriteStructuredCustomOp(op, adaptor, rewriter);
-        return success();
-    }
+  LogicalResult
+  matchAndRewrite(CustomOpT op, typename CustomOpT::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    BlockDataParser::rewriteStructuredCustomOp(op, adaptor, rewriter);
+    return success();
+  }
 };
 
 // A tt.scan that is (1) a plain cumsum (combine body is a single add, matching
-// ScanConverter's triton_cumsum selection) and (2) collapses to a 1-D scan after
-// backend lowering, i.e. every dim except the scan axis has extent 1 (e.g.
-// [1,1,128,1] with axis=2). Only this case is routed to the SIMT (Sklansky)
-// cumsum template; cumprod / generic scans and multi-dim cumsum stay on SIMD.
-static bool isSimt1DCumsum(triton::ScanOp op)
-{
+// ScanConverter's triton_cumsum selection) and (2) collapses to a 1-D scan
+// after backend lowering, i.e. every dim except the scan axis has extent 1
+// (e.g. [1,1,128,1] with axis=2). Only this case is routed to the SIMT
+// (Sklansky) cumsum template; cumprod / generic scans and multi-dim cumsum stay
+// on SIMD.
+static bool isSimt1DCumsum(triton::ScanOp op) {
   // (1) Must be a single-add combine body (skip pure type-cast ops, mirroring
   // ReductionOpBaseConverter::getRealReductionOps).
   Operation *reduceOp = nullptr;
@@ -147,21 +146,19 @@ static bool isSimt1DCumsum(triton::ScanOp op)
   return true;
 }
 
-static bool isCustomOpOperandTypesLegal(TypeRange types)
-{
-    return llvm::all_of(types, [](Type t) {
-        if (isa<triton::PointerType>(t)) {
-            return false;
-        }
-        if (auto shapedType = dyn_cast<ShapedType>(t)) {
-            return !isa<triton::PointerType>(shapedType.getElementType());
-        }
-        return true;
-    });
+static bool isCustomOpOperandTypesLegal(TypeRange types) {
+  return llvm::all_of(types, [](Type t) {
+    if (isa<triton::PointerType>(t)) {
+      return false;
+    }
+    if (auto shapedType = dyn_cast<ShapedType>(t)) {
+      return !isa<triton::PointerType>(shapedType.getElementType());
+    }
+    return true;
+  });
 }
 
-static bool isSIMTOp(Operation *op)
-{
+static bool isSIMTOp(Operation *op) {
   if (auto custom_op = dyn_cast<hivm::CustomOp>(op)) {
     return custom_op.getCoreType() == hivm::TCoreType::VECTOR &&
            custom_op.getVFMode() == hivm::VFMode::SIMT;
@@ -182,15 +179,10 @@ static bool isSIMTOp(Operation *op)
       return isSimt1DCumsum(scan);
     }
   }
-  return isa<
-      triton::ascend::IndexPutOp,
-      triton::ascend::GatherOutToUbOp,
-      triton::ascend::ScatterUbToOutOp,
-      triton::ascend::IndirectLoadOp,
-      triton::ascend::StrideLoadOp,
-      triton::ascend::StrideStoreOp,
-      triton::ascend::IndirectStoreOp
-      >(op);
+  return isa<triton::ascend::IndexPutOp, triton::ascend::GatherOutToUbOp,
+             triton::ascend::ScatterUbToOutOp, triton::ascend::IndirectLoadOp,
+             triton::ascend::StrideLoadOp, triton::ascend::StrideStoreOp,
+             triton::ascend::IndirectStoreOp>(op);
 }
 
 TritonTypeConverter::TritonTypeConverter() {
@@ -544,10 +536,13 @@ void TritonToLinalgPass::addDynamicLegal(
   });
 
   // For CustomOp/CustomMacroOp, tt.ptr should be converted to memref.
-  target.addDynamicallyLegalOp<hivm::CustomOp>(
-      [&](hivm::CustomOp op) { return isCustomOpOperandTypesLegal(op->getOperandTypes()); });
+  target.addDynamicallyLegalOp<hivm::CustomOp>([&](hivm::CustomOp op) {
+    return isCustomOpOperandTypesLegal(op->getOperandTypes());
+  });
   target.addDynamicallyLegalOp<hivm::CustomMacroOp>(
-      [&](hivm::CustomMacroOp op) { return isCustomOpOperandTypesLegal(op->getOperandTypes()); });
+      [&](hivm::CustomMacroOp op) {
+        return isCustomOpOperandTypesLegal(op->getOperandTypes());
+      });
 
   target.addDynamicallyLegalOp<arith::ConstantOp>([](arith::ConstantOp op) {
     auto res = op.getResult();
@@ -736,14 +731,16 @@ void TritonToLinalgPass::populateTritonToLinalgConversionPatterns(
   patterns.add<TTOpConverters::SortOpConverter>(patterns.getContext());
   patterns.add<TTOpConverters::FlipOpConverter>(patterns.getContext());
   patterns.add<TTOpConverters::GatherConverter>(patterns.getContext());
-  // On 950 (910B4/91095), histogram is lowered via hivm.custom builtin template.
-  // On other targets, histogram is handled by TritonToHFusion pass instead.
+  // On 950 (910B4/91095), histogram is lowered via hivm.custom builtin
+  // template. On other targets, histogram is handled by TritonToHFusion pass
+  // instead.
   if (compileOn91095Flag) {
     patterns.add<TTOpConverters::HistogramConverter>(patterns.getContext());
   }
 
   // Add convert pattern for structured custom ops.
-  patterns.add<StructuredCustomOpConverter<hivm::CustomOp>, StructuredCustomOpConverter<hivm::CustomMacroOp>>(
+  patterns.add<StructuredCustomOpConverter<hivm::CustomOp>,
+               StructuredCustomOpConverter<hivm::CustomMacroOp>>(
       patterns.getContext());
 
   if (!this->namedOps) {
@@ -860,18 +857,16 @@ TritonToLinalgPass::processImplicitPermuteOperations(ModuleOp moduleOp) {
   return runPipeline(pm, getOperation());
 }
 
-LogicalResult TritonToLinalgPass::processStridedLoadStoreRewriteOperations(ModuleOp moduleOp)
-{
+LogicalResult TritonToLinalgPass::processStridedLoadStoreRewriteOperations(
+    ModuleOp moduleOp) {
   // The strided-axis rewrites below only apply in 950 SIMT mode. On other
   // targets we leave strided loads to the legacy strided DMA lowering.
   if (!(compileOn91095Flag && forceSimtTemplateFlag)) {
     return success();
   }
 
-
-
-  // coalesce adjacent strided axes into one  so that to convert discrete memory asccess
-  // into continuous memory access .
+  // coalesce adjacent strided axes into one  so that to convert discrete memory
+  // asccess into continuous memory access .
   StridedAxisCoalescing::rewriteStridedAxisCoalesce(moduleOp);
 
   // TileChunkCoalescing (default-on, lower priority): when the outermost
@@ -905,8 +900,8 @@ LogicalResult TritonToLinalgPass::processStridedLoadStoreRewriteOperations(Modul
   return runPipeline(pm, getOperation());
 }
 
-LogicalResult TritonToLinalgPass::processLegalStrideOperations(ModuleOp moduleOp)
-{
+LogicalResult
+TritonToLinalgPass::processLegalStrideOperations(ModuleOp moduleOp) {
   mlir::ConversionTarget target(getContext());
   target.addLegalOp<arith::ConstantOp>();
   target.addDynamicallyLegalOp<memref::ReinterpretCastOp>(
@@ -947,12 +942,13 @@ void TritonToLinalgPass::runOnOperation() {
   existDotFlag = existDot;
 
   // NOTE: existSIMTOp is intentionally computed AFTER
-  // processStridedLoadStoreRewriteOperations below, because that step materializes
-  // triton::ascend::IndirectLoadOp/IndirectStoreOp (which isSIMTOp() counts).
-  // Walking here (before the rewrite) would miss them and mislabel the kernel
-  // parallel_mode as "simd" instead of "mix_simd_simt"; then enable_simt would
-  // be false and the launch would not reserve localMemorySize for the SIMT
-  // templates -> VEC UB out-of-bounds (error 341) at runtime on mix-CV kernels.
+  // processStridedLoadStoreRewriteOperations below, because that step
+  // materializes triton::ascend::IndirectLoadOp/IndirectStoreOp (which
+  // isSIMTOp() counts). Walking here (before the rewrite) would miss them and
+  // mislabel the kernel parallel_mode as "simd" instead of "mix_simd_simt";
+  // then enable_simt would be false and the launch would not reserve
+  // localMemorySize for the SIMT templates -> VEC UB out-of-bounds (error 341)
+  // at runtime on mix-CV kernels.
   bool existSIMTOp = false;
 
   // Execute tensor descriptor operations conversion
@@ -994,7 +990,8 @@ void TritonToLinalgPass::runOnOperation() {
     return WalkResult::advance();
   });
 
-  // 0. Annotate Memory-Related Triton FuncOps with tensor_kind (used by profiling).
+  // 0. Annotate Memory-Related Triton FuncOps with tensor_kind (used by
+  // profiling).
   {
     PassManager pm(&getContext(), moduleOp.getOperationName());
     pm.addPass(triton::createMarkTensorKindPass());
@@ -1090,21 +1087,22 @@ void TritonToLinalgPass::runOnOperation() {
     signalPassFailure();
   }
 
-// 7.1 Workaround: fold duplicated one-hot reconstruction emitted after
-// ArgMax lowering. The issue is not in triton::ReduceOp semantics themselves;
-// redundant value reconstruction is materialized later and can lower to
-// incorrect code on Ascend, so this is fixed post-conversion on linalg::ReduceOp.
-{
-  RewritePatternSet foldPatterns(&getContext());
-  TTOpConverters::populatePostConversionCanonicalizationPatterns(foldPatterns);
+  // 7.1 Workaround: fold duplicated one-hot reconstruction emitted after
+  // ArgMax lowering. The issue is not in triton::ReduceOp semantics themselves;
+  // redundant value reconstruction is materialized later and can lower to
+  // incorrect code on Ascend, so this is fixed post-conversion on
+  // linalg::ReduceOp.
+  {
+    RewritePatternSet foldPatterns(&getContext());
+    TTOpConverters::populatePostConversionCanonicalizationPatterns(
+        foldPatterns);
 
-  if (failed(applyPatternsGreedily(moduleOp,
-                                          std::move(foldPatterns)))) {
-    moduleOp->emitError("failed to fold one-hot gather after max_with_index");
-    signalPassFailure();
-    return;
+    if (failed(applyPatternsGreedily(moduleOp, std::move(foldPatterns)))) {
+      moduleOp->emitError("failed to fold one-hot gather after max_with_index");
+      signalPassFailure();
+      return;
+    }
   }
-}
 
   // Execute legal stride operations conversion
   if (failed(processLegalStrideOperations(moduleOp))) {
@@ -1333,10 +1331,9 @@ void TritonToLinalgPass::runOnOperation() {
   });
 }
 
-std::unique_ptr<OperationPass<ModuleOp>>
-triton::createTritonToLinalgPass(bool globalKernel, bool namedOps,
-                                 bool enableNd2nzOnVector,
-                                 bool enableSelectAnalysis, bool compileOn91095) {
+std::unique_ptr<OperationPass<ModuleOp>> triton::createTritonToLinalgPass(
+    bool globalKernel, bool namedOps, bool enableNd2nzOnVector,
+    bool enableSelectAnalysis, bool compileOn91095) {
   return std::make_unique<TritonToLinalgPass>(
       globalKernel, namedOps, enableNd2nzOnVector, enableSelectAnalysis,
       compileOn91095);

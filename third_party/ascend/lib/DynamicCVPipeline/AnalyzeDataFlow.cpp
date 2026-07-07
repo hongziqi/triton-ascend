@@ -31,8 +31,7 @@ static constexpr const char *DEBUG_TYPE = "analyze-data-flow";
 using namespace mlir;
 using namespace triton;
 
-void AnalyzeDataFlowPass::runOnOperation()
-{
+void AnalyzeDataFlowPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   LDBG("Enter AnalyzeDataFlow pass.");
@@ -59,13 +58,11 @@ void AnalyzeDataFlowPass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeDataFlowPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createAnalyzeDataFlowPass() {
   return std::make_unique<AnalyzeDataFlowPass>();
 }
 
-void registerAnalyzeDataFlowPasses()
-{
+void registerAnalyzeDataFlowPasses() {
   registerPass(createAnalyzeNamePass);
   registerPass(createAnalyzeArgsPass);
   registerPass(createAnalyzeFlagPass);

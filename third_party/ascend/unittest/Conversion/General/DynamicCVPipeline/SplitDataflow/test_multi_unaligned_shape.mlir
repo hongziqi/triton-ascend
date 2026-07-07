@@ -95,5 +95,3 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">}  {
 // CHECK: math.exp %[[TENSOR_23]] {ssbuffer.block_id = 3 : i32, ssbuffer.core_type = "VECTOR"} : tensor<63x7xf32>
 
 // CHECK: return
-
-

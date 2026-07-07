@@ -38,51 +38,45 @@ using namespace triton;
 
 namespace {
 
-constexpr llvm::StringLiteral kIndirectAtomicBuiltin = "__builtin_indirect_atomic";
+constexpr llvm::StringLiteral kIndirectAtomicBuiltin =
+    "__builtin_indirect_atomic";
 constexpr unsigned kInt8BitWidth = 8;
 constexpr unsigned kInt16BitWidth = 16;
 
-bool hasStaticShape(RankedTensorType tensorType)
-{
+bool hasStaticShape(RankedTensorType tensorType) {
   return tensorType && tensorType.hasStaticShape();
 }
 
-bool hasStaticOffsetShape(Value offsetValue)
-{
+bool hasStaticOffsetShape(Value offsetValue) {
   if (auto offsetTensorType = dyn_cast<RankedTensorType>(offsetValue.getType()))
     return offsetTensorType.hasStaticShape();
   return offsetValue.getType().isIntOrIndex();
 }
 
-bool isUnsupportedCasOrXchgElementType(Type elementType)
-{
+bool isUnsupportedCasOrXchgElementType(Type elementType) {
   return elementType.isF16() || elementType.isBF16();
 }
 
-bool canUseIndirectAtomicFastPathForElementType(Type elementType)
-{
+bool canUseIndirectAtomicFastPathForElementType(Type elementType) {
   if (auto intType = dyn_cast<IntegerType>(elementType))
     return intType.getWidth() != kInt8BitWidth &&
            intType.getWidth() != kInt16BitWidth;
   return true;
 }
 
-bool canUseIndirectAtomicFastPathForOffset(Value offsetValue)
-{
+bool canUseIndirectAtomicFastPathForOffset(Value offsetValue) {
   if (!offsetValue) {
     return true;
   }
   return hasStaticOffsetShape(offsetValue);
 }
 
-int64_t getNumElements(ArrayRef<int64_t> tensorShape)
-{
+int64_t getNumElements(ArrayRef<int64_t> tensorShape) {
   return std::accumulate(tensorShape.begin(), tensorShape.end(), int64_t{1},
                          std::multiplies<int64_t>());
 }
 
-FailureOr<Attribute> getZeroAttr(Type elementType, PatternRewriter &rewriter)
-{
+FailureOr<Attribute> getZeroAttr(Type elementType, PatternRewriter &rewriter) {
   if (auto floatType = dyn_cast<FloatType>(elementType))
     return rewriter.getFloatAttr(floatType, 0.0);
   if (auto intType = dyn_cast<IntegerType>(elementType))
@@ -93,8 +87,7 @@ FailureOr<Attribute> getZeroAttr(Type elementType, PatternRewriter &rewriter)
 FailureOr<Value> createSplatConstantTensor(Location loc,
                                            RankedTensorType tensorType,
                                            Attribute splatAttr,
-                                           PatternRewriter &rewriter)
-{
+                                           PatternRewriter &rewriter) {
   if (!tensorType.hasStaticShape()) {
     return failure();
   }
@@ -104,8 +97,7 @@ FailureOr<Value> createSplatConstantTensor(Location loc,
 }
 
 FailureOr<Value> createZeroTensor(Location loc, RankedTensorType tensorType,
-                                  PatternRewriter &rewriter)
-{
+                                  PatternRewriter &rewriter) {
   auto zeroAttr = getZeroAttr(tensorType.getElementType(), rewriter);
   if (failed(zeroAttr)) {
     return failure();
@@ -114,13 +106,12 @@ FailureOr<Value> createZeroTensor(Location loc, RankedTensorType tensorType,
 }
 
 // Convert i1 mask to i8 before reshape to avoid hardware alignment issues.
-// Directly reshaping 2x3xi1 to 6xi1 without casting leads to incorrect memory layout:
-// Expected: 1 1 1 1 1 1 0 0
-// Actual (due to i8 alignment padding): 1 1 1 0 0 0 0 0, 1 1 1 0 0 0 0 0
-// This layout mismatch breaks mask matching and causes accuracy errors.
-// Casting to i8 first ensures proper element packing without alignment padding.
-Value castMaskToI8(Location loc, Value maskValue, PatternRewriter &rewriter)
-{
+// Directly reshaping 2x3xi1 to 6xi1 without casting leads to incorrect memory
+// layout: Expected: 1 1 1 1 1 1 0 0 Actual (due to i8 alignment padding): 1 1 1
+// 0 0 0 0 0, 1 1 1 0 0 0 0 0 This layout mismatch breaks mask matching and
+// causes accuracy errors. Casting to i8 first ensures proper element packing
+// without alignment padding.
+Value castMaskToI8(Location loc, Value maskValue, PatternRewriter &rewriter) {
   Type maskType = maskValue.getType();
   if (auto tensorType = dyn_cast<RankedTensorType>(maskType)) {
     auto targetType =
@@ -131,14 +122,12 @@ Value castMaskToI8(Location loc, Value maskValue, PatternRewriter &rewriter)
 }
 
 // Converts inputValue into a 1D tensor of type flatTensorType.
-// This 1D flattening is mandatory: the low-level SIMT execution model only supports 1D tensor.
-// If inputValue is scalar-like, it is first splatted to expandedTensorShape and
-// then reshaped into the flattened 1D tensor type.
-FailureOr<Value> createFlattenedTensorValue(Location loc, Value inputValue,
-                                            ArrayRef<int64_t> expandedTensorShape,
-                                            RankedTensorType flatTensorType,
-                                            PatternRewriter &rewriter)
-{
+// This 1D flattening is mandatory: the low-level SIMT execution model only
+// supports 1D tensor. If inputValue is scalar-like, it is first splatted to
+// expandedTensorShape and then reshaped into the flattened 1D tensor type.
+FailureOr<Value> createFlattenedTensorValue(
+    Location loc, Value inputValue, ArrayRef<int64_t> expandedTensorShape,
+    RankedTensorType flatTensorType, PatternRewriter &rewriter) {
   Value flattenedValue = inputValue;
   if (auto inputTensorType = dyn_cast<RankedTensorType>(inputValue.getType())) {
     if (!inputTensorType.hasStaticShape()) {
@@ -154,8 +143,8 @@ FailureOr<Value> createFlattenedTensorValue(Location loc, Value inputValue,
     return flattenedValue;
   }
 
-  auto expandedTensorType = RankedTensorType::get(expandedTensorShape,
-                                                  flatTensorType.getElementType());
+  auto expandedTensorType = RankedTensorType::get(
+      expandedTensorShape, flatTensorType.getElementType());
   Value splatValue =
       rewriter.create<triton::SplatOp>(loc, expandedTensorType, inputValue);
   if (expandedTensorType == flatTensorType) {
@@ -170,8 +159,7 @@ FailureOr<Value> createFlattenedTensorValue(Location loc, Value inputValue,
 // destination result tensor type expected by the original Triton op.
 Value restoreFlattenedTensorShape(Location loc, Value flatTensorValue,
                                   RankedTensorType targetTensorType,
-                                  PatternRewriter &rewriter)
-{
+                                  PatternRewriter &rewriter) {
   if (cast<RankedTensorType>(flatTensorValue.getType()) == targetTensorType) {
     return flatTensorValue;
   }
@@ -179,28 +167,27 @@ Value restoreFlattenedTensorShape(Location loc, Value flatTensorValue,
                                             flatTensorValue);
 }
 
-std::optional<llvm::StringRef> normalizeRmwOperate(RMWOp op)
-{
+std::optional<llvm::StringRef> normalizeRmwOperate(RMWOp op) {
   switch (op) {
-    case RMWOp::ADD:
-    case RMWOp::FADD:
-      return llvm::StringRef("add");
-    case RMWOp::MAX:
-    case RMWOp::UMAX:
-      return llvm::StringRef("max");
-    case RMWOp::MIN:
-    case RMWOp::UMIN:
-      return llvm::StringRef("min");
-    case RMWOp::XCHG:
-      return llvm::StringRef("xchg");
-    case RMWOp::AND:
-      return llvm::StringRef("and");
-    case RMWOp::OR:
-      return llvm::StringRef("or");
-    case RMWOp::XOR:
-      return llvm::StringRef("xor");
-    default:
-      return std::nullopt;
+  case RMWOp::ADD:
+  case RMWOp::FADD:
+    return llvm::StringRef("add");
+  case RMWOp::MAX:
+  case RMWOp::UMAX:
+    return llvm::StringRef("max");
+  case RMWOp::MIN:
+  case RMWOp::UMIN:
+    return llvm::StringRef("min");
+  case RMWOp::XCHG:
+    return llvm::StringRef("xchg");
+  case RMWOp::AND:
+    return llvm::StringRef("and");
+  case RMWOp::OR:
+    return llvm::StringRef("or");
+  case RMWOp::XOR:
+    return llvm::StringRef("xor");
+  default:
+    return std::nullopt;
   }
 }
 
@@ -208,22 +195,20 @@ Value createIndirectAtomicCustom(Location loc,
                                  RankedTensorType customResultType,
                                  ValueRange inputs, ValueRange outputs,
                                  llvm::StringRef operate,
-                                 PatternRewriter &rewriter)
-{
+                                 PatternRewriter &rewriter) {
   auto custom = rewriter.create<hivm::CustomOp>(
       loc, TypeRange{customResultType}, kIndirectAtomicBuiltin, inputs, outputs,
       ValueRange{});
   custom->setAttr("symbol", rewriter.getStringAttr(kIndirectAtomicBuiltin));
   custom->setAttr("extra_attr",
                   rewriter.getStringAttr(("operate=" + operate).str()));
-  custom->setAttr("hivm.pipe",
-                  hivm::PipeAttr::get(rewriter.getContext(), hivm::PIPE::PIPE_V));
+  custom->setAttr("hivm.pipe", hivm::PipeAttr::get(rewriter.getContext(),
+                                                   hivm::PIPE::PIPE_V));
   custom->setAttr(
       "hivm.tcore_type",
       hivm::TCoreTypeAttr::get(rewriter.getContext(), hivm::TCoreType::VECTOR));
-  custom->setAttr("hivm.vf_mode",
-                  hivm::VFModeAttr::get(rewriter.getContext(),
-                                        hivm::VFMode::SIMT));
+  custom->setAttr("hivm.vf_mode", hivm::VFModeAttr::get(rewriter.getContext(),
+                                                        hivm::VFMode::SIMT));
   return custom->getResult(0);
 }
 
@@ -231,77 +216,83 @@ Value createIndirectAtomicCustom(Location loc,
 
 namespace IndirectAtomicUtils {
 
-bool canUseIndirectAtomicFastPath(triton::AtomicRMWOp op, Value offsetValue)
-{
+bool canUseIndirectAtomicFastPath(triton::AtomicRMWOp op, Value offsetValue) {
   auto resultTensorType = dyn_cast<RankedTensorType>(op.getResult().getType());
   if (!hasStaticShape(resultTensorType)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: result shape is not static.\n";
+      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: result "
+                      "shape is not static.\n";
     });
     return false;
   }
   Type elementType = resultTensorType.getElementType();
   if (!canUseIndirectAtomicFastPathForElementType(elementType)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: element type "
-                   << elementType << " is not supported by SIMT fast path.\n";
+      llvm::dbgs()
+          << "Indirect atomic RMW falls back to legacy path: element type "
+          << elementType << " is not supported by SIMT fast path.\n";
     });
     return false;
   }
   if (op.getAtomicRmwOp() == RMWOp::XCHG &&
       isUnsupportedCasOrXchgElementType(elementType)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: XCHG with element type "
+      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: XCHG "
+                      "with element type "
                    << elementType << " is not supported by SIMT fast path.\n";
     });
     return false;
   }
   if (!canUseIndirectAtomicFastPathForOffset(offsetValue)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: offset shape is not static.\n";
+      llvm::dbgs() << "Indirect atomic RMW falls back to legacy path: offset "
+                      "shape is not static.\n";
     });
     return false;
   }
   return true;
 }
 
-bool canUseIndirectAtomicFastPath(triton::AtomicCASOp op, Value offsetValue)
-{
+bool canUseIndirectAtomicFastPath(triton::AtomicCASOp op, Value offsetValue) {
   auto resultTensorType = dyn_cast<RankedTensorType>(op.getResult().getType());
   if (!hasStaticShape(resultTensorType)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic CAS falls back to legacy path: result shape is not static.\n";
+      llvm::dbgs() << "Indirect atomic CAS falls back to legacy path: result "
+                      "shape is not static.\n";
     });
     return false;
   }
   Type elementType = resultTensorType.getElementType();
   if (!canUseIndirectAtomicFastPathForElementType(elementType)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic CAS falls back to legacy path: element type "
-                   << elementType << " is not supported by SIMT fast path.\n";
+      llvm::dbgs()
+          << "Indirect atomic CAS falls back to legacy path: element type "
+          << elementType << " is not supported by SIMT fast path.\n";
     });
     return false;
   }
   if (isUnsupportedCasOrXchgElementType(elementType)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic CAS falls back to legacy path: element type "
-                   << elementType << " is not supported by SIMT fast path.\n";
+      llvm::dbgs()
+          << "Indirect atomic CAS falls back to legacy path: element type "
+          << elementType << " is not supported by SIMT fast path.\n";
     });
     return false;
   }
   if (!canUseIndirectAtomicFastPathForOffset(offsetValue)) {
     LLVM_DEBUG({
-      llvm::dbgs() << "Indirect atomic CAS falls back to legacy path: offset shape is not static.\n";
+      llvm::dbgs() << "Indirect atomic CAS falls back to legacy path: offset "
+                      "shape is not static.\n";
     });
     return false;
   }
   return true;
 }
 
-FailureOr<Value> tryConvertAtomicRmwToIndirectCustom(
-    triton::AtomicRMWOp op, Value srcPtr, Value offsetValue,
-    PatternRewriter &rewriter)
-{
+FailureOr<Value>
+tryConvertAtomicRmwToIndirectCustom(triton::AtomicRMWOp op, Value srcPtr,
+                                    Value offsetValue,
+                                    PatternRewriter &rewriter) {
   auto resultTensorType = dyn_cast<RankedTensorType>(op.getResult().getType());
   if (!hasStaticShape(resultTensorType)) {
     return failure();
@@ -319,12 +310,12 @@ FailureOr<Value> tryConvertAtomicRmwToIndirectCustom(
   auto flatOffsetTensorType =
       RankedTensorType::get({flatNumel}, rewriter.getI64Type());
 
-  auto flatOffsetValue = createFlattenedTensorValue(
-      op.getLoc(), offsetValue, resultTensorShape, flatOffsetTensorType,
-      rewriter);
-  auto flatUpdateValue = createFlattenedTensorValue(
-      op.getLoc(), op.getVal(), resultTensorShape, flatValueTensorType,
-      rewriter);
+  auto flatOffsetValue =
+      createFlattenedTensorValue(op.getLoc(), offsetValue, resultTensorShape,
+                                 flatOffsetTensorType, rewriter);
+  auto flatUpdateValue =
+      createFlattenedTensorValue(op.getLoc(), op.getVal(), resultTensorShape,
+                                 flatValueTensorType, rewriter);
   if (failed(flatOffsetValue) || failed(flatUpdateValue)) {
     return failure();
   }
@@ -334,9 +325,9 @@ FailureOr<Value> tryConvertAtomicRmwToIndirectCustom(
     Value maskValueI8 = castMaskToI8(op.getLoc(), maskValue, rewriter);
     auto flatMaskTensorType =
         RankedTensorType::get({flatNumel}, rewriter.getI8Type());
-    auto flatMaskValue = createFlattenedTensorValue(
-        op.getLoc(), maskValueI8, resultTensorShape, flatMaskTensorType,
-        rewriter);
+    auto flatMaskValue =
+        createFlattenedTensorValue(op.getLoc(), maskValueI8, resultTensorShape,
+                                   flatMaskTensorType, rewriter);
     if (failed(flatMaskValue)) {
       return failure();
     }
@@ -356,10 +347,10 @@ FailureOr<Value> tryConvertAtomicRmwToIndirectCustom(
                                      resultTensorType, rewriter);
 }
 
-FailureOr<Value> tryConvertAtomicCasToIndirectCustom(
-    triton::AtomicCASOp op, Value srcPtr, Value offsetValue,
-    PatternRewriter &rewriter)
-{
+FailureOr<Value>
+tryConvertAtomicCasToIndirectCustom(triton::AtomicCASOp op, Value srcPtr,
+                                    Value offsetValue,
+                                    PatternRewriter &rewriter) {
   auto resultTensorType = dyn_cast<RankedTensorType>(op.getResult().getType());
   if (!hasStaticShape(resultTensorType)) {
     return failure();
@@ -372,19 +363,19 @@ FailureOr<Value> tryConvertAtomicCasToIndirectCustom(
   auto flatOffsetTensorType =
       RankedTensorType::get({flatNumel}, rewriter.getI64Type());
 
-  auto flatOffsetValue = createFlattenedTensorValue(
-      op.getLoc(), offsetValue, resultTensorShape, flatOffsetTensorType,
-      rewriter);
-  auto flatCompareValue = createFlattenedTensorValue(
-      op.getLoc(), op.getCmp(), resultTensorShape, flatValueTensorType,
-      rewriter);
-  auto flatUpdateValue = createFlattenedTensorValue(
-      op.getLoc(), op.getVal(), resultTensorShape, flatValueTensorType,
-      rewriter);
+  auto flatOffsetValue =
+      createFlattenedTensorValue(op.getLoc(), offsetValue, resultTensorShape,
+                                 flatOffsetTensorType, rewriter);
+  auto flatCompareValue =
+      createFlattenedTensorValue(op.getLoc(), op.getCmp(), resultTensorShape,
+                                 flatValueTensorType, rewriter);
+  auto flatUpdateValue =
+      createFlattenedTensorValue(op.getLoc(), op.getVal(), resultTensorShape,
+                                 flatValueTensorType, rewriter);
   if (failed(flatOffsetValue) || failed(flatCompareValue) ||
       failed(flatUpdateValue)) {
     return failure();
-    }
+  }
 
   auto initOutFlatValue =
       createZeroTensor(op.getLoc(), flatValueTensorType, rewriter);

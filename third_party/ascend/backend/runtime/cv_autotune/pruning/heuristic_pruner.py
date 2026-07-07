@@ -17,7 +17,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 """
 Heuristic pruning for CV fusion operator autotune.
 
@@ -99,7 +98,7 @@ class HeuristicPruner:
         tile_m = config.get('BLOCK_M', 128)
         tile_n = config.get('BLOCK_N', 128)
         tile_k = config.get('BLOCK_K', 64)
-        
+
         try:
             if dtype.is_floating_point:
                 bits = torch.finfo(dtype).bits
@@ -107,7 +106,7 @@ class HeuristicPruner:
                 bits = torch.iinfo(dtype).bits
             typesize = bits // 8
         except Exception:
-            typesize = 2 
+            typesize = 2
 
         # Calculate tile size (assuming fp16, adjust based on dtype)
 
@@ -118,7 +117,7 @@ class HeuristicPruner:
 
         # # Check L1 limit
         tile_numel = tile_m * tile_k + tile_k * tile_n
-        tile_bytes = tile_numel * typesize 
+        tile_bytes = tile_numel * typesize
         if l1_size is not None and tile_bytes > l1_size:
             return True, f"L1: {tile_bytes} > {l1_size}"
         # Check L0a limit

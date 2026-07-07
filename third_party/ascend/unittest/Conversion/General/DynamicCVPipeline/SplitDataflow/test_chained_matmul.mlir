@@ -54,4 +54,3 @@ module {
 // CHECK: %[[TENSOR_9:[a-z0-9_]+]] = bufferization.to_tensor %[[MEMSPACECAST_7]] restrict writable {ssbuffer.block_id = 3 : i32, ssbuffer.core_type = "VECTOR", ssbuffer.transfer_id = 0 : i32} : memref<128x128xf32>
 // CHECK: arith.addf %[[TENSOR_8]], %[[TENSOR_9]]
 // CHECK: return
-

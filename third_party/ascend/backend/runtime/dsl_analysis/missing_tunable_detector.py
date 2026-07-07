@@ -26,6 +26,7 @@ from .schema import MissingTunableContext, MissingTunablePolicy
 
 
 class MissingTunableDetector:
+
     def __init__(self, policy: MissingTunablePolicy):
         if policy is None:
             raise ValueError("MissingTunableDetector requires a policy instance.")

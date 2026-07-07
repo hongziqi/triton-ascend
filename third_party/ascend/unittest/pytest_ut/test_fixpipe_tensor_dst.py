@@ -37,8 +37,8 @@ HACC_TARGET_ATTR = f'hacc.target = #hacc.target<"{DEFAULT_A5_ARCH}">'
 
 _apply_ascend_patch()
 
-
 def make_options(arch):
+
     class Options:
         num_warps = 4
         num_stages = 3

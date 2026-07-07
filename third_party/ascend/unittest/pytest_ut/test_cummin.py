@@ -101,9 +101,7 @@ def cummin_kernel_3d(
     idx_x = tl.arange(0, XBLOCK)
     idx_r = tl.arange(0, RBLOCK)
     idx_z = tl.arange(0, ZBLOCK)
-    idx = (idx_x[:, None, None] * numel_r * numel_z
-           + idx_r[None, :, None] * numel_z
-           + idx_z[None, None, :])
+    idx = (idx_x[:, None, None] * numel_r * numel_z + idx_r[None, :, None] * numel_z + idx_z[None, None, :])
     x = tl.load(in_ptr + idx)
     ret = tl.associative_scan(x, axis=dim, combine_fn=_cummin_combine, reverse=reverse)
     tl.store(out_ptr + idx, ret)
@@ -120,13 +118,27 @@ def triton_cummin(x, dim, reverse):
         cummin_kernel_1d[1, 1, 1](res, x, reverse, shape[0])
     elif ndim == 2:
         cummin_kernel_2d[1, 1, 1](
-            res, x, dim, reverse, shape[0], shape[1], shape[0], shape[1],
+            res,
+            x,
+            dim,
+            reverse,
+            shape[0],
+            shape[1],
+            shape[0],
+            shape[1],
         )
     elif ndim == 3:
         cummin_kernel_3d[1, 1, 1](
-            res, x, dim, reverse,
-            shape[0], shape[1], shape[2],
-            shape[0], shape[1], shape[2],
+            res,
+            x,
+            dim,
+            reverse,
+            shape[0],
+            shape[1],
+            shape[2],
+            shape[0],
+            shape[1],
+            shape[2],
         )
     else:
         pytest.skip(f"Unsupported tensor dimension: {ndim}")
@@ -139,7 +151,7 @@ def triton_cummin(x, dim, reverse):
 float_dtypes = ["float32", "float16"]
 int_dtypes = ["int32", "int16"]
 
-shapes_1d = [(64,), (128,), (7,)]
+shapes_1d = [(64, ), (128, ), (7, )]
 shapes_2d = [(7, 23), (16, 32), (3, 5)]
 shapes_3d = [(4, 8, 16), (3, 5, 7)]
 

@@ -30,7 +30,9 @@ namespace mlir {
 namespace triton {
 
 /// Sub-pipeline pass that decouples compute and memory operations.
-class DecoupleComputeAndMemoryPass : public PassWrapper<DecoupleComputeAndMemoryPass, OperationPass<ModuleOp>> {
+class DecoupleComputeAndMemoryPass
+    : public PassWrapper<DecoupleComputeAndMemoryPass,
+                         OperationPass<ModuleOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecoupleComputeAndMemoryPass)
 

@@ -1,4 +1,5 @@
-//===- TritonAscendDialect.h - MLIR TritonAscend dialect --------------*- C++ -*-===//
+//===- TritonAscendDialect.h - MLIR TritonAscend dialect --------------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the TritonAscend dialect in MLIR, containing Ascend operations.
+// This file defines the TritonAscend dialect in MLIR, containing Ascend
+// operations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -32,9 +34,13 @@
 namespace mlir::triton::ascend {
 
 struct TritonAscendInlinerInterface : public mlir::DialectInlinerInterface {
-    using mlir::DialectInlinerInterface::DialectInlinerInterface;
-    // All operations within the TritonAscend dialect (eg: ascend.sort, ascend.flip) can be inlined.
-    bool isLegalToInline(mlir::Operation *, mlir::Region *, bool, mlir::IRMapping &) const final { return true; }
+  using mlir::DialectInlinerInterface::DialectInlinerInterface;
+  // All operations within the TritonAscend dialect (eg: ascend.sort,
+  // ascend.flip) can be inlined.
+  bool isLegalToInline(mlir::Operation *, mlir::Region *, bool,
+                       mlir::IRMapping &) const final {
+    return true;
+  }
 };
 
 } // namespace mlir::triton::ascend

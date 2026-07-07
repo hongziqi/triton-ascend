@@ -25,17 +25,16 @@
 using namespace mlir;
 using namespace mlir::triton::ascend;
 
-void TritonAscendDialect::initialize()
-{
-    addOperations<
+void TritonAscendDialect::initialize() {
+  addOperations<
 #define GET_OP_LIST
 #include "ascend/include/Dialect/TritonAscend/IR/TritonAscendOps.cpp.inc"
-        >();
-    addAttributes<
+      >();
+  addAttributes<
 #define GET_ATTRDEF_LIST
 #include "ascend/include/Dialect/TritonAscend/IR/TritonAscendOpsAttrDefs.cpp.inc"
-        >();
-    addInterfaces<TritonAscendInlinerInterface>();
+      >();
+  addInterfaces<TritonAscendInlinerInterface>();
 }
 
 #include "ascend/include/Dialect/TritonAscend/IR/TritonAscendDialect.cpp.inc"

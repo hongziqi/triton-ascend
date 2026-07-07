@@ -725,12 +725,15 @@ private:
   static constexpr llvm::StringRef funcNameBase = "triton_scatter_ub_to_out";
 };
 
-class IndirectLoadConverter : public OpConversionPattern<triton::ascend::IndirectLoadOp> {
+class IndirectLoadConverter
+    : public OpConversionPattern<triton::ascend::IndirectLoadOp> {
 public:
-  using OpConversionPattern<triton::ascend::IndirectLoadOp>::OpConversionPattern;
+  using OpConversionPattern<
+      triton::ascend::IndirectLoadOp>::OpConversionPattern;
   LogicalResult
   matchAndRewrite(triton::ascend::IndirectLoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override;
+
 private:
   static constexpr llvm::StringRef funcNameBase = "triton_indirect_load";
 };
@@ -759,12 +762,15 @@ private:
   static constexpr llvm::StringRef funcNameBase = "triton_stride_store";
 };
 
-class IndirectStoreConverter : public OpConversionPattern<triton::ascend::IndirectStoreOp> {
+class IndirectStoreConverter
+    : public OpConversionPattern<triton::ascend::IndirectStoreOp> {
 public:
-  using OpConversionPattern<triton::ascend::IndirectStoreOp>::OpConversionPattern;
+  using OpConversionPattern<
+      triton::ascend::IndirectStoreOp>::OpConversionPattern;
   LogicalResult
   matchAndRewrite(triton::ascend::IndirectStoreOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override;
+
 private:
   static constexpr llvm::StringRef funcNameBase = "triton_indirect_store";
 };

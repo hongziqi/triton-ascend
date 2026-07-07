@@ -24,16 +24,16 @@ namespace ascend {
 //===----------------------------------------------------------------------===//
 
 enum class MemoryType {
-  OffChip,       // e.g., HBM
-  OnChipShared,  // e.g., L2
-  OnChipLocal,   // e.g., L1, UB
-  RegisterFile   // e.g., L0A, L0B, L0C
+  OffChip,      // e.g., HBM
+  OnChipShared, // e.g., L2
+  OnChipLocal,  // e.g., L1, UB
+  RegisterFile  // e.g., L0A, L0B, L0C
 };
 
 struct MemorySpace {
   std::string name;
   MemoryType type;
-  size_t sizeBytes;          // Total size in bytes
+  size_t sizeBytes; // Total size in bytes
   double bandwidthBytesPerCycle;
   int latencyCycles;
   std::string description;
@@ -49,17 +49,17 @@ struct MemorySpace {
 //===----------------------------------------------------------------------===//
 
 enum class ComputeUnitType {
-  MatrixEngine,  // e.g., Cube
-  SIMDEngine,    // e.g., Vector
+  MatrixEngine, // e.g., Cube
+  SIMDEngine,   // e.g., Vector
   ScalarEngine
 };
 
 /// Fractal (tile) dimensions for matrix operations
 /// Ascend Cube Core computes C[m,n] += A[m,k] * B[k,n]
 struct FractalSize {
-  int m = 16;  // Output rows
-  int k = 16;  // Reduction dimension
-  int n = 16;  // Output columns
+  int m = 16; // Output rows
+  int k = 16; // Reduction dimension
+  int n = 16; // Output columns
 };
 
 struct ComputeUnit {
@@ -73,15 +73,15 @@ struct ComputeUnit {
 
   // Matrix engine specific - default tile size (for backward compatibility)
   int tileM, tileN, tileK;
-  
+
   // Fractal sizes per data type (key: "fp16", "bf16", "fp32", "int8")
   llvm::StringMap<FractalSize> fractalSizes;
-  
+
   std::vector<std::string> inputSpaces;
   std::string outputSpace;
 
   // SIMD engine specific
-  int widthElements;  // Number of elements processed per cycle
+  int widthElements; // Number of elements processed per cycle
   int widthBytes;
   std::string computeSpace;
 
@@ -126,21 +126,23 @@ public:
 
   // Factory methods
   static std::unique_ptr<HardwareConfig> loadFromFile(llvm::StringRef path);
-  static std::unique_ptr<HardwareConfig> loadFromJSON(const llvm::json::Value &json);
+  static std::unique_ptr<HardwareConfig>
+  loadFromJSON(const llvm::json::Value &json);
   static std::unique_ptr<HardwareConfig> getDefault910B();
 
 private:
   static std::unique_ptr<HardwareConfig> createHardcodedDefault910B();
 
 public:
-
   // Basic info
   llvm::StringRef getName() const { return name; }
   llvm::StringRef getVendor() const { return vendor; }
 
   // Clock
   double getClockFrequencyGHz() const { return clockFreqGHz; }
-  int getCyclesPerMicrosecond() const { return static_cast<int>(clockFreqGHz * 1000); }
+  int getCyclesPerMicrosecond() const {
+    return static_cast<int>(clockFreqGHz * 1000);
+  }
   double cyclesToMicroseconds(int64_t cycles) const {
     return static_cast<double>(cycles) / (clockFreqGHz * 1000.0);
   }
@@ -158,14 +160,14 @@ public:
 
   // Cube (matrix engine)
   double getCubeTFlopsFP16() const;
-  double getCubeTFLOPS() const;  // Alias for getCubeTFlopsFP16
+  double getCubeTFLOPS() const; // Alias for getCubeTFlopsFP16
   void getCubeTileSize(int &m, int &n, int &k) const;
   void getCubeFractalSize(int elementBits, int &m, int &n, int &k) const;
   llvm::StringRef getCubeOutputSpace() const;
 
   // Vector (SIMD engine)
   double getVectorTFlopsFP32() const;
-  double getVectorTFLOPS() const;  // Alias for getVectorTFlopsFP32
+  double getVectorTFLOPS() const; // Alias for getVectorTFlopsFP32
   int getVectorWidthElements() const;
   int getVectorWidthBytes() const;
   llvm::StringRef getVectorComputeSpace() const;
@@ -174,7 +176,7 @@ public:
   // HBM bandwidth (convenience)
   double getHBMBandwidthGBs() const;
   double getHBMBandwidthTBs() const;
-  
+
   // Startup latencies (from hardware params, or reasonable defaults)
   int getMTE2StartupLatency() const;
   int getMTE3StartupLatency() const;
@@ -210,7 +212,8 @@ public:
   int64_t estimateCubeCycles(int64_t M, int64_t N, int64_t K) const;
   int64_t estimateVectorCycles(int64_t numElements) const;
   int64_t estimateMemoryCycles(llvm::StringRef moverName, int64_t bytes) const;
-  int64_t estimateMemoryCyclesWithLatency(llvm::StringRef space, int64_t bytes) const;
+  int64_t estimateMemoryCyclesWithLatency(llvm::StringRef space,
+                                          int64_t bytes) const;
 
   // Pipeline info
   const PipelinePath *getPipelinePath(llvm::StringRef name) const;

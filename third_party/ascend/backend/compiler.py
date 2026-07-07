@@ -235,9 +235,12 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
             # pipeline can be reproduced and debugged outside of Python.
             print_src_path, print_dst_path = _get_dump_paths(metadata["hash"], src_path, dst_path)
             cmd = [
-                _get_triton_opt_path(), print_src_path,
+                _get_triton_opt_path(),
+                print_src_path,
                 f"--pass-pipeline={pm.get_pipeline_str()}",
-                "--mlir-print-debuginfo", "-o", print_dst_path,
+                "--mlir-print-debuginfo",
+                "-o",
+                print_dst_path,
             ]
             print(f"[DEBUG] cmd list: {shlex.join(cmd)}")
 
@@ -328,7 +331,6 @@ def bc_to_linalg_by_bishengir_opt(bc_data: bytes, metadata, opt):
             dump_manager.put(linalg_text, "kernel.mlir", binary=False)
 
         return linalg_text
-
 
 
 def __get_metadata_attr_by_callback(lib, postfix: str, metadata, meta_key: str):
@@ -902,7 +904,6 @@ def linalg_to_bin_enable_npu_compile_A2_A3(linalg: str, metadata, opt):
                 bishengir_hivm_opt,
                 "--enable-triton-kernel-compile=true",
             ]
-
 
         if opt.debug:
             _compile_option_list += ["--mlir-print-ir-after-failure"]

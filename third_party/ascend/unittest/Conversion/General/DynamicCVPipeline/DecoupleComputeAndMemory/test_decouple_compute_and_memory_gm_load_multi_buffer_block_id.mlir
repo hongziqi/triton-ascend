@@ -898,4 +898,3 @@ func.func @_attn_fwd(%arg0: memref<?xi8>, %arg1: memref<?xi8>, %arg2: memref<?xf
     } {hivm.tcore_type = #hivm.tcore_type<CUBE>}
     return
   }
-

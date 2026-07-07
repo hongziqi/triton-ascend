@@ -264,9 +264,9 @@ RankedTensorType getExtractSlicedType(ArrayRef<OpFoldResult> shape,
                                       const llvm::SmallBitVector &droppedDims,
                                       Type elemType);
 
-bool checkStructureAnnotated(Operation* op, RewriterBase& rewriter);
+bool checkStructureAnnotated(Operation *op, RewriterBase &rewriter);
 
-bool isDistributedTypeCustomOp(Operation* op);
+bool isDistributedTypeCustomOp(Operation *op);
 } // namespace mlir
 
 #endif // TRITONNPU_UTILS_UTILS_H

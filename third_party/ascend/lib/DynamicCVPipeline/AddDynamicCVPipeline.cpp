@@ -30,13 +30,13 @@
 #include "ascend/include/DynamicCVPipeline/AnalyzeDataFlow.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
 #include "ascend/include/DynamicCVPipeline/Passes.h"
-#include "ascend/include/DynamicCVPipeline/StandardizeOp.h"
 #include "ascend/include/DynamicCVPipeline/PlanComputeBlock/Passes.h"
 #include "ascend/include/DynamicCVPipeline/PlanComputeBlockPass.h"
 #include "ascend/include/DynamicCVPipeline/PreCheckAvailable.h"
 #include "ascend/include/DynamicCVPipeline/RemoveAttributes.h"
 #include "ascend/include/DynamicCVPipeline/SeparateMemoryFromComputePass.h"
 #include "ascend/include/DynamicCVPipeline/SplitDataflowPass.h"
+#include "ascend/include/DynamicCVPipeline/StandardizeOp.h"
 
 static constexpr const char *DEBUG_TYPE = "AddDynamicCVPipeline";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
@@ -51,17 +51,16 @@ namespace triton {
 
 namespace {
 
-void restoreModuleFromBackup(ModuleOp moduleOp, ModuleOp moduleBackup)
-{
-    Operation *moduleOperation = moduleOp.getOperation();
-    Operation *backupOperation = moduleBackup.getOperation();
+void restoreModuleFromBackup(ModuleOp moduleOp, ModuleOp moduleBackup) {
+  Operation *moduleOperation = moduleOp.getOperation();
+  Operation *backupOperation = moduleBackup.getOperation();
 
-    moduleOperation->setLoc(backupOperation->getLoc());
-    moduleOperation->setAttrs(backupOperation->getAttrs());
-    if (moduleOperation->getPropertiesStorageSize() != 0) {
-        moduleOperation->copyProperties(backupOperation->getPropertiesStorage());
-    }
-    moduleOp.getBodyRegion().takeBody(moduleBackup.getBodyRegion());
+  moduleOperation->setLoc(backupOperation->getLoc());
+  moduleOperation->setAttrs(backupOperation->getAttrs());
+  if (moduleOperation->getPropertiesStorageSize() != 0) {
+    moduleOperation->copyProperties(backupOperation->getPropertiesStorage());
+  }
+  moduleOp.getBodyRegion().takeBody(moduleBackup.getBodyRegion());
 }
 
 } // namespace
@@ -70,54 +69,57 @@ AddDynamicCVPipelinePass::AddDynamicCVPipelinePass(
     const AddDynamicCVPipelineOptions &options)
     : AddDynamicCVPipelineBase(options) {}
 
-void AddDynamicCVPipelinePass::runOnOperation()
-{
-    auto moduleOp = getOperation();
-    OpBuilder builder(moduleOp.getContext());
-    compileOn91095Flag = this->compileOn91095;
+void AddDynamicCVPipelinePass::runOnOperation() {
+  auto moduleOp = getOperation();
+  OpBuilder builder(moduleOp.getContext());
+  compileOn91095Flag = this->compileOn91095;
 
-    LDBG("Enter pass");
-    moduleOp->removeAttr(CVPipeline::ERRCODE_ATTR);
+  LDBG("Enter pass");
+  moduleOp->removeAttr(CVPipeline::ERRCODE_ATTR);
 
-    if (!compileOn91095Flag) {
-        llvm::errs() << "Add-dynamic-cv-pipeline is only supported on 91095 now.\n";
-        return;
+  if (!compileOn91095Flag) {
+    llvm::errs() << "Add-dynamic-cv-pipeline is only supported on 91095 now.\n";
+    return;
+  }
+
+  ModuleOp moduleBackup(moduleOp->clone());
+  PassManager pm(&getContext(), moduleOp.getOperationName());
+
+  pm.addPass(createPreCheckAvailablePass());
+  pm.addPass(createStandardizeOpPass());
+  pm.addPass(createPlanComputeBlockPass());
+  pm.addPass(createComputeBlockOptPass());
+  pm.addPass(createSplitDataflowPass());
+  pm.addPass(createAnalyzeDataFlowPass());
+  pm.addPass(createSeparateMemoryFromComputePass());
+  pm.addPass(createAllocMultiCachePass());
+  pm.addPass(createAddControlFlowConditionPass());
+  pm.addPass(createRemoveSsbufAttrPass());
+
+  if (failed(runPipeline(pm, moduleOp))) {
+    auto errCodeAttr =
+        moduleOp->getAttrOfType<IntegerAttr>(CVPipeline::ERRCODE_ATTR);
+    if (!errCodeAttr) {
+      moduleOp->emitWarning() << "[" << DEBUG_TYPE << "] "
+                              << "Pass failed; fallback to compilation without "
+                                 "dynamic CV pipeline.";
     }
 
-    ModuleOp moduleBackup(moduleOp->clone());
-    PassManager pm(&getContext(), moduleOp.getOperationName());
-
-    pm.addPass(createPreCheckAvailablePass());
-    pm.addPass(createStandardizeOpPass());
-    pm.addPass(createPlanComputeBlockPass());
-    pm.addPass(createComputeBlockOptPass());
-    pm.addPass(createSplitDataflowPass());
-    pm.addPass(createAnalyzeDataFlowPass());
-    pm.addPass(createSeparateMemoryFromComputePass());
-    pm.addPass(createAllocMultiCachePass());
-    pm.addPass(createAddControlFlowConditionPass());
-    pm.addPass(createRemoveSsbufAttrPass());
-
-    if (failed(runPipeline(pm, moduleOp))) {
-        auto errCodeAttr = moduleOp->getAttrOfType<IntegerAttr>(CVPipeline::ERRCODE_ATTR);
-        if (!errCodeAttr) {
-            moduleOp->emitWarning() << "[" << DEBUG_TYPE << "] "
-                << "Pass failed; fallback to compilation without dynamic CV pipeline.";
-        }
-
-        int errCode = errCodeAttr ? static_cast<int>(errCodeAttr.getInt()) : CVPipeline::ERRCODE_FAILED;
-        restoreModuleFromBackup(moduleOp, moduleBackup);
-        moduleBackup->destroy();
-        moduleOp->setAttr(CVPipeline::ERRCODE_ATTR, builder.getI32IntegerAttr(errCode));
-        return;
-    }
-
+    int errCode = errCodeAttr ? static_cast<int>(errCodeAttr.getInt())
+                              : CVPipeline::ERRCODE_FAILED;
+    restoreModuleFromBackup(moduleOp, moduleBackup);
     moduleBackup->destroy();
-    LDBG("Process successfully");
+    moduleOp->setAttr(CVPipeline::ERRCODE_ATTR,
+                      builder.getI32IntegerAttr(errCode));
+    return;
+  }
+
+  moduleBackup->destroy();
+  LDBG("Process successfully");
 }
 
-std::unique_ptr<OperationPass<ModuleOp>> mlir::triton::createAddDynamicCVPipelinePass(
-    const AddDynamicCVPipelineOptions &options)
-{
-    return std::make_unique<AddDynamicCVPipelinePass>(options);
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::triton::createAddDynamicCVPipelinePass(
+    const AddDynamicCVPipelineOptions &options) {
+  return std::make_unique<AddDynamicCVPipelinePass>(options);
 }

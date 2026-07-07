@@ -33,13 +33,8 @@ def ast_to_text(node: ast.AST) -> str:
 
 
 def is_tl_call(node: ast.AST, name: str) -> bool:
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "tl"
-        and node.func.attr == name
-    )
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "tl" and node.func.attr == name)
 
 
 def iter_walk_in_order(node: ast.AST):
@@ -77,12 +72,7 @@ def collect_arange_stop_texts(expr: ast.AST) -> List[str]:
 
 
 def is_slice_all(node: ast.AST) -> bool:
-    return (
-        isinstance(node, ast.Slice)
-        and node.lower is None
-        and node.upper is None
-        and node.step is None
-    )
+    return (isinstance(node, ast.Slice) and node.lower is None and node.upper is None and node.step is None)
 
 
 def is_none_const(node: ast.AST) -> bool:
@@ -382,9 +372,7 @@ def collect_symbol_dependency_names(
     return names
 
 
-def build_symbol_user_expr_map(
-    assignment_expr_map: Mapping[str, Sequence[ast.AST]],
-) -> Dict[str, List[ast.AST]]:
+def build_symbol_user_expr_map(assignment_expr_map: Mapping[str, Sequence[ast.AST]], ) -> Dict[str, List[ast.AST]]:
     result: Dict[str, List[ast.AST]] = {}
     for exprs in assignment_expr_map.values():
         for expr in exprs:
@@ -411,11 +399,7 @@ def pick_param_candidate(
     assignment_expr_map: Mapping[str, Sequence[ast.AST]],
 ) -> Optional[str]:
     name_depths = extract_name_depths_transitive(expr, assignment_expr_map)
-    candidates = [
-        name
-        for name, depth in name_depths.items()
-        if name in param_names and name not in exclude
-    ]
+    candidates = [name for name, depth in name_depths.items() if name in param_names and name not in exclude]
     if not candidates:
         return None
     min_depth = min(name_depths[name] for name in candidates)
@@ -448,12 +432,8 @@ def extract_range_stop_and_step(node: ast.For) -> Tuple[Optional[ast.AST], Optio
         return None, None
     iter_fn = node.iter.func
     is_range = isinstance(iter_fn, ast.Name) and iter_fn.id == "range"
-    is_tl_range = (
-        isinstance(iter_fn, ast.Attribute)
-        and isinstance(iter_fn.value, ast.Name)
-        and iter_fn.value.id == "tl"
-        and iter_fn.attr == "range"
-    )
+    is_tl_range = (isinstance(iter_fn, ast.Attribute) and isinstance(iter_fn.value, ast.Name)
+                   and iter_fn.value.id == "tl" and iter_fn.attr == "range")
     if not (is_range or is_tl_range):
         return None, None
 
@@ -643,11 +623,7 @@ def extract_axis_total_symbol_map(
         if total_candidate is None:
             continue
         stop_names = extract_name_ids_transitive(stop_expr, assignment_expr_map)
-        step_names = (
-            extract_name_ids_transitive(step_expr, assignment_expr_map)
-            if step_expr is not None
-            else set()
-        )
+        step_names = (extract_name_ids_transitive(step_expr, assignment_expr_map) if step_expr is not None else set())
         if not stop_names:
             if not step_names:
                 continue
@@ -684,4 +660,3 @@ def extract_axis_total_symbol_map(
             axis_total_symbol_map[symbol] = next(iter(candidate_totals))
             changed = True
     return axis_total_symbol_map
-

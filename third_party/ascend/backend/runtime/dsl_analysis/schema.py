@@ -21,8 +21,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import (Any, Dict, List, Literal, Mapping, Optional, Protocol,
-                    Sequence, Set)
+from typing import (Any, Dict, List, Literal, Mapping, Optional, Protocol, Sequence, Set)
 
 
 @dataclass(frozen=True)
@@ -73,6 +72,7 @@ class MissingTunableContext:
 
 
 class MissingTunablePolicy(Protocol):
+
     def select_missing_tunable(self, context: MissingTunableContext) -> List[str]:
         ...
 

@@ -53,7 +53,8 @@ def compile_kernel(kernel, signature, constants):
     ir.load_dialects(context)
     buffer_ir.load_dialects(context)
     ascend_ir.load_dialects(context)
-    module = ast_to_ttir(kernel, src, context, Options(), {"create_address_space": al.semantic.create_address_space}, {})
+    module = ast_to_ttir(kernel, src, context, Options(), {"create_address_space": al.semantic.create_address_space},
+                         {})
     return str(module)
 
 
@@ -66,17 +67,17 @@ def kernel_core_functions(M: tl.constexpr, N: tl.constexpr):
     buf_l0a = bl.alloc(tl.float32, [M, N], al.ascend_address_space.L0A)
     buf_l0b = bl.alloc(tl.float32, [M, N], al.ascend_address_space.L0B)
     buf_l0c = bl.alloc(tl.float32, [M, N], al.ascend_address_space.L0C)
-    
+
     # Test int64
     int64_val = al.int64(1234567890123456789)
-    
+
     # Test sub_vec_id and sub_vec_num
     vec_id = al.sub_vec_id()
     vec_num = al.sub_vec_num()
-    
+
     # Test debug_barrier
     al.debug_barrier(al.SYNC_IN_VF.VV_ALL)
-    
+
     # Test fixpipe (simple usage)
     data = tl.full([M, N], 0.0, dtype=tl.float32)
     result_fixpipe = al.fixpipe(data, buf_ub)
@@ -89,10 +90,10 @@ def kernel_math_ops(M: tl.constexpr, N: tl.constexpr):
     x = tl.full([M, N], 1.0, dtype=tl.float32)
     y = tl.full([M, N], 1.0, dtype=tl.float32)
     result_atan2 = al.atan2(y, x)
-    
+
     # Test isfinited
     result_isfinited = al.isfinited(x)
-    
+
     # Test finitef
     result_finitef = al.finitef(x)
 
@@ -104,13 +105,13 @@ def kernel_vec_ops(M: tl.constexpr, N: tl.constexpr):
     data = tl.full([M, N], 0.0, dtype=tl.float32)
     slice_data = tl.full([M // 2, N // 2], 1.0, dtype=tl.float32)
     result_insert = al.insert_slice(data, slice_data, [0, 0], [M // 2, N // 2], [1, 1])
-    
+
     # Test extract_slice
     result_extract = al.extract_slice(data, [0, 0], [M // 2, N // 2], [1, 1])
-    
+
     # Test get_element
     result_get = al.get_element(data, [0, 0])
-    
+
     # Test cast
     data_int = tl.full([M, N], 1, dtype=tl.int32)
     result_cast = al.cast(data_int, tl.float32)
@@ -123,10 +124,10 @@ def kernel_aux_ops(M: tl.constexpr, N: tl.constexpr):
     data = tl.full([M, N], 0.0, dtype=tl.float32)
     for _ in al.parallel(M):
         pass
-    
+
     # Test compile_hint
     al.compile_hint(data, "core_mode")
-    
+
     # Test multibuffer
     al.multibuffer(data, 2)
 
@@ -145,7 +146,7 @@ def kernel_scope(M: tl.constexpr, N: tl.constexpr):
 def kernel_sync_operations(M: tl.constexpr, N: tl.constexpr):
     # Test sync_block_all
     al.sync_block_all("all", 0)
-    
+
     # Test sync_block_set and sync_block_wait
     al.sync_block_set("cube", "vector", 0)
     al.sync_block_wait("cube", "vector", 0)
@@ -168,16 +169,8 @@ def kernel_index_put_simple(value_ptr, index_ptr, dst_ptr):
     index_tile = tl.load(index_ptr + index_local)
     value_tile = tl.load(value_ptr + index_local[:, None] * 2 + x1_local)
 
-    index_put(
-        ptr=dst_ptr,
-        index=index_tile,
-        value=value_tile,
-        dim=0,
-        index_boundary=4,
-        end_offset=(2, 2),
-        start_offset=(0, 0),
-        dst_stride=(2, 1)
-    )
+    index_put(ptr=dst_ptr, index=index_tile, value=value_tile, dim=0, index_boundary=4, end_offset=(2, 2),
+              start_offset=(0, 0), dst_stride=(2, 1))
 
 
 @triton.jit
@@ -191,15 +184,8 @@ def simple_gather_kernel(src_ptr, index_ptr, out_ptr):
     index = tl.load(index_ptr + y0_local * 2 + x1_local, mask)
 
     # Call gather_out_to_ub: gather values from src along dim=0
-    gathered = gather_out_to_ub(
-        src=src_ptr,
-        index=index,
-        index_boundary=4,
-        dim=0,
-        src_stride=(2, 1),
-        end_offset=(2, 2),
-        start_offset=(0, 0)
-    )
+    gathered = gather_out_to_ub(src=src_ptr, index=index, index_boundary=4, dim=0, src_stride=(2, 1), end_offset=(2, 2),
+                                start_offset=(0, 0))
 
     tl.store(out_ptr + y0_local * 2 + x1_local, gathered, mask)
 
@@ -214,16 +200,8 @@ def simple_scatter_kernel(value_ptr, index_ptr, dst_ptr):
     value = tl.load(value_ptr + y0_local * 2 + x1_local, mask)
     index = tl.load(index_ptr + y0_local * 2 + x1_local, mask)
 
-    scatter_ub_to_out(
-        ptr=dst_ptr,
-        value=value,
-        index=index,
-        index_boundary=4,
-        dim=0,
-        dst_stride=(2, 1),
-        end_offset=(2, 2),
-        start_offset=(0, 0)
-    )
+    scatter_ub_to_out(ptr=dst_ptr, value=value, index=index, index_boundary=4, dim=0, dst_stride=(2, 1),
+                      end_offset=(2, 2), start_offset=(0, 0))
 
 
 @triton.jit
@@ -236,16 +214,8 @@ def simple_scatter_kernel(value_ptr, index_ptr, dst_ptr):
     value = tl.load(value_ptr + y0_local * 2 + x1_local, mask)
     index = tl.load(index_ptr + y0_local * 2 + x1_local, mask)
 
-    scatter_ub_to_out(
-        ptr=dst_ptr,
-        value=value,
-        index=index,
-        index_boundary=4,
-        dim=0,
-        dst_stride=(2, 1),
-        end_offset=(2, 2),
-        start_offset=(0, 0)
-    )
+    scatter_ub_to_out(ptr=dst_ptr, value=value, index=index, index_boundary=4, dim=0, dst_stride=(2, 1),
+                      end_offset=(2, 2), start_offset=(0, 0))
 
 
 # Test function definitions
@@ -286,7 +256,7 @@ def test_mem_ops():
     # ✅ 核心：把编译+运行的代码包在这里，pytest 才能捕获
     with pytest.raises(MLIRCompilationError):
         # 这一行会触发编译，直接抛出你要的错误
-        kernel_index_put_simple[(1,)](value, index, dst)
+        kernel_index_put_simple[(1, )](value, index, dst)
 
     print("✅ 成功捕获预期的 MLIRCompilationError 错误！测试通过！")
 
@@ -302,7 +272,7 @@ def test_mem2_ops():
     out = torch.empty((2, 2), device='npu', dtype=torch.float32)
 
     with pytest.raises(MLIRCompilationError):
-        simple_gather_kernel[(1,)](src, index, out)
+        simple_gather_kernel[(1, )](src, index, out)
 
     print("✅ 成功捕获预期的 MLIRCompilationError 错误！测试通过！")
 
@@ -318,7 +288,7 @@ def test_mem3_ops():
     index = torch.tensor([[1, 2], [3, 0]], device='npu')
 
     with pytest.raises(MLIRCompilationError):
-        simple_scatter_kernel[(1,)](value, index, dst)
+        simple_scatter_kernel[(1, )](value, index, dst)
 
     print("✅ 成功捕获预期的 MLIRCompilationError 错误！测试通过！")
 
@@ -334,7 +304,7 @@ def test_mem4_ops():
     index = torch.tensor([[1, 2], [3, 0]], device='npu')
 
     with pytest.raises(MLIRCompilationError):
-        simple_scatter_kernel[(1,)](value, index, dst)
+        simple_scatter_kernel[(1, )](value, index, dst)
 
     print("✅ 成功捕获预期的 MLIRCompilationError 错误！测试通过！")
 
@@ -397,6 +367,7 @@ def test_custom_op():
         {"M": 16, "N": 16},
     )
     print(f"✅ Generated MLIR ({len(mlir)} chars):\n")
+
 
 # ============== Main for manual testing ==============
 if __name__ == "__main__":

@@ -20,12 +20,12 @@
  * THE SOFTWARE.
  */
 
-#include "ascend/include/DynamicCVPipeline/DecoupleComputeAndMemory/DecoupleComputeAndMemoryPass.h"
-#include "mlir/Pass/PassManager.h"
-#include "llvm/Support/Debug.h"
 #include "ascend/include/DynamicCVPipeline/Common/BufferCountManager.h"
 #include "ascend/include/DynamicCVPipeline/DecoupleComputeAndMemory/AddMultiBufferToGMLoadPass.h"
 #include "ascend/include/DynamicCVPipeline/DecoupleComputeAndMemory/AsyncLoadHoistingPass.h"
+#include "ascend/include/DynamicCVPipeline/DecoupleComputeAndMemory/DecoupleComputeAndMemoryPass.h"
+#include "mlir/Pass/PassManager.h"
+#include "llvm/Support/Debug.h"
 
 static constexpr const char *DEBUG_TYPE = "decouple-compute-and-memory";
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
@@ -34,11 +34,11 @@ static constexpr const char *DEBUG_TYPE = "decouple-compute-and-memory";
 using namespace mlir;
 using namespace triton;
 
-void DecoupleComputeAndMemoryPass::runOnOperation()
-{
+void DecoupleComputeAndMemoryPass::runOnOperation() {
   ModuleOp module = getOperation();
 
-  int depth = BufferCountManager::getInstance().getBufferCountByType(BufferCountManager::DepType::LoadStore);
+  int depth = BufferCountManager::getInstance().getBufferCountByType(
+      BufferCountManager::DepType::LoadStore);
 
   if (depth <= 1) {
     LDBG("Buffer depth <= 1, skip multi-buffer transformation");
@@ -65,8 +65,7 @@ void DecoupleComputeAndMemoryPass::runOnOperation()
 namespace mlir {
 namespace triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createDecoupleComputeAndMemoryPass()
-{
+std::unique_ptr<OperationPass<ModuleOp>> createDecoupleComputeAndMemoryPass() {
   return std::make_unique<DecoupleComputeAndMemoryPass>();
 }
 

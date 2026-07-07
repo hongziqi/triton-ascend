@@ -197,7 +197,7 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
       %126 = arith.subi %125, %121 {DataUse} : index
       %extracted_slice_15 = tensor.extract_slice %120[0] [%126] [1] {DataUse} : tensor<64xf32> to tensor<?xf32>
       %inserted_slice = tensor.insert_slice %extracted_slice_15 into %3[0] [%126] [1] {DataUse} : tensor<?xf32> into tensor<64xf32>
-      %broadcasted = linalg.broadcast ins(%inserted_slice : tensor<64xf32>) outs(%0 : tensor<64x32xf32>) dimensions = [1] 
+      %broadcasted = linalg.broadcast ins(%inserted_slice : tensor<64xf32>) outs(%0 : tensor<64x32xf32>) dimensions = [1]
       %127 = arith.mulf %117, %broadcasted {DataUse} : tensor<64x32xf32>
       %alloc_16 = memref.alloc() : memref<64x32xbf16>
       scf.if %99 {
@@ -223,7 +223,7 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
       memref.copy %subview_23, %subview_24 : memref<?x?xbf16, strided<[4096, 1], offset: ?>> to memref<?x?xbf16, strided<[128, 1], offset: ?>>
       %132 = bufferization.to_tensor %alloc_22 restrict writable : memref<64x128xbf16>
       %133 = tensor.empty() : tensor<128x64xbf16>
-      %transposed = linalg.transpose ins(%132 : tensor<64x128xbf16>) outs(%133 : tensor<128x64xbf16>) permutation = [1, 0] 
+      %transposed = linalg.transpose ins(%132 : tensor<64x128xbf16>) outs(%133 : tensor<128x64xbf16>) permutation = [1, 0]
       %reinterpret_cast_25 = memref.reinterpret_cast %arg2 to offset: [%82], sizes: [64, 128], strides: [4096, 1] : memref<?xbf16> to memref<64x128xbf16, strided<[4096, 1], offset: ?>>
       %alloc_26 = memref.alloc() : memref<64x128xbf16>
       scf.if %115 {
@@ -233,12 +233,12 @@ module attributes {hacc.target = #hacc.target<"Ascend950PR_9579">} {
       %subview_28 = memref.subview %alloc_26[%109, %111] [%110, %112] [1, 1] : memref<64x128xbf16> to memref<?x?xbf16, strided<[128, 1], offset: ?>>
       memref.copy %subview_27, %subview_28 : memref<?x?xbf16, strided<[4096, 1], offset: ?>> to memref<?x?xbf16, strided<[128, 1], offset: ?>>
       %134 = bufferization.to_tensor %alloc_26 restrict writable : memref<64x128xbf16>
-      %transposed_29 = linalg.transpose ins(%134 : tensor<64x128xbf16>) outs(%133 : tensor<128x64xbf16>) permutation = [1, 0] 
+      %transposed_29 = linalg.transpose ins(%134 : tensor<64x128xbf16>) outs(%133 : tensor<128x64xbf16>) permutation = [1, 0]
       %135 = linalg.fill ins(%extracted : f32) outs(%4 : tensor<128x32xf32>) -> tensor<128x32xf32>
       %136 = arith.mulf %arg19, %135 {DataUse} : tensor<128x32xf32>
       %137 = arith.extf %transposed_29 {DataUse} : tensor<128x64xbf16> to tensor<128x64xf32>
       %138 = tensor.empty() : tensor<128x64xf32>
-      %broadcasted_30 = linalg.broadcast ins(%80 : tensor<64xf32>) outs(%138 : tensor<128x64xf32>) dimensions = [0] 
+      %broadcasted_30 = linalg.broadcast ins(%80 : tensor<64xf32>) outs(%138 : tensor<128x64xf32>) dimensions = [0]
       %139 = arith.mulf %137, %broadcasted_30 {DataUse} : tensor<128x64xf32>
       %140 = arith.extf %100 {DataUse} : tensor<64x32xbf16> to tensor<64x32xf32>
       %141 = linalg.matmul {input_precision = "ieee"} ins(%139, %140 : tensor<128x64xf32>, tensor<64x32xf32>) outs(%5 : tensor<128x32xf32>) -> tensor<128x32xf32>

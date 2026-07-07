@@ -28,10 +28,8 @@ from .axis_length_resolver import resolve_axis_length_states
 from .launch_analyzer import analyze_launch_semantics
 from .missing_tunable_detector import MissingTunableDetector
 from .missing_tunable_policies import CubeMixPolicy, VectorPolicy
-from .schema import (AxisLengthStateResult, MissingTunableContext,
-                     MissingTunablePolicy, SignatureInfo)
-from .shape_inference import (DotSiteMNK, infer_dot_sites_mnk,
-                              infer_dot_sites_mnk_interprocedural)
+from .schema import (AxisLengthStateResult, MissingTunableContext, MissingTunablePolicy, SignatureInfo)
+from .shape_inference import (DotSiteMNK, infer_dot_sites_mnk, infer_dot_sites_mnk_interprocedural)
 from .signature_analyzer import extract_signature_info
 
 
@@ -86,21 +84,14 @@ def analyze_signature_and_missing_tunable(
     if explicit_candidates:
         signature_names = set(signature.parameter_names())
         invalid_names = [
-            name for name in explicit_candidates
-            if not isinstance(name, str) or name not in signature_names
+            name for name in explicit_candidates if not isinstance(name, str) or name not in signature_names
         ]
         if invalid_names:
-            raise ValueError(
-                "hints.tunable_parameter contains unknown parameters: {}".format(invalid_names)
-            )
-        non_constexpr = [
-            name for name in explicit_candidates
-            if not signature.is_constexpr(name)
-        ]
+            raise ValueError("hints.tunable_parameter contains unknown parameters: {}".format(invalid_names))
+        non_constexpr = [name for name in explicit_candidates if not signature.is_constexpr(name)]
         if non_constexpr:
             raise ValueError(
-                "hints.tunable_parameter must reference constexpr parameters only: {}".format(non_constexpr)
-            )
+                "hints.tunable_parameter must reference constexpr parameters only: {}".format(non_constexpr))
         provided = set(provided_args.keys())
         for name in explicit_candidates:
             if name in provided:

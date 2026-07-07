@@ -2,7 +2,7 @@
 
 module{
     // S201. 设计用例需要同时存在cube->vector, cube->cube, vector->cube的依赖，并且cube类节点存在2个以上的dot节点，至少有一个dot包含向上依赖，至少有一个dot包含向下依赖， 需要检查每个block最多包含一个dot op
-    
+
 // CHECK-LABEL: func.func @test_core_type_deps(
 // CHECK: [[ALLOC_VEC:%[A-Za-z0-9_]+]] = memref.alloc() {ssbuffer.block_id = [[TC_VEC3:[0-9]+]] : i32, ssbuffer.core_type = "VECTOR"} : memref<64x64xf16>
 // CHECK-NEXT: [[ALLOC_0_VEC:%[A-Za-z0-9_]+]] = memref.alloc() {ssbuffer.block_id = [[TC_VECB:[0-9]+]] : i32, ssbuffer.core_type = "VECTOR"} : memref<64x64xf16>
@@ -35,7 +35,7 @@ module{
         %1 = bufferization.to_tensor %alloc_1 restrict writable {ssbuffer.core_type = "VECTOR"} : memref<64x64xf16>
         %2 = arith.subf %arg0, %arg1 {ssbuffer.core_type = "VECTOR"} : tensor<64x64xf32>
         %3 = math.exp %2 {ssbuffer.core_type = "VECTOR"} : tensor<64x64xf32>
-        %4 = arith.truncf %3 {ssbuffer.core_type = "CUBE"} : tensor<64x64xf32> to tensor<64x64xf16>   
+        %4 = arith.truncf %3 {ssbuffer.core_type = "CUBE"} : tensor<64x64xf32> to tensor<64x64xf16>
         %out0 = tensor.empty() {ssbuffer.core_type = "VECTOR"} : tensor<64x64xf32>
         %5 = linalg.matmul {input_precision = "ieee", ssbuffer.core_type = "CUBE"} ins(%4, %0 : tensor<64x64xf16>, tensor<64x64xf16>) outs(%out0 : tensor<64x64xf32>) -> tensor<64x64xf32>
         %6 = arith.truncf %5 {ssbuffer.core_type = "CUBE"} : tensor<64x64xf32> to tensor<64x64xf16>
@@ -194,7 +194,7 @@ module{
 // CHECK-NEXT: [[VEC_ADD2:%[0-9]+]] = arith.addf [[CUBE_TRUNC0]], [[CUBE_TRUNC0]] {ssbuffer.block_id = [[TC_VEC2:[0-9]+]] : i32, ssbuffer.core_type = "VECTOR"} : tensor<128x128xf16>
 // CHECK-NEXT: [[VEC_MUL2:%[0-9]+]] = arith.mulf [[VEC_ADD2]], [[VEC_ADD2]] {ssbuffer.block_id = [[TC_VEC2]] : i32, ssbuffer.core_type = "VECTOR"} : tensor<128x128xf16>
 // CHECK-NEXT: return [[VEC_MUL2]] : tensor<128x128xf16>
-    
+
     func.func @test_cut_err_op_new_cand(%arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>) -> tensor<128x128xf16> {
         %a = arith.addf %arg0, %arg1 {ssbuffer.core_type = "VECTOR"} : tensor<128x128xf32>
         %b = arith.mulf %arg0, %arg1 {ssbuffer.core_type = "VECTOR"} : tensor<128x128xf32>

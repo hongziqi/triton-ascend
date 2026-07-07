@@ -48,11 +48,14 @@ namespace triton {
 namespace {
 
 static bool hasOnlyPrintUsers(Value v) {
-  if (v.use_empty()) return false;
+  if (v.use_empty())
+    return false;
   for (Operation *u : v.getUsers()) {
     auto callOp = dyn_cast<func::CallOp>(u);
-    if (!callOp) return false;
-    if (!callOp.getCallee().starts_with("triton_print")) return false;
+    if (!callOp)
+      return false;
+    if (!callOp.getCallee().starts_with("triton_print"))
+      return false;
   }
   return true;
 }
@@ -64,7 +67,8 @@ static Value materializeIndex(OpBuilder &bd, Location loc, OpFoldResult ofr) {
   }
   auto val = llvm::cast<Value>(ofr);
   Type ty = val.getType();
-  if (ty.isIndex()) return val;
+  if (ty.isIndex())
+    return val;
   if (isa<IntegerType>(ty))
     return bd.create<arith::IndexCastOp>(loc, bd.getIndexType(), val);
   return nullptr;
@@ -82,7 +86,8 @@ public:
 
   Value emit(Value v, ArrayRef<Value> indices) {
     Operation *def = v.getDefiningOp();
-    if (!def) return nullptr;
+    if (!def)
+      return nullptr;
 
     if (auto cstOp = dyn_cast<arith::ConstantOp>(def))
       return scalarFromConstant(cstOp);
@@ -98,10 +103,12 @@ public:
     if (auto col = dyn_cast<tensor::CollapseShapeOp>(def))
       return emitCollapseShape(col, indices);
 
-    if (def->getNumOperands() != 2) return nullptr;
+    if (def->getNumOperands() != 2)
+      return nullptr;
     Value lhs = emit(def->getOperand(0), indices);
     Value rhs = emit(def->getOperand(1), indices);
-    if (!lhs || !rhs) return nullptr;
+    if (!lhs || !rhs)
+      return nullptr;
     return emitBinaryArith(def, lhs, rhs);
   }
 
@@ -113,22 +120,26 @@ private:
         return bd.create<arith::ConstantIntOp>(
             loc, dense.getSplatValue<APInt>().getSExtValue(), i32Ty.getWidth());
     if (auto intAttr = dyn_cast<IntegerAttr>(op.getValue()))
-      return bd.create<arith::ConstantIntOp>(loc, intAttr.getInt(), i32Ty.getWidth());
+      return bd.create<arith::ConstantIntOp>(loc, intAttr.getInt(),
+                                             i32Ty.getWidth());
     return nullptr;
   }
 
   Value scalarFromFill(linalg::FillOp op) {
-    if (op.getInputs().empty()) return nullptr;
+    if (op.getInputs().empty())
+      return nullptr;
     Value sc = op.getInputs()[0];
     auto i32Ty = bd.getI32Type();
     auto scTy = sc.getType();
 
     if (auto cstOp = sc.getDefiningOp<arith::ConstantOp>()) {
       if (auto intAttr = dyn_cast<IntegerAttr>(cstOp.getValue()))
-        return bd.create<arith::ConstantIntOp>(loc, intAttr.getInt(), i32Ty.getWidth());
+        return bd.create<arith::ConstantIntOp>(loc, intAttr.getInt(),
+                                               i32Ty.getWidth());
       return nullptr;
     }
-    if (scTy.isInteger(32)) return sc;
+    if (scTy.isInteger(32))
+      return sc;
     if (scTy.isIndex())
       return bd.create<arith::IndexCastOp>(loc, i32Ty, sc);
     if (auto intTy = dyn_cast<IntegerType>(scTy)) {
@@ -142,8 +153,10 @@ private:
 
   Value scalarFromMakeRange(linalg::GenericOp op, ArrayRef<Value> indices) {
     auto i32Ty = bd.getI32Type();
-    if (!op->hasAttr("tt.from_make_range")) return nullptr;
-    if (indices.size() != 1) return nullptr;
+    if (!op->hasAttr("tt.from_make_range"))
+      return nullptr;
+    if (indices.size() != 1)
+      return nullptr;
     int64_t off = 0;
     if (auto a = op->getAttrOfType<IntegerAttr>("tt.make_range_offset"))
       off = a.getInt();
@@ -160,7 +173,8 @@ private:
     llvm::DenseSet<int64_t> dropSet(bcDims.begin(), bcDims.end());
     SmallVector<Value> inputIdx;
     for (size_t k = 0; k < indices.size(); ++k)
-      if (!dropSet.count(k)) inputIdx.push_back(indices[k]);
+      if (!dropSet.count(k))
+        inputIdx.push_back(indices[k]);
     return emit(op.getInput(), inputIdx);
   }
 
@@ -179,10 +193,11 @@ private:
           Value w = bd.create<arith::ConstantIndexOp>(loc, weight);
           term = bd.create<arith::MulIOp>(loc, term, w);
         }
-        combined = !combined ? term
-                             : bd.create<arith::AddIOp>(loc, combined, term);
+        combined =
+            !combined ? term : bd.create<arith::AddIOp>(loc, combined, term);
       }
-      if (!combined) combined = bd.create<arith::ConstantIndexOp>(loc, 0);
+      if (!combined)
+        combined = bd.create<arith::ConstantIndexOp>(loc, 0);
       inputIdx.push_back(combined);
     }
     return emit(op.getSrc(), inputIdx);
@@ -200,12 +215,18 @@ private:
 
       int64_t leftmostNonOne = -1;
       for (size_t i = 0; i < group.size(); ++i)
-        if (inTy.getDimSize(group[i]) != 1) { leftmostNonOne = (int64_t)i; break; }
+        if (inTy.getDimSize(group[i]) != 1) {
+          leftmostNonOne = (int64_t)i;
+          break;
+        }
 
       for (size_t i = 0; i < group.size(); ++i) {
         int64_t d = group[i];
         int64_t size = inTy.getDimSize(d);
-        if (size == 1) { inputIdx[d] = c0; continue; }
+        if (size == 1) {
+          inputIdx[d] = c0;
+          continue;
+        }
         int64_t weight = 1;
         for (size_t j = i + 1; j < group.size(); ++j)
           weight *= inTy.getDimSize(group[j]);
@@ -225,13 +246,20 @@ private:
   }
 
   Value emitBinaryArith(Operation *def, Value lhs, Value rhs) {
-    if (isa<arith::MulIOp>(def))  return bd.create<arith::MulIOp>(loc, lhs, rhs);
-    if (isa<arith::AddIOp>(def))  return bd.create<arith::AddIOp>(loc, lhs, rhs);
-    if (isa<arith::SubIOp>(def))  return bd.create<arith::SubIOp>(loc, lhs, rhs);
-    if (isa<arith::RemSIOp>(def)) return bd.create<arith::RemSIOp>(loc, lhs, rhs);
-    if (isa<arith::DivSIOp>(def)) return bd.create<arith::DivSIOp>(loc, lhs, rhs);
-    if (isa<arith::RemUIOp>(def)) return bd.create<arith::RemUIOp>(loc, lhs, rhs);
-    if (isa<arith::DivUIOp>(def)) return bd.create<arith::DivUIOp>(loc, lhs, rhs);
+    if (isa<arith::MulIOp>(def))
+      return bd.create<arith::MulIOp>(loc, lhs, rhs);
+    if (isa<arith::AddIOp>(def))
+      return bd.create<arith::AddIOp>(loc, lhs, rhs);
+    if (isa<arith::SubIOp>(def))
+      return bd.create<arith::SubIOp>(loc, lhs, rhs);
+    if (isa<arith::RemSIOp>(def))
+      return bd.create<arith::RemSIOp>(loc, lhs, rhs);
+    if (isa<arith::DivSIOp>(def))
+      return bd.create<arith::DivSIOp>(loc, lhs, rhs);
+    if (isa<arith::RemUIOp>(def))
+      return bd.create<arith::RemUIOp>(loc, lhs, rhs);
+    if (isa<arith::DivUIOp>(def))
+      return bd.create<arith::DivUIOp>(loc, lhs, rhs);
     return nullptr;
   }
 
@@ -240,10 +268,10 @@ private:
 };
 
 static void emitLoopsAndPrint(
-    OpBuilder &builder, Location loc,
-    func::FuncOp scalarPrintFn,
+    OpBuilder &builder, Location loc, func::FuncOp scalarPrintFn,
     ArrayRef<int64_t> shape,
-    llvm::function_ref<Value(OpBuilder &, Location, ArrayRef<Value>)> scalarGen) {
+    llvm::function_ref<Value(OpBuilder &, Location, ArrayRef<Value>)>
+        scalarGen) {
   auto i32Ty = builder.getI32Type();
   Value c0 = builder.create<arith::ConstantIndexOp>(loc, 0);
   Value c1 = builder.create<arith::ConstantIndexOp>(loc, 1);
@@ -251,7 +279,8 @@ static void emitLoopsAndPrint(
   SmallVector<Value> ivs(shape.size(), c0);
   OpBuilder bd = builder;
   for (size_t k = 0; k < shape.size(); ++k) {
-    if (shape[k] <= 1) continue;
+    if (shape[k] <= 1)
+      continue;
     Value upper = bd.create<arith::ConstantIndexOp>(loc, shape[k]);
     auto forOp = bd.create<scf::ForOp>(loc, c0, upper, c1);
     ivs[k] = forOp.getInductionVar();
@@ -259,7 +288,8 @@ static void emitLoopsAndPrint(
   }
 
   Value scalar = scalarGen(bd, loc, ivs);
-  if (!scalar) return;
+  if (!scalar)
+    return;
   if (scalar.getType().isIndex())
     scalar = bd.create<arith::IndexCastOp>(loc, i32Ty, scalar);
   else if (!scalar.getType().isInteger(32))
@@ -288,14 +318,23 @@ static void classifyChain(Value root, bool &canWalk, bool &hasDivMod) {
 
   llvm::DenseSet<Operation *> visited;
   std::function<void(Value)> walk = [&](Value v) {
-    if (!canWalk) return;
+    if (!canWalk)
+      return;
     auto ty = dyn_cast<RankedTensorType>(v.getType());
-    if (!ty) return;
-    if (!ty.hasStaticShape()) { canWalk = false; return; }
+    if (!ty)
+      return;
+    if (!ty.hasStaticShape()) {
+      canWalk = false;
+      return;
+    }
 
     Operation *def = v.getDefiningOp();
-    if (!def) { canWalk = false; return; }
-    if (!visited.insert(def).second) return;
+    if (!def) {
+      canWalk = false;
+      return;
+    }
+    if (!visited.insert(def).second)
+      return;
 
     if (auto fillOp = dyn_cast<linalg::FillOp>(def)) {
       if (fillOp.getInputs().empty() ||
@@ -303,9 +342,11 @@ static void classifyChain(Value root, bool &canWalk, bool &hasDivMod) {
         canWalk = false;
       return;
     }
-    if (isa<arith::ConstantOp, tensor::EmptyOp>(def)) return;
+    if (isa<arith::ConstantOp, tensor::EmptyOp>(def))
+      return;
     if (auto g = dyn_cast<linalg::GenericOp>(def)) {
-      if (!g->hasAttr("tt.from_make_range")) canWalk = false;
+      if (!g->hasAttr("tt.from_make_range"))
+        canWalk = false;
       return;
     }
     if (auto bc = dyn_cast<linalg::BroadcastOp>(def)) {
@@ -317,7 +358,8 @@ static void classifyChain(Value root, bool &canWalk, bool &hasDivMod) {
       for (auto group : exp.getReassociationIndices())
         for (int64_t d : group)
           if (ShapedType::isDynamic(resTy.getDimSize(d))) {
-            canWalk = false; return;
+            canWalk = false;
+            return;
           }
       walk(exp.getSrc());
       return;
@@ -327,19 +369,22 @@ static void classifyChain(Value root, bool &canWalk, bool &hasDivMod) {
       for (auto group : col.getReassociationIndices())
         for (int64_t d : group)
           if (ShapedType::isDynamic(inTy.getDimSize(d))) {
-            canWalk = false; return;
+            canWalk = false;
+            return;
           }
       walk(col.getSrc());
       return;
     }
-    if (isa<arith::RemSIOp, arith::DivSIOp,
-            arith::RemUIOp, arith::DivUIOp>(def)) {
+    if (isa<arith::RemSIOp, arith::DivSIOp, arith::RemUIOp, arith::DivUIOp>(
+            def)) {
       hasDivMod = true;
-      for (Value operand : def->getOperands()) walk(operand);
+      for (Value operand : def->getOperands())
+        walk(operand);
       return;
     }
     if (isa<arith::MulIOp, arith::AddIOp, arith::SubIOp>(def)) {
-      for (Value operand : def->getOperands()) walk(operand);
+      for (Value operand : def->getOperands())
+        walk(operand);
       return;
     }
     canWalk = false;
@@ -348,19 +393,22 @@ static void classifyChain(Value root, bool &canWalk, bool &hasDivMod) {
   walk(root);
 }
 
-static memref::ReinterpretCastOp findMatchingCast(
-    func::FuncOp funcOp, ArrayRef<int64_t> targetShape) {
+static memref::ReinterpretCastOp
+findMatchingCast(func::FuncOp funcOp, ArrayRef<int64_t> targetShape) {
   memref::ReinterpretCastOp best;
   unsigned bestScore = 0;
   funcOp.walk([&](memref::ReinterpretCastOp c) {
     auto resTy = dyn_cast<MemRefType>(c.getResult().getType());
-    if (!resTy) return;
-    if (resTy.getShape() != targetShape) return;
+    if (!resTy)
+      return;
+    if (resTy.getShape() != targetShape)
+      return;
     unsigned score = 0;
     if (auto blockArg = dyn_cast<BlockArgument>(c.getSource())) {
       unsigned idx = blockArg.getArgNumber();
       if (auto argDict = funcOp.getArgAttrDict(idx))
-        if (argDict.contains("tt.tensor_kind")) score = 1;
+        if (argDict.contains("tt.tensor_kind"))
+          score = 1;
     }
     if (score >= bestScore) {
       bestScore = score;
@@ -370,10 +418,9 @@ static memref::ReinterpretCastOp findMatchingCast(
   return best;
 }
 
-static OffsetChainInfo analyzeChain(Value arg,
-                                     func::FuncOp funcOp,
-                                     Operation *anchorOp,
-                                     DominanceInfo &domInfo) {
+static OffsetChainInfo analyzeChain(Value arg, func::FuncOp funcOp,
+                                    Operation *anchorOp,
+                                    DominanceInfo &domInfo) {
   OffsetChainInfo info;
 
   auto argTy = dyn_cast<RankedTensorType>(arg.getType());
@@ -416,7 +463,10 @@ static OffsetChainInfo analyzeChain(Value arg,
         bool domAllOk = domOk(mixedOffsets[0]);
         if (domAllOk)
           for (auto s : mixedStrides)
-            if (!domOk(s)) { domAllOk = false; break; }
+            if (!domOk(s)) {
+              domAllOk = false;
+              break;
+            }
         if (domAllOk) {
           info.kind = ChainKind::Linear;
           info.strides = std::move(mixedStrides);
@@ -440,7 +490,8 @@ static void rewriteCandidate(RewriteCandidate &cand, ModuleOp moduleOp) {
   auto i32Ty = IntegerType::get(moduleOp.getContext(), 32);
   auto oldFn = dyn_cast_or_null<func::FuncOp>(
       SymbolTable::lookupSymbolIn(moduleOp, cand.callOp.getCalleeAttr()));
-  if (!oldFn) return;
+  if (!oldFn)
+    return;
 
   auto newFnTy = FunctionType::get(moduleOp.getContext(), {i32Ty}, {});
   oldFn.setFunctionType(newFnTy);
@@ -450,45 +501,51 @@ static void rewriteCandidate(RewriteCandidate &cand, ModuleOp moduleOp) {
   OffsetChainInfo &info = cand.info;
 
   switch (info.kind) {
-    case ChainKind::Linear: {
-      auto gen = [&info](OpBuilder &bd, Location loc,
-                          ArrayRef<Value> ivs) -> Value {
-        Value acc;
-        if (!isStaticEqual(info.baseOffset, 0)) {
-          acc = materializeIndex(bd, loc, info.baseOffset);
-          if (!acc) return nullptr;
+  case ChainKind::Linear: {
+    auto gen = [&info](OpBuilder &bd, Location loc,
+                       ArrayRef<Value> ivs) -> Value {
+      Value acc;
+      if (!isStaticEqual(info.baseOffset, 0)) {
+        acc = materializeIndex(bd, loc, info.baseOffset);
+        if (!acc)
+          return nullptr;
+      }
+      for (size_t k = 0; k < info.shape.size(); ++k) {
+        if (info.shape[k] <= 1)
+          continue;
+        Value idx = ivs[k];
+        if (!isStaticEqual(info.strides[k], 1)) {
+          Value s = materializeIndex(bd, loc, info.strides[k]);
+          if (!s)
+            return nullptr;
+          idx = bd.create<arith::MulIOp>(loc, idx, s);
         }
-        for (size_t k = 0; k < info.shape.size(); ++k) {
-          if (info.shape[k] <= 1) continue;
-          Value idx = ivs[k];
-          if (!isStaticEqual(info.strides[k], 1)) {
-            Value s = materializeIndex(bd, loc, info.strides[k]);
-            if (!s) return nullptr;
-            idx = bd.create<arith::MulIOp>(loc, idx, s);
-          }
-          if (!acc) acc = idx;
-          else      acc = bd.create<arith::AddIOp>(loc, acc, idx);
-        }
-        if (!acc) acc = bd.create<arith::ConstantIndexOp>(loc, 0);
-        return acc;
-      };
-      emitLoopsAndPrint(b, loc, oldFn, info.shape, gen);
-      break;
-    }
+        if (!acc)
+          acc = idx;
+        else
+          acc = bd.create<arith::AddIOp>(loc, acc, idx);
+      }
+      if (!acc)
+        acc = bd.create<arith::ConstantIndexOp>(loc, 0);
+      return acc;
+    };
+    emitLoopsAndPrint(b, loc, oldFn, info.shape, gen);
+    break;
+  }
 
-    case ChainKind::Linearized: {
-      Value root = info.chainRoot;
-      auto gen = [root](OpBuilder &bd, Location loc,
-                         ArrayRef<Value> ivs) -> Value {
-        ScalarChainWalker walker(bd, loc);
-        return walker.emit(root, ivs);
-      };
-      emitLoopsAndPrint(b, loc, oldFn, info.shape, gen);
-      break;
-    }
+  case ChainKind::Linearized: {
+    Value root = info.chainRoot;
+    auto gen = [root](OpBuilder &bd, Location loc,
+                      ArrayRef<Value> ivs) -> Value {
+      ScalarChainWalker walker(bd, loc);
+      return walker.emit(root, ivs);
+    };
+    emitLoopsAndPrint(b, loc, oldFn, info.shape, gen);
+    break;
+  }
 
-    case ChainKind::Unsupported:
-      return;
+  case ChainKind::Unsupported:
+    return;
   }
 
   cand.callOp.erase();
@@ -496,18 +553,22 @@ static void rewriteCandidate(RewriteCandidate &cand, ModuleOp moduleOp) {
 
 static void rewriteOneFunc(func::FuncOp funcOp) {
   auto moduleOp = funcOp->getParentOfType<ModuleOp>();
-  if (!moduleOp) return;
+  if (!moduleOp)
+    return;
 
   DominanceInfo domInfo(funcOp);
   SmallVector<RewriteCandidate> candidates;
 
   funcOp.walk([&](func::CallOp callOp) {
-    if (!callOp.getCallee().starts_with("triton_print")) return;
-    if (callOp.getNumOperands() != 1) return;
+    if (!callOp.getCallee().starts_with("triton_print"))
+      return;
+    if (callOp.getNumOperands() != 1)
+      return;
 
-    OffsetChainInfo info = analyzeChain(
-        callOp.getOperand(0), funcOp, callOp.getOperation(), domInfo);
-    if (info.kind == ChainKind::Unsupported) return;
+    OffsetChainInfo info = analyzeChain(callOp.getOperand(0), funcOp,
+                                        callOp.getOperation(), domInfo);
+    if (info.kind == ChainKind::Unsupported)
+      return;
 
     candidates.push_back({callOp, std::move(info)});
   });
@@ -516,14 +577,15 @@ static void rewriteOneFunc(func::FuncOp funcOp) {
     rewriteCandidate(cand, moduleOp);
 }
 
-}  // namespace
+} // namespace
 
 void rewriteDevicePrintOffsets(ModuleOp moduleOp) {
   moduleOp.walk([&](func::FuncOp funcOp) {
-    if (funcOp.isPrivate()) return;
+    if (funcOp.isPrivate())
+      return;
     rewriteOneFunc(funcOp);
   });
 }
 
-}  // namespace triton
-}  // namespace mlir
+} // namespace triton
+} // namespace mlir

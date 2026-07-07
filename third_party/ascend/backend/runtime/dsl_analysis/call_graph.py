@@ -24,7 +24,6 @@ import ast
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Union
 
-
 FunctionLike = Union[ast.FunctionDef, ast.AsyncFunctionDef]
 
 
@@ -81,11 +80,7 @@ def build_call_sites(functions: Dict[str, FunctionMeta]) -> List[CallSite]:
                 if idx >= len(bound_args):
                     break
                 bound_args[idx] = arg_node
-            keyword_map = {
-                kw.arg: kw.value
-                for kw in node.keywords
-                if kw.arg is not None
-            }
+            keyword_map = {kw.arg: kw.value for kw in node.keywords if kw.arg is not None}
             for idx, param_name in enumerate(callee_meta.param_names):
                 if bound_args[idx] is not None:
                     continue
@@ -98,8 +93,7 @@ def build_call_sites(functions: Dict[str, FunctionMeta]) -> List[CallSite]:
                     callee=callee_name,
                     args=bound_args,
                     lineno=getattr(node, "lineno", -1),
-                )
-            )
+                ))
     call_sites.sort(key=lambda site: (site.caller, site.lineno, site.callee))
     return call_sites
 

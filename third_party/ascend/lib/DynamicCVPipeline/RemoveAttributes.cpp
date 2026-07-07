@@ -38,33 +38,35 @@ using namespace triton;
 using namespace CVPipeline;
 
 static constexpr const char *DEBUG_TYPE = "RemoveAttributes";
-#define LOG_DEBUG(...) LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << __VA_ARGS__)
+#define LOG_DEBUG(...)                                                         \
+  LLVM_DEBUG(llvm::dbgs() << " [" << DEBUG_TYPE << "] " << __VA_ARGS__)
 
 // if extra attr is needed, add to ut @
 // third_party/ascend/unittest/Conversion/General/DynamicCVPipeline/test-remove-attrs.mlir
-static constexpr llvm::StringLiteral kAttrsToRemove[] {kBlockId, kCoreType, kTransferId, kMainLoop, kCubeFirst, kVectorFirst, kAddFromMatmul, kIntraBuffer, kAnalyzeFlagId, kLoopCarriedL0C, kMatmulADep, kMatmulBDep, kMatmulExtract, kCrossDeps, kClone};
+static constexpr llvm::StringLiteral kAttrsToRemove[]{
+    kBlockId,       kCoreType,       kTransferId,    kMainLoop,
+    kCubeFirst,     kVectorFirst,    kAddFromMatmul, kIntraBuffer,
+    kAnalyzeFlagId, kLoopCarriedL0C, kMatmulADep,    kMatmulBDep,
+    kMatmulExtract, kCrossDeps,      kClone};
 
-void RemoveSsbufAttrPass::runOnOperation()
-{
-    auto module = getOperation();
-    module->walk([](Operation *op) {
-        LOG_DEBUG("Removing ssbuf attrs of " << *op);
-        for (auto attrName : kAttrsToRemove) {
-            op->removeAttr(attrName);
-        }
-    });
+void RemoveSsbufAttrPass::runOnOperation() {
+  auto module = getOperation();
+  module->walk([](Operation *op) {
+    LOG_DEBUG("Removing ssbuf attrs of " << *op);
+    for (auto attrName : kAttrsToRemove) {
+      op->removeAttr(attrName);
+    }
+  });
 }
 
 namespace mlir::triton {
 
-std::unique_ptr<OperationPass<ModuleOp>> createRemoveSsbufAttrPass()
-{
-    return std::make_unique<RemoveSsbufAttrPass>();
+std::unique_ptr<OperationPass<ModuleOp>> createRemoveSsbufAttrPass() {
+  return std::make_unique<RemoveSsbufAttrPass>();
 }
 
-void registerRemoveSsbufAttrPasses()
-{
-    registerPass(createRemoveSsbufAttrPass);
+void registerRemoveSsbufAttrPasses() {
+  registerPass(createRemoveSsbufAttrPass);
 }
 
 } // namespace mlir::triton

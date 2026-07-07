@@ -17,7 +17,6 @@
 #LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 #THE SOFTWARE.
-
 """
 UB Tuner for Triton-Ascend
 
@@ -48,8 +47,8 @@ class _Config:
     """Global configuration constants for UB Tuner."""
 
     # Environment variable names
-    ENV_MODE = "TRITON_ENABLE_UBTUNER"              # 调优模式，可选值: "compile"(仅编译)、"run"(编译+运行测量耗时) (默认: 未设置)
-    ENV_EANBLE_PRINT = "TRITON_PRINT_AUTOTUNING"    # 调优日志开关, 复用autotune的环境变量，设为"1"时打印调优过程详细信息 (默认: 未设置/不打印)
+    ENV_MODE = "TRITON_ENABLE_UBTUNER"  # 调优模式，可选值: "compile"(仅编译)、"run"(编译+运行测量耗时) (默认: 未设置)
+    ENV_EANBLE_PRINT = "TRITON_PRINT_AUTOTUNING"  # 调优日志开关, 复用autotune的环境变量，设为"1"时打印调优过程详细信息 (默认: 未设置/不打印)
     ENV_ENABLE_PRINT_UB_BITS = "ENABLE_PRINT_UB_BITS"  # 运行时打印UB占用位数，run模式下临时设为"true"以获取required_ub_bits (默认: 未设置)
 
     # Default values
@@ -73,7 +72,8 @@ class _Config:
 UB_OPTION_METADATA: Dict[str, Dict[str, Any]] = {
     'enable_storage_align': {'type': bool, 'default': False, 'npu_option': 'storage_align'},
     'auto_multi_buffer': {'type': bool, 'default': False, 'npu_option': 'multibuffer'},
-    'vf_fusion_mode': {'type': str, 'default': 'ub-aware-op', 'npu_option': 'vf_fusion_mode', 'values': ['ub-aware-op', 'max-parallel']},
+    'vf_fusion_mode':
+    {'type': str, 'default': 'ub-aware-op', 'npu_option': 'vf_fusion_mode', 'values': ['ub-aware-op', 'max-parallel']},
 }
 
 # Derived lists for convenience
@@ -82,11 +82,7 @@ INT_OPTIONS = [k for k, v in UB_OPTION_METADATA.items() if v['type'] == int]
 STR_OPTIONS = [k for k, v in UB_OPTION_METADATA.items() if v['type'] == str]
 
 # Mapping from UB config keys to NPUOptions keys
-UB_TO_NPU_OPTION_MAP = {
-    k: v['npu_option'] 
-    for k, v in UB_OPTION_METADATA.items() 
-    if v['npu_option'] is not None
-}
+UB_TO_NPU_OPTION_MAP = {k: v['npu_option'] for k, v in UB_OPTION_METADATA.items() if v['npu_option'] is not None}
 
 # =============================================================================
 # Cost Model for UB Config Selection
@@ -137,14 +133,8 @@ def get_mode_choice() -> str:
     return _Config.DEFAULT_MODE
 
 
-def _try_compile_option(
-    option: str,
-    current_config: Dict[str, bool],
-    linalg_ir: str,
-    metadata: Dict[str, Any],
-    npu_options: Any,
-    try_value: Union[bool, str]
-) -> Tuple[bool, Optional[str]]:
+def _try_compile_option(option: str, current_config: Dict[str, bool], linalg_ir: str, metadata: Dict[str, Any],
+                        npu_options: Any, try_value: Union[bool, str]) -> Tuple[bool, Optional[str]]:
     """Try compiling with a single option enabled/disabled."""
     from triton.backends.ascend.compiler import try_compile_with_config
 
@@ -187,14 +177,10 @@ def _build_sorted_option_list(benefit_cost: Dict[str, Dict[str, float]], options
     return items
 
 
-def greedy_optimize(
-    benefit_cost: Dict[str, Dict[str, float]],
-    options: List[str],
-    linalg_ir: str,
-    metadata: Dict[str, Any],
-    npu_options: Any,
-    _memory_limit: Optional[int] = None  # Unused but kept for compatibility
-) -> Dict[str, Any]:
+def greedy_optimize(benefit_cost: Dict[str, Dict[str, float]], options: List[str], linalg_ir: str, metadata: Dict[str,
+                                                                                                                  Any],
+                    npu_options: Any, _memory_limit: Optional[int] = None  # Unused but kept for compatibility
+                    ) -> Dict[str, Any]:
     """
     Greedy strategy: sort options by benefit/cost ratio, try each option.
 
@@ -230,19 +216,17 @@ def greedy_optimize(
         # Already found a successful value for this str option, skip
         if is_str_opt and opt in applied_options:
             continue
-        
+
         _log_debug(f"Greedy: trying config with {opt}={val}")
         try:
-            success, error_msg = _try_compile_option(
-                opt, result, linalg_ir, metadata, npu_options, val
-            )
+            success, error_msg = _try_compile_option(opt, result, linalg_ir, metadata, npu_options, val)
             if success:
                 result[opt] = val
                 applied_options.add(opt)
                 _log_debug(f"Greedy: {opt}={val} succeeded, keeping it")
             else:
                 if is_bool_opt:
-                    result[opt] = _get_option_value(opt, False)                    
+                    result[opt] = _get_option_value(opt, False)
                 err_preview = error_msg[:100] if error_msg else "Unknown"
                 _log_debug(f"Greedy: {opt}={val} failed: {err_preview}..., skipping")
         except Exception as e:
@@ -251,13 +235,8 @@ def greedy_optimize(
     return result
 
 
-def _measure_option_cost_onboard(
-    fn: Callable,
-    args: Tuple[Any, ...],
-    kwargs: Dict[str, Any],
-    opt: str,
-    opt_value: Any
-) -> Tuple[float, float]:
+def _measure_option_cost_onboard(fn: Callable, args: Tuple[Any, ...], kwargs: Dict[str, Any], opt: str,
+                                 opt_value: Any) -> Tuple[float, float]:
     """
     Measure the cost (UB bits) for a single option configuration.
 
@@ -285,12 +264,8 @@ def _measure_option_cost_onboard(
     return metadata.get('required_ub_bits', 0), -opt_time * 1000
 
 
-def run_mode_get_benefit_cost(
-    available_options: List[str],
-    fn: Callable,
-    args: Tuple[Any, ...],
-    kwargs: Dict[str, Any]
-) -> Dict[str, Dict[str, float]]:
+def run_mode_get_benefit_cost(available_options: List[str], fn: Callable, args: Tuple[Any, ...],
+                              kwargs: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
     """
     Run mode: measure actual execution time for each option.
 
@@ -330,6 +305,7 @@ def run_mode_get_benefit_cost(
             result[key] = {'cost': 0, 'benefit': -1e100}
 
     return result
+
 
 # Legacy Option weights (kept for backward compatibility)
 OPTION_WEIGHTS: Dict[str, float] = {
@@ -522,7 +498,7 @@ class UBTuner(KernelInterface):
         ret = self.fn.run(*args, **kwargs_with_ub)
         self.nargs = None
         return ret
-    
+
     def _set_ub_optimal_config(self, kwargs: Any):
         """set compiler config that use minimum ub space"""
         for option in BOOL_OPTIONS:
@@ -588,7 +564,8 @@ class UBTuner(KernelInterface):
         finally:
             os.environ.pop(_Config.ENV_ENABLE_PRINT_UB_BITS, None)
 
-        for config in self._try_algorithms(['greedy'], benefit_cost, available_options, linalg_ir, metadata, npu_options):
+        for config in self._try_algorithms(['greedy'], benefit_cost, available_options, linalg_ir, metadata,
+                                           npu_options):
             return config
 
         return UBConfig()
@@ -604,29 +581,17 @@ class UBTuner(KernelInterface):
             _log_debug(f"Failed to create NPUOptions: {e}")
             return None
 
-    def _get_benefit_cost(
-        self,
-        mode: str,
-        available_options: List[str],
-        args: Tuple[Any, ...],
-        kwargs: Dict[str, Any],
-        npu_options: Any
-    ) -> Dict[str, Dict[str, float]]:
+    def _get_benefit_cost(self, mode: str, available_options: List[str], args: Tuple[Any, ...], kwargs: Dict[str, Any],
+                          npu_options: Any) -> Dict[str, Dict[str, float]]:
         """Get benefit/cost data based on mode."""
         if mode == "run":
             _log_debug("Running in run-mode, measuring execution time...")
             return run_mode_get_benefit_cost(available_options, self.fn, args, kwargs)
         return UB_OPTION_COST_BENEFIT
 
-    def _try_algorithms(
-        self,
-        algorithm_list: List[str],
-        benefit_cost: Dict[str, Dict[str, float]],
-        available_options: List[str],
-        linalg_ir: str,
-        metadata: Dict[str, Any],
-        npu_options: Any
-    ) -> List[UBConfig]:
+    def _try_algorithms(self, algorithm_list: List[str], benefit_cost: Dict[str, Dict[str, float]],
+                        available_options: List[str], linalg_ir: str, metadata: Dict[str, Any],
+                        npu_options: Any) -> List[UBConfig]:
         """Try each algorithm in order until one succeeds."""
         for algo in algorithm_list:
             config = self._try_single_algorithm(algo, benefit_cost, available_options, linalg_ir, metadata, npu_options)
@@ -634,15 +599,8 @@ class UBTuner(KernelInterface):
                 return [config]
         return []
 
-    def _try_single_algorithm(
-        self,
-        algo: str,
-        benefit_cost: Dict[str, Dict[str, float]],
-        available_options: List[str],
-        linalg_ir: str,
-        metadata: Dict[str, Any],
-        npu_options: Any
-    ) -> Optional[UBConfig]:
+    def _try_single_algorithm(self, algo: str, benefit_cost: Dict[str, Dict[str, float]], available_options: List[str],
+                              linalg_ir: str, metadata: Dict[str, Any], npu_options: Any) -> Optional[UBConfig]:
         """Try a single algorithm and return config if successful."""
         _log_debug(f"Running {algo} optimization...")
 
@@ -661,7 +619,8 @@ class UBTuner(KernelInterface):
         _log_debug(f"{algo.capitalize()} config failed: {err_preview}...")
         return None
 
-    def _try_compile(self, config: UBConfig, linalg_ir: str, metadata: Dict[str, Any], npu_options: Any) -> Tuple[bool, Optional[str]]:
+    def _try_compile(self, config: UBConfig, linalg_ir: str, metadata: Dict[str, Any],
+                     npu_options: Any) -> Tuple[bool, Optional[str]]:
         """Try to compile the kernel with the given UB config."""
         from triton.backends.ascend.compiler import try_compile_with_config
         try:
@@ -685,6 +644,7 @@ class UBTuner(KernelInterface):
 
 
 def ubtuner(key=None):
+
     def decorator(fn):
         # Check if fn (or its underlying function) has been decorated with autotuner
         # When autotune is applied, it marks the original function with '_triton_autotuned' attribute
@@ -693,11 +653,9 @@ def ubtuner(key=None):
         # Mark the original function so ubtuner can detect autotune was applied
         setattr(original_fn, '_ubtuned', True)
         if getattr(original_fn, '_triton_autotuned', False):
-            raise ValueError(
-                f"Cannot apply @ubtuner decorator on a function that already has @autotune decorator. "
-                f"The @autotune decorator should be the outer decorator (applied first), not @ubtuner. "
-                f"Please change the decorator order: put @autotune outside @ubtuner."
-            )
+            raise ValueError(f"Cannot apply @ubtuner decorator on a function that already has @autotune decorator. "
+                             f"The @autotune decorator should be the outer decorator (applied first), not @ubtuner. "
+                             f"Please change the decorator order: put @autotune outside @ubtuner.")
         return UBTuner(fn, key)
 
     return decorator
