@@ -265,10 +265,30 @@ protected:
   }
 
   llvm::SmallVector<Operation *> getRealReductionOps(OpTy reductionOp) const {
+    auto *body = reductionOp.getBody();
+    auto *terminator = body->getTerminator();
+
+    // Compute the backward slice from yielded values: only ops that
+    // actually contribute to the computation of the reduction result
+    // are considered.
+    llvm::DenseSet<Operation *> liveOps;
+    llvm::SmallVector<Value> worklist(terminator->getOperands());
+    while (!worklist.empty()) {
+      Value val = worklist.pop_back_val();
+      if (auto *defOp = val.getDefiningOp()) {
+        if (defOp->getBlock() == body && liveOps.insert(defOp).second) {
+          for (auto operand : defOp->getOperands())
+            worklist.push_back(operand);
+        }
+      }
+    }
+
+    // Count only live ops, excluding type conversions that serve as
+    // precision promotion or demotion (e.g. bf16 -> f32 -> bf16).
     llvm::SmallVector<Operation *> realOps;
-    for (Operation &bodyOp : reductionOp.getBody()->without_terminator()) {
-      // Skips non-reduce operations, including type conversion operations (this
-      // can be extended as needed).
+    for (Operation &bodyOp : body->without_terminator()) {
+      if (!liveOps.contains(&bodyOp))
+        continue;
       if (isa<arith::ExtFOp, arith::TruncFOp, arith::BitcastOp>(&bodyOp))
         continue;
       realOps.push_back(&bodyOp);
