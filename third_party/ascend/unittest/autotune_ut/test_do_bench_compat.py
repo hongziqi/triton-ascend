@@ -31,6 +31,7 @@ def _make_tuner(do_bench):
     tuner.compile_parallel = False
     tuner.do_bench = do_bench
     tuner.user_defined_do_bench = True
+
     def _make_kernel_call(self, *args, config, **meta):
 
         def kernel_call(warmup):
@@ -103,8 +104,7 @@ def test_batch_bench_npu_env_uses_do_bench_npu_without_user_do_bench(monkeypatch
 
     calls = {"do_bench_npu": 0}
 
-    def _do_bench_npu(funcs, clear_l2_cache=False, warmup=5, active=30,
-                      target_kernel_name=None, **kwargs):
+    def _do_bench_npu(funcs, clear_l2_cache=False, warmup=5, active=30, target_kernel_name=None, **kwargs):
         calls["do_bench_npu"] += 1
         assert len(funcs) == 2
         return [1.0, 2.0]
