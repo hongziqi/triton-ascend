@@ -105,12 +105,9 @@ def _clone_config_with_kwargs(
         num_warps=config.num_warps,
         num_stages=config.num_stages if num_stages is None else num_stages,
         num_ctas=config.num_ctas,
-        num_buffers_warp_spec=config.num_buffers_warp_spec,
-        num_consumer_groups=config.num_consumer_groups,
-        reg_dec_producer=config.reg_dec_producer,
-        reg_inc_consumer=config.reg_inc_consumer,
         maxnreg=config.maxnreg,
         pre_hook=config.pre_hook,
+        ir_override=getattr(config, "ir_override", None),
     )
 
 
@@ -2154,7 +2151,9 @@ class AutoTilingTuner(Autotuner):
             # we ignore expensive profiling method when only single config is left
             return {config: self.do_bench(fn, quantiles=(0.5, 0.2, 0.8)) for config, fn in run_fns.items()}
 
-        if (self.parser_mode in ("cube", "mix") and self.cv_parse_result is not None):
+        parser_mode = getattr(self, "parser_mode", None) or "vector"
+        cv_parse_result = getattr(self, "cv_parse_result", None)
+        if parser_mode in ("cube", "mix") and cv_parse_result is not None:
             run_fns = self._prune_by_time_limit(run_fns)
 
         use_profiling = os.getenv("TRITON_BENCH_METHOD", "default").lower() == "npu"
@@ -2163,9 +2162,9 @@ class AutoTilingTuner(Autotuner):
         if use_npu_profiling:
             from ..testing import ProfilerResultMismatchError, do_bench_npu
 
-            cv_mode = self.parser_mode in ("cube", "mix") and self.cv_parse_result is not None
-            warmup = self.cv_warmup if cv_mode else 5
-            active = self.cv_repeat if cv_mode else 30
+            cv_mode = parser_mode in ("cube", "mix") and cv_parse_result is not None
+            warmup = getattr(self, "cv_warmup", 5) if cv_mode else 5
+            active = getattr(self, "cv_repeat", 30) if cv_mode else 30
             target_kernel_name = self._resolve_target_kernel_name(kernels_call, run_fns.keys())
             try:
                 time_cost = do_bench_npu(
@@ -3161,9 +3160,8 @@ def get_max_configs(config, kernel_type="mixcv", **kwargs):
 
         new_config = Config(kwargs=new_kwargs, num_warps=config.num_warps,
                             num_stages=num_stages_val if num_stages_val is not None else config.num_stages,
-                            num_ctas=config.num_ctas, num_buffers_warp_spec=config.num_buffers_warp_spec,
-                            num_consumer_groups=config.num_consumer_groups, reg_dec_producer=config.reg_dec_producer,
-                            reg_inc_consumer=config.reg_inc_consumer, maxnreg=config.maxnreg, pre_hook=config.pre_hook)
+                            num_ctas=config.num_ctas, maxnreg=config.maxnreg, pre_hook=config.pre_hook,
+                            ir_override=getattr(config, "ir_override", None))
         new_configs.append(new_config)
 
     return new_configs

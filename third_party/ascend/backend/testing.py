@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import triton.runtime as runtime
+from triton.knobs import cache
 
 
 class ProfilerResultMismatchError(RuntimeError):
@@ -72,7 +73,7 @@ def do_bench_npu(
         pid = process.pid
         process_name = process.name
         timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-        base_path = os.path.join(get_home_dir(), ".triton", "profile_results")
+        base_path = cache.get_triton_dir("profile_results")
         torch_path = os.path.join(base_path, f"prof_{timestamp}_{process_name}-{pid}")
 
     if clear_l2_cache:
