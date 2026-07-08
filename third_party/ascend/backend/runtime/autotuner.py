@@ -107,7 +107,7 @@ def _clone_config_with_kwargs(
         num_ctas=config.num_ctas,
         maxnreg=config.maxnreg,
         pre_hook=config.pre_hook,
-        ir_override=getattr(config, "ir_override", None),
+        ir_override=config.ir_override,
     )
 
 
@@ -3161,7 +3161,7 @@ def get_max_configs(config, kernel_type="mixcv", **kwargs):
         new_config = Config(kwargs=new_kwargs, num_warps=config.num_warps,
                             num_stages=num_stages_val if num_stages_val is not None else config.num_stages,
                             num_ctas=config.num_ctas, maxnreg=config.maxnreg, pre_hook=config.pre_hook,
-                            ir_override=getattr(config, "ir_override", None))
+                            ir_override=config.ir_override)
         new_configs.append(new_config)
 
     return new_configs
