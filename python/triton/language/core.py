@@ -880,27 +880,27 @@ class tensor(base_value):
 
     @builtin
     def __add__(self, other, _semantic=None):
-        return add(self, other, sanitize_overflow=True, _semantic=_semantic)
+        return add(self, other, sanitize_overflow=False, _semantic=_semantic)
 
     @builtin
     def __radd__(self, other, _semantic=None):
-        return add(other, self, sanitize_overflow=True, _semantic=_semantic)
+        return add(other, self, sanitize_overflow=False, _semantic=_semantic)
 
     @builtin
     def __sub__(self, other, _semantic=None):
-        return sub(self, other, sanitize_overflow=True, _semantic=_semantic)
+        return sub(self, other, sanitize_overflow=False, _semantic=_semantic)
 
     @builtin
     def __rsub__(self, other, _semantic=None):
-        return sub(other, self, sanitize_overflow=True, _semantic=_semantic)
+        return sub(other, self, sanitize_overflow=False, _semantic=_semantic)
 
     @builtin
     def __mul__(self, other, _semantic=None):
-        return mul(self, other, sanitize_overflow=True, _semantic=_semantic)
+        return mul(self, other, sanitize_overflow=False, _semantic=_semantic)
 
     @builtin
     def __rmul__(self, other, _semantic=None):
-        return mul(other, self, sanitize_overflow=True, _semantic=_semantic)
+        return mul(other, self, sanitize_overflow=False, _semantic=_semantic)
 
     @builtin
     def __truediv__(self, other, _semantic=None):
@@ -2482,21 +2482,21 @@ def where(condition, x, y, _semantic=None):
 
 
 @builtin
-def add(x, y, sanitize_overflow: constexpr = True, _semantic=None):
+def add(x, y, sanitize_overflow: constexpr = False, _semantic=None):
     x = _unwrap_if_constexpr(x)
     y = _unwrap_if_constexpr(y)
     return _semantic.add(x, y, sanitize_overflow)
 
 
 @builtin
-def sub(x, y, sanitize_overflow: constexpr = True, _semantic=None):
+def sub(x, y, sanitize_overflow: constexpr = False, _semantic=None):
     x = _unwrap_if_constexpr(x)
     y = _unwrap_if_constexpr(y)
     return _semantic.sub(x, y, sanitize_overflow)
 
 
 @builtin
-def mul(x, y, sanitize_overflow: constexpr = True, _semantic=None):
+def mul(x, y, sanitize_overflow: constexpr = False, _semantic=None):
     x = _unwrap_if_constexpr(x)
     y = _unwrap_if_constexpr(y)
     return _semantic.mul(x, y, sanitize_overflow)
