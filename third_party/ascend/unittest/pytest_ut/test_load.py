@@ -169,7 +169,7 @@ def test_load_with_other_mask(param_list):
 
 @pytest.mark.parametrize('param_list', [
     ['float32', 1000, 128],
-    ['int8', 500, 128],
+    ['int8', 1000, 128],
 ])
 def test_load_with_other_tensor(param_list):
     dtype, n, block = param_list
@@ -188,8 +188,8 @@ def test_load_with_other_tensor(param_list):
 
 
 @pytest.mark.parametrize('param_list', [
-    ['float32', 128, 128],
-    ['float16', 256, 128],
+    ['float32', 1000, 128],
+    ['int8', 1000, 128],
 ])
 def test_load_with_other_tensor_discrete_mask(param_list):
     dtype, n, block = param_list

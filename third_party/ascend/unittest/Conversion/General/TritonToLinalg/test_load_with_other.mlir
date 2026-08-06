@@ -7,6 +7,7 @@
 // CHECK: memref.copy
 // CHECK: bufferization.to_tensor %[[ALLOC]]
 // CHECK: tensor.extract_slice
+// CHECK: tensor.insert_slice
 // CHECK-NOT: arith.select
 
 module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
@@ -26,6 +27,40 @@ module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
     %11 = tt.splat %arg1 : !tt.ptr<f32> -> tensor<128x!tt.ptr<f32>>
     %12 = tt.addptr %11, %4 : tensor<128x!tt.ptr<f32>>, tensor<128xi32>
     tt.store %12, %10, %6 : tensor<128x!tt.ptr<f32>>
+    tt.return
+  }
+}
+
+// -----
+
+// Case 1b: other = extui(mask) for int8 — same zeros + insert_slice.
+// CHECK-LABEL: func.func @load_other_mask_i8
+// CHECK: %[[ALLOC:.*]] = memref.alloc() : memref<128xi8>
+// CHECK: memref.copy
+// CHECK: bufferization.to_tensor %[[ALLOC]]
+// CHECK: %[[CST:.*]] = arith.constant 0 : i8
+// CHECK: linalg.fill ins(%[[CST]] : i8)
+// CHECK: tensor.extract_slice
+// CHECK: tensor.insert_slice
+// CHECK-NOT: arith.select
+
+module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
+  tt.func public @load_other_mask_i8(%arg0: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg2: i32) attributes {noinline = false} {
+    %c128_i32 = arith.constant 128 : i32
+    %0 = tt.get_program_id x : i32
+    %1 = arith.muli %0, %c128_i32 : i32
+    %2 = tt.make_range {end = 128 : i32, start = 0 : i32} : tensor<128xi32>
+    %3 = tt.splat %1 : i32 -> tensor<128xi32>
+    %4 = arith.addi %3, %2 : tensor<128xi32>
+    %5 = tt.splat %arg2 : i32 -> tensor<128xi32>
+    %6 = arith.cmpi slt, %4, %5 : tensor<128xi32>
+    %7 = tt.splat %arg0 : !tt.ptr<i8> -> tensor<128x!tt.ptr<i8>>
+    %8 = tt.addptr %7, %4 : tensor<128x!tt.ptr<i8>>, tensor<128xi32>
+    %9 = arith.extui %6 : tensor<128xi1> to tensor<128xi8>
+    %10 = tt.load %8, %6, %9 : tensor<128x!tt.ptr<i8>>
+    %11 = tt.splat %arg1 : !tt.ptr<i8> -> tensor<128x!tt.ptr<i8>>
+    %12 = tt.addptr %11, %4 : tensor<128x!tt.ptr<i8>>, tensor<128xi32>
+    tt.store %12, %10, %6 : tensor<128x!tt.ptr<i8>>
     tt.return
   }
 }
