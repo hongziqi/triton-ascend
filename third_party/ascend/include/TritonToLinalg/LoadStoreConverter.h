@@ -37,6 +37,7 @@
 
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 
+#include "ascend/include/TritonToLinalg/MaskAnalysis.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
 namespace LoadStoreConverter {
@@ -73,6 +74,14 @@ private:
   fillTensorWithOtherForMaskScenario(Value other, Value localMem,
                                      ArrayRef<OpFoldResult> maskDim,
                                      ConversionPatternRewriter &rewriter) const;
+
+  /// Finish continuous masked load with non-scalar tensor `other` via
+  /// insert_slice. Derives mask/other/type/loc from `op`. See .cpp.
+  LogicalResult
+  replaceMaskedLoadWithTensorOther(triton::LoadOp op, Value alloc,
+                                   const MaskState &mstate,
+                                   bool mayImplicitTransposeWithLastAxis,
+                                   ConversionPatternRewriter &rewriter) const;
 
 public:
   explicit LoadConverter(MLIRContext *context);
