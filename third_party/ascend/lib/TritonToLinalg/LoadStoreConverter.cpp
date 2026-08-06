@@ -261,9 +261,9 @@ LoadConverter::LoadConverter(MLIRContext *context)
 //   %dst_view = memref.subview %alloc[0][%valid][1]     // [SRC]
 //   memref.copy %src_view, %dst_view              // [SRC]  ptr -> %alloc
 //   %loaded = bufferization.to_tensor %alloc      // [SRC]
-//   %zeros  = linalg.fill 0 into tensor.empty     // [OTHER] replaces cast(mask)
-//   %active = tensor.extract_slice %loaded[0][%valid][1]
-//   %x = tensor.insert_slice %active into %zeros  // merge SRC into OTHER base
+//   %zeros  = linalg.fill 0 into tensor.empty     // [OTHER] replaces
+//   cast(mask) %active = tensor.extract_slice %loaded[0][%valid][1] %x =
+//   tensor.insert_slice %active into %zeros  // merge SRC into OTHER base
 //
 // Why %zeros instead of SSA %other: rewriter remaps live uitofp/extui/mask to
 // MemRef and leaves unresolved casts; inactive cast(mask) is always 0, so
