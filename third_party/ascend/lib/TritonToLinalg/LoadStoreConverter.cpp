@@ -237,39 +237,44 @@ LoadConverter::LoadConverter(MLIRContext *context)
 // Where does OTHER show up in the lowered IR?
 //   Not in %alloc / memref.copy (those only move SRC from ptr).
 //   OTHER is the *destination* of tensor.insert_slice:
-//     Case 1: %zeros  (proxy for TTIR %other = uitofp(mask), all inactive = 0)
+//     Case 1: %zeros  (proxy for TTIR cast(mask); inactive lanes are 0)
 //     Case 2: %other  (TTIR prior load tensor, used as-is)
 //
 // ---------------------------------------------------------------------------
 // Case 1: other = mask   (Python: tl.load(ptr, mask=mask, other=mask))
 //
-// Inputs (TTIR):
+// DSL:
+//   mask = offs < N
+//   x = tl.load(in_ptr + offs, mask=mask, other=mask)
+//   tl.store(out_ptr + offs, x, mask=mask)   # inactive often not observed
+//
+// TTIR (fp — uitofp; int — extui/extsi):
 //   %mask  = arith.cmpi slt, %offs, %N : tensor<Nx i1>
-//   %other = arith.uitofp %mask …                 // <--- OTHER (TTIR)
+//   %other = arith.uitofp %mask …            // or arith.extui for i8
 //   %x     = tt.load %ptr, %mask, %other
 //
-// Lowering:
+// Lowering (linalg):
 //   %ptr_mem = memref.reinterpret_cast %in_ptr …  // [SRC]  global input
-//   %alloc = memref.alloc()                       // [SRC]  local tile (empty)
+//   %alloc = memref.alloc()                       // [SRC]  local tile
 //   %valid = …                                    //       #active lanes
 //   %src_view = memref.subview %ptr_mem[0][%valid][1]   // [SRC]
 //   %dst_view = memref.subview %alloc[0][%valid][1]     // [SRC]
 //   memref.copy %src_view, %dst_view              // [SRC]  ptr -> %alloc
 //   %loaded = bufferization.to_tensor %alloc      // [SRC]
-//   %zeros  = linalg.fill 0 into tensor.empty     // [OTHER]  <--- replaces
-//   %other %active = tensor.extract_slice %loaded[0][%valid][1]  // [SRC] %x =
-//   tensor.insert_slice %active into %zeros  // merge: SRC into OTHER base
+//   %zeros  = linalg.fill 0 into tensor.empty     // [OTHER] replaces cast(mask)
+//   %active = tensor.extract_slice %loaded[0][%valid][1]
+//   %x = tensor.insert_slice %active into %zeros  // merge SRC into OTHER base
 //
-// Why %zeros instead of SSA %other: rewriter remaps live uitofp/mask to MemRef
-// and leaves unresolved casts; inactive uitofp(mask) is 0.0, so equivalent.
-// (Masked store may DCE zeros+insert and keep only the active extract.)
+// Why %zeros instead of SSA %other: rewriter remaps live uitofp/extui/mask to
+// MemRef and leaves unresolved casts; inactive cast(mask) is always 0, so
+// equivalent. (Masked store may DCE zeros+insert and keep only active extract.)
 //
 // ---------------------------------------------------------------------------
 // Case 2: other = prior tensor
 //   (Python: other = tl.load(fill_ptr+offs); x = tl.load(ptr, mask=mask,
-//   other=other))
+//   other=other); tl.store(out, x)  # full store — pad must stay OTHER)
 //
-// Inputs (TTIR):
+// TTIR:
 //   %other = tt.load %fill_ptr
 //   %x     = tt.load %ptr, %mask, %other
 //
@@ -306,13 +311,19 @@ LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
                     UnitAttr::get(rewriter.getContext()));
   }
 
-  // Case 1: synthesize zeros; Case 2: keep remapped prior tensor as-is.
+  // Case 1: cast(mask) → inactive is 0. Cover fp (uitofp/sitofp) and int
+  // (extui/extsi, e.g. int8 other=mask). Case 2: keep prior tensor as-is.
   Value otherBase = tensorOtherBase;
   bool otherIsZeroOnInactive = false;
   if (auto uitofp = otherBase.getDefiningOp<arith::UIToFPOp>())
     otherIsZeroOnInactive = (uitofp.getIn() == mask);
   else if (auto sitofp = otherBase.getDefiningOp<arith::SIToFPOp>())
     otherIsZeroOnInactive = (sitofp.getIn() == mask);
+  else if (auto extui = otherBase.getDefiningOp<arith::ExtUIOp>())
+    otherIsZeroOnInactive = (extui.getIn() == mask);
+  else if (auto extsi = otherBase.getDefiningOp<arith::ExtSIOp>())
+    otherIsZeroOnInactive = (extsi.getIn() == mask);
+
   if (otherIsZeroOnInactive) {
     auto empty = rewriter.create<tensor::EmptyOp>(loc, tensorType.getShape(),
                                                   tensorType.getElementType());

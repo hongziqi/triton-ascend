@@ -75,8 +75,6 @@ private:
                                      ArrayRef<OpFoldResult> maskDim,
                                      ConversionPatternRewriter &rewriter) const;
 
-  /// Finish continuous masked load with non-scalar tensor `other` via
-  /// insert_slice. Derives mask/other/type/loc from `op`. See .cpp.
   LogicalResult
   replaceMaskedLoadWithTensorOther(triton::LoadOp op, Value alloc,
                                    const MaskState &mstate,
