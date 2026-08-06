@@ -38,7 +38,6 @@
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 
 #include "ascend/include/TritonToLinalg/MaskAnalysis.h"
-#include "triton/Dialect/Triton/IR/Dialect.h"
 
 namespace LoadStoreConverter {
 
