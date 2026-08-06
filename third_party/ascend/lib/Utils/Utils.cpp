@@ -261,6 +261,11 @@ SmallVector<utils::IteratorType> getNParallelLoopsAttrs(unsigned n) {
 
 Value getScalarValue(Value operand, Location loc,
                      ConversionPatternRewriter &rewriter) {
+  // Peel splat / dense-splat / (s|u)itofp / truncf chains looking for a true
+  // scalar. Returns nullptr (no emitError) when the value is a non-splat
+  // tensor so callers can fall back to a tensor-other path — e.g.
+  //   other = arith.uitofp %mask : tensor<Nxi1> to tensor<Nxf32>
+  // peels once to %mask=cmpi, then fails closed with nullptr.
   SmallVector<Operation *> ops;
   auto reconstructScalarValue = [&](Value src) {
     for (auto op = ops.rbegin(); op != ops.rend(); ++op) {
@@ -271,6 +276,13 @@ Value getScalarValue(Value operand, Location loc,
                     resType = shapedType.getElementType();
                   }
                   return rewriter.create<arith::SIToFPOp>(loc, resType, src);
+                })
+                .Case<arith::UIToFPOp>([&](Operation *op) {
+                  auto resType = op->getResults()[0].getType();
+                  if (auto shapedType = dyn_cast<ShapedType>(resType)) {
+                    resType = shapedType.getElementType();
+                  }
+                  return rewriter.create<arith::UIToFPOp>(loc, resType, src);
                 })
                 .Case<arith::TruncFOp>([&](Operation *op) {
                   auto resType = op->getResults()[0].getType();
@@ -292,33 +304,29 @@ Value getScalarValue(Value operand, Location loc,
       return reconstructScalarValue(operand);
     } else if (auto op = operand.getDefiningOp<arith::ConstantOp>()) {
       if (auto attr = dyn_cast<DenseElementsAttr>(op.getValue())) {
-        if (!attr.isSplat()) {
-          InFlightDiagnostic diag = emitError(loc)
-                                    << "other value used in masked load "
-                                       "produced by unsupported instruction";
+        if (!attr.isSplat())
           return nullptr;
-        }
         auto elemValue = attr.getSplatValue<Attribute>();
         auto constOp = arith::ConstantOp::materialize(
             rewriter, elemValue, attr.getElementType(), op.getLoc());
         return reconstructScalarValue(constOp.getResult());
       }
-      InFlightDiagnostic diag = emitError(loc)
-                                << "other value used in masked load produced "
-                                   "by unsupported instruction";
       return nullptr;
     } else if (auto op = operand.getDefiningOp<triton::SplatOp>()) {
       operand = op.getSrc();
     } else if (auto op = operand.getDefiningOp<arith::SIToFPOp>()) {
       ops.push_back(op.getOperation());
       operand = op.getIn();
+    } else if (auto op = operand.getDefiningOp<arith::UIToFPOp>()) {
+      // Peel uitofp of a *scalar/splat* i1 (not tensor cmpi mask).
+      ops.push_back(op.getOperation());
+      operand = op.getIn();
     } else if (auto op = operand.getDefiningOp<arith::TruncFOp>()) {
       ops.push_back(op.getOperation());
       operand = op.getIn();
     } else {
-      InFlightDiagnostic diag = emitError(loc)
-                                << "other value used in masked load produced "
-                                   "by unsupported instruction";
+      // Non-scalar / non-splat other (e.g. uitofp(cmpi(...))). Caller may
+      // fall back to materializing the full tensor into the local buffer.
       return nullptr;
     }
   }
