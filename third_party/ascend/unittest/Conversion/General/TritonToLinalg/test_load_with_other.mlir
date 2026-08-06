@@ -1,13 +1,18 @@
 // RUN: triton-opt --discrete-mask-access-conversion "--triton-to-linalg=global-kernel=false named-ops=True" --split-input-file %s | FileCheck %s
 
-// Case 1: other = uitofp(mask).
-// After masked store DCE, zeros+insert_slice may fold away — keep masked copy.
+// Case 1: other = uitofp(mask) — zeros seed + split copy (rank-1).
 // CHECK-LABEL: func.func @load_other_mask
 // CHECK: %[[ALLOC:.*]] = memref.alloc() : memref<128xf32>
 // CHECK: memref.copy
-// CHECK: bufferization.to_tensor %[[ALLOC]]
-// CHECK: tensor.extract_slice
-// CHECK: tensor.insert_slice
+// CHECK: %[[RESULT:.*]] = memref.alloc() : memref<128xf32>
+// CHECK: %[[CST:.*]] = arith.constant 0.000000e+00 : f32
+// CHECK: linalg.fill ins(%[[CST]] : f32) outs(%[[RESULT]] : memref<128xf32>)
+// CHECK: scf.if
+// CHECK: memref.copy
+// CHECK: scf.if
+// CHECK: scf.for
+// CHECK: bufferization.to_tensor %[[RESULT]]
+// CHECK-NOT: tensor.insert_slice
 // CHECK-NOT: arith.select
 
 module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
@@ -33,16 +38,16 @@ module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
 
 // -----
 
-// Case 1b: other = extui(mask) for int8 — same zeros + insert_slice.
+// Case 1b: other = extui(mask) for int8.
 // CHECK-LABEL: func.func @load_other_mask_i8
 // CHECK: %[[ALLOC:.*]] = memref.alloc() : memref<128xi8>
 // CHECK: memref.copy
-// CHECK: bufferization.to_tensor %[[ALLOC]]
+// CHECK: %[[RESULT:.*]] = memref.alloc() : memref<128xi8>
 // CHECK: %[[CST:.*]] = arith.constant 0 : i8
-// CHECK: linalg.fill ins(%[[CST]] : i8)
-// CHECK: tensor.extract_slice
-// CHECK: tensor.insert_slice
-// CHECK-NOT: arith.select
+// CHECK: linalg.fill ins(%[[CST]] : i8) outs(%[[RESULT]] : memref<128xi8>)
+// CHECK: scf.if
+// CHECK: bufferization.to_tensor %[[RESULT]]
+// CHECK-NOT: tensor.insert_slice
 
 module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
   tt.func public @load_other_mask_i8(%arg0: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg2: i32) attributes {noinline = false} {
@@ -67,15 +72,20 @@ module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
 
 // -----
 
-// Case 2: other = prior full load tensor.
+// Case 2: other = prior full load tensor — materialize other + split copy.
 // CHECK-LABEL: func.func @load_other_tensor
 // CHECK: memref.copy
 // CHECK: %[[FILL:.*]] = bufferization.to_tensor
 // CHECK: %[[ALLOC:.*]] = memref.alloc() : memref<128xf32>
 // CHECK: memref.copy
-// CHECK: %[[LOADED:.*]] = bufferization.to_tensor %[[ALLOC]]
-// CHECK: %[[ACTIVE:.*]] = tensor.extract_slice %[[LOADED]]
-// CHECK: tensor.insert_slice %[[ACTIVE]] into %[[FILL]]
+// CHECK: %[[RESULT:.*]] = memref.alloc() : memref<128xf32>
+// CHECK: bufferization.materialize_in_destination %[[FILL]] in writable %[[RESULT]]
+// CHECK: scf.if
+// CHECK: memref.copy
+// CHECK: scf.if
+// CHECK: scf.for
+// CHECK: bufferization.to_tensor %[[RESULT]]
+// CHECK-NOT: tensor.insert_slice
 // CHECK-NOT: arith.select
 
 module attributes {hacc.target = #hacc.target<"Ascend910B4">} {

@@ -230,15 +230,16 @@ LoadConverter::LoadConverter(MLIRContext *context)
 // Continuous masked load whose `other` is a non-scalar tensor.
 //
 // Semantic: result[i] = mask[i] ? SRC[i] : OTHER[i]
-//   SRC   = values from %ptr (mask=true)
-//   OTHER = inactive fill — THIS is tt.load's `other` operand
-// Continuous mask => active prefix/suffix of length %valid (no lane select).
+//   SRC   = values from %ptr (mask=true), already in `alloc` via masked copy
+//   OTHER = inactive fill — tt.load's `other` operand
 //
-// Where does OTHER show up in the lowered IR?
-//   Not in %alloc / memref.copy (those only move SRC from ptr).
-//   OTHER is the *destination* of tensor.insert_slice:
-//     Case 1: %zeros  (proxy for TTIR cast(mask); inactive lanes are 0)
-//     Case 2: %other  (TTIR prior load tensor, used as-is)
+// Rank-1 merge is done in memref space (not tensor.insert_slice):
+//   1) seed result tile with OTHER (zeros for Case1, prior tensor for Case2)
+//   2) copyExactValid1D: 32B-aligned memref.copy prefix + scalar scf.for tail
+// Higher-rank falls back to insert_slice.
+//
+// Why split copy? HIVM may round dynamic transfers up to 32B and clobber OTHER.
+// Why not arith.select? Element-wise / slower; discrete masks already use it.
 //
 // ---------------------------------------------------------------------------
 // Case 1: other = mask   (Python: tl.load(ptr, mask=mask, other=mask))
@@ -246,48 +247,98 @@ LoadConverter::LoadConverter(MLIRContext *context)
 // DSL:
 //   mask = offs < N
 //   x = tl.load(in_ptr + offs, mask=mask, other=mask)
-//   tl.store(out_ptr + offs, x, mask=mask)   # inactive often not observed
 //
 // TTIR (fp — uitofp; int — extui/extsi):
-//   %mask  = arith.cmpi slt, %offs, %N : tensor<Nx i1>
-//   %other = arith.uitofp %mask …            // or arith.extui for i8
+//   %mask  = arith.cmpi slt, %offs, %N
+//   %other = arith.uitofp %mask …   // or arith.extui for i8
 //   %x     = tt.load %ptr, %mask, %other
 //
-// Lowering (linalg):
-//   %ptr_mem = memref.reinterpret_cast %in_ptr …  // [SRC]  global input
-//   %alloc = memref.alloc()                       // [SRC]  local tile
-//   %valid = …                                    //       #active lanes
-//   %src_view = memref.subview %ptr_mem[0][%valid][1]   // [SRC]
-//   %dst_view = memref.subview %alloc[0][%valid][1]     // [SRC]
-//   memref.copy %src_view, %dst_view              // [SRC]  ptr -> %alloc
-//   %loaded = bufferization.to_tensor %alloc      // [SRC]
-//   %zeros  = linalg.fill 0 into tensor.empty     // [OTHER] replaces cast(mask)
-//   %active = tensor.extract_slice %loaded[0][%valid][1]
-//   %x = tensor.insert_slice %active into %zeros  // merge SRC into OTHER base
+// Lowering (rank-1):
+//   masked memref.copy ptr → %alloc
+//   %result = memref.alloc(); linalg.fill 0 → %result
+//   copyExactValid1D(%alloc → %result, valid)
+//   %x = bufferization.to_tensor %result
 //
-// Why %zeros instead of SSA %other: rewriter remaps live uitofp/extui/mask to
-// MemRef and leaves unresolved casts; inactive cast(mask) is always 0, so
-// equivalent. (Masked store may DCE zeros+insert and keep only active extract.)
+// Why zeros instead of SSA %other: live uitofp/extui(mask) leaves unresolved
+// Tensor→MemRef casts; inactive cast(mask) is always 0.
 //
 // ---------------------------------------------------------------------------
 // Case 2: other = prior tensor
-//   (Python: other = tl.load(fill_ptr+offs); x = tl.load(ptr, mask=mask,
-//   other=other); tl.store(out, x)  # full store — pad must stay OTHER)
 //
-// TTIR:
-//   %other = tt.load %fill_ptr
-//   %x     = tt.load %ptr, %mask, %other
+// DSL:
+//   other = tl.load(fill_ptr + offs)
+//   x = tl.load(in_ptr + offs, mask=mask, other=other)
+//   tl.store(out_ptr + offs, x)   # full store — pad must stay OTHER
 //
-// Lowering:
-//   %ptr_mem = memref.reinterpret_cast %in_ptr …  // [SRC]
-//   %alloc = memref.alloc()                       // [SRC]
-//   %src_view = memref.subview %ptr_mem[0][%valid][1]
-//   %dst_view = memref.subview %alloc[0][%valid][1]
-//   memref.copy %src_view, %dst_view              // [SRC]
-//   %loaded = bufferization.to_tensor %alloc      // [SRC]
-//   %active = tensor.extract_slice %loaded[0][%valid][1]
-//   %x = tensor.insert_slice %active into %other  // [OTHER]=%other
+// Lowering (rank-1):
+//   masked memref.copy ptr → %alloc
+//   %result = memref.alloc(); materialize %other → %result
+//   copyExactValid1D(%alloc → %result, valid)
+//   %x = bufferization.to_tensor %result
 // ---------------------------------------------------------------------------
+void LoadConverter::copyExactValid1D(
+    Value src, Value dst, Value valid, Location loc,
+    ConversionPatternRewriter &rewriter) const {
+  constexpr int64_t kDmaAlignBytes = 32;
+  auto elemTy = cast<MemRefType>(src.getType()).getElementType();
+  unsigned elemBits = elemTy.getIntOrFloatBitWidth();
+  assert(elemBits % 8 == 0 && "expected byte-sized element type");
+  int64_t elemBytes = static_cast<int64_t>(elemBits / 8);
+
+  Value c0 = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+  Value c1 = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+  Value cElem = rewriter.create<arith::ConstantIndexOp>(loc, elemBytes);
+  Value cAlign = rewriter.create<arith::ConstantIndexOp>(loc, kDmaAlignBytes);
+
+  // alignedElems = floor(valid * elemBytes / 32) * 32 / elemBytes
+  // tailElems    = valid - alignedElems
+  Value bytes = rewriter.create<arith::MulIOp>(loc, valid, cElem);
+  Value alignedBytes = rewriter.create<arith::MulIOp>(
+      loc, rewriter.create<arith::DivSIOp>(loc, bytes, cAlign), cAlign);
+  Value alignedElems =
+      rewriter.create<arith::DivSIOp>(loc, alignedBytes, cElem);
+  Value tailElems = rewriter.create<arith::SubIOp>(loc, valid, alignedElems);
+
+  auto mkSubview = [&](Value base, Value offset, Value size) {
+    SmallVector<OpFoldResult> offsets = {offset};
+    SmallVector<OpFoldResult> sizes = {size};
+    SmallVector<OpFoldResult> strides = {rewriter.getIndexAttr(1)};
+    auto baseTy = cast<MemRefType>(base.getType());
+    auto dstTy =
+        memref::SubViewOp::inferResultType(baseTy, offsets, sizes, strides);
+    return rewriter.create<memref::SubViewOp>(
+        loc, cast<MemRefType>(dstTy), base, offsets, sizes, strides);
+  };
+
+  // DMA-safe prefix: byte length is a multiple of 32.
+  Value hasPrefix = rewriter.create<arith::CmpIOp>(
+      loc, arith::CmpIPredicate::sgt, alignedElems, c0);
+  {
+    auto ifOp = rewriter.create<scf::IfOp>(loc, hasPrefix, /*withElse=*/false);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(ifOp.thenBlock());
+    auto srcView = mkSubview(src, c0, alignedElems);
+    auto dstView = mkSubview(dst, c0, alignedElems);
+    rewriter.create<memref::CopyOp>(loc, srcView, dstView);
+  }
+
+  // Remainder (< 32B): scalar loop, no DMA round-up.
+  Value hasTail = rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                                 tailElems, c0);
+  {
+    auto ifOp = rewriter.create<scf::IfOp>(loc, hasTail, /*withElse=*/false);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(ifOp.thenBlock());
+    auto forOp =
+        rewriter.create<scf::ForOp>(loc, c0, tailElems, c1, ValueRange{});
+    rewriter.setInsertionPointToStart(forOp.getBody());
+    Value i = forOp.getInductionVar();
+    Value idx = rewriter.create<arith::AddIOp>(loc, alignedElems, i);
+    Value v = rewriter.create<memref::LoadOp>(loc, src, ValueRange{idx});
+    rewriter.create<memref::StoreOp>(loc, v, dst, ValueRange{idx});
+  }
+}
+
 LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
     triton::LoadOp op, Value alloc, const MaskState &mstate,
     bool mayImplicitTransposeWithLastAxis,
@@ -298,18 +349,6 @@ LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
   Value tensorOtherBase = op.getOther();
   assert(mask && tensorOtherBase &&
          "replaceMaskedLoadWithTensorOther: mask and other must be non-null");
-
-  Value loadedTensor = rewriter.create<bufferization::ToTensorOp>(
-      loc, tensorType, alloc, true, true);
-  propagateWasBoolToInt8Attr(op.getOperation(), loadedTensor.getDefiningOp(),
-                             rewriter);
-  if (mayImplicitTransposeWithLastAxis) {
-    // Tensor-side mark (memref side already tagged at the alloc). Same as
-    // toTensorAndReplace: HIVM InsertLoadStore looks at to_tensor's result.
-    auto markOp = rewriter.create<annotation::MarkOp>(loc, loadedTensor);
-    markOp->setAttr(MayImplicitTransposeWithLastAxisTAG,
-                    UnitAttr::get(rewriter.getContext()));
-  }
 
   // Case 1: cast(mask) → inactive is 0. Cover fp (uitofp/sitofp) and int
   // (extui/extsi, e.g. int8 other=mask). Case 2: keep prior tensor as-is.
@@ -324,6 +363,38 @@ LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
   else if (auto extsi = otherBase.getDefiningOp<arith::ExtSIOp>())
     otherIsZeroOnInactive = (extsi.getIn() == mask);
 
+  // Rank-1 continuous mask: memref seed + split copy (DMA-safe).
+  if (tensorType.getRank() == 1 && mstate.getRank() == 1) {
+    auto resultMemType =
+        MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+    Value resultAlloc = rewriter.create<memref::AllocOp>(loc, resultMemType);
+
+    if (otherIsZeroOnInactive) {
+      Value zero = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getZeroAttr(tensorType.getElementType()));
+      rewriter.create<linalg::FillOp>(loc, ValueRange{zero},
+                                      ValueRange{resultAlloc});
+    } else {
+      auto seedOp = rewriter.create<bufferization::MaterializeInDestinationOp>(
+          loc, otherBase, resultAlloc);
+      seedOp.setWritable(true);
+    }
+
+    Value valid =
+        getValueOrCreateConstantIndexOp(rewriter, loc, mstate.dims[0]);
+    copyExactValid1D(alloc, resultAlloc, valid, loc, rewriter);
+
+    if (mayImplicitTransposeWithLastAxis) {
+      auto markOp = rewriter.create<annotation::MarkOp>(loc, resultAlloc);
+      markOp->setAttr(MayImplicitTransposeWithLastAxisTAG,
+                      UnitAttr::get(rewriter.getContext()));
+    }
+    return this->toTensorAndReplace(op, tensorType, resultAlloc,
+                                    mayImplicitTransposeWithLastAxis, loc,
+                                    rewriter);
+  }
+
+  // Higher-rank fallback: original insert_slice path.
   if (otherIsZeroOnInactive) {
     auto empty = rewriter.create<tensor::EmptyOp>(loc, tensorType.getShape(),
                                                   tensorType.getElementType());
@@ -333,6 +404,16 @@ LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
         rewriter
             .create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{empty})
             .getResult(0);
+  }
+
+  Value loadedTensor = rewriter.create<bufferization::ToTensorOp>(
+      loc, tensorType, alloc, true, true);
+  propagateWasBoolToInt8Attr(op.getOperation(), loadedTensor.getDefiningOp(),
+                             rewriter);
+  if (mayImplicitTransposeWithLastAxis) {
+    auto markOp = rewriter.create<annotation::MarkOp>(loc, loadedTensor);
+    markOp->setAttr(MayImplicitTransposeWithLastAxisTAG,
+                    UnitAttr::get(rewriter.getContext()));
   }
 
   auto extracted = mstate.getExtractSlice(loadedTensor, loc, rewriter);

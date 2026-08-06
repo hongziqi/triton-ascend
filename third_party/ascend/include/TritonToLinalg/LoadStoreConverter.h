@@ -81,6 +81,12 @@ private:
                                    bool mayImplicitTransposeWithLastAxis,
                                    ConversionPatternRewriter &rewriter) const;
 
+  /// Copy exactly `valid` contiguous elements from `src` to `dst` starting at
+  /// offset 0, splitting into a 32B-aligned memref.copy prefix plus a scalar
+  /// scf.for tail so HIVM DMA round-up cannot overwrite OTHER past `valid`.
+  void copyExactValid1D(Value src, Value dst, Value valid, Location loc,
+                        ConversionPatternRewriter &rewriter) const;
+
 public:
   explicit LoadConverter(MLIRContext *context);
   using OpConversionPattern<triton::LoadOp>::OpConversionPattern;

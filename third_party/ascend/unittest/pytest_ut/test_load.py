@@ -152,6 +152,7 @@ def triton_load_other_tensor_discrete_mask(in_ptr, out_ptr, other_ptr, N, BLOCK:
 
 @pytest.mark.parametrize('param_list', [
     ['float32', 1000, 128],
+    ['int8', 1000, 128],
 ])
 def test_load_with_other_mask(param_list):
     dtype, n, block = param_list
@@ -168,6 +169,10 @@ def test_load_with_other_mask(param_list):
 
 @pytest.mark.parametrize('param_list', [
     ['float32', 1000, 128],
+    # n=500 => last-tile valid=116; 116*4=464 and 116*1=116 are not 32B-aligned.
+    # Exercises copyExactValid1D (aligned DMA prefix + scalar tail).
+    ['float32', 500, 128],
+    ['int8', 500, 128],
 ])
 def test_load_with_other_tensor(param_list):
     dtype, n, block = param_list
@@ -186,7 +191,8 @@ def test_load_with_other_tensor(param_list):
 
 
 @pytest.mark.parametrize('param_list', [
-    ['float32', 1000, 128],
+    ['float32', 128, 128],
+    ['float16', 256, 128],
 ])
 def test_load_with_other_tensor_discrete_mask(param_list):
     dtype, n, block = param_list
