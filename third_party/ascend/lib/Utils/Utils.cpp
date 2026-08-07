@@ -355,6 +355,18 @@ Value getScalarValue(Value operand, Location loc,
   return nullptr;
 }
 
+bool isOtherCastFromMask(Value other, Value mask) {
+  if (auto uitofp = other.getDefiningOp<arith::UIToFPOp>())
+    return uitofp.getIn() == mask;
+  if (auto sitofp = other.getDefiningOp<arith::SIToFPOp>())
+    return sitofp.getIn() == mask;
+  if (auto extui = other.getDefiningOp<arith::ExtUIOp>())
+    return extui.getIn() == mask;
+  if (auto extsi = other.getDefiningOp<arith::ExtSIOp>())
+    return extsi.getIn() == mask;
+  return false;
+}
+
 memref::SubViewOp makeSubViewOp(Value src,
                                 const llvm::SmallVector<OpFoldResult> &offsets,
                                 const llvm::SmallVector<OpFoldResult> &sizes,

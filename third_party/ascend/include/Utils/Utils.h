@@ -65,6 +65,9 @@ SmallVector<utils::IteratorType> getNParallelLoopsAttrs(unsigned n);
 Value getScalarValue(Value operand, Location loc,
                      ConversionPatternRewriter &rewriter);
 
+/// True if `other` is cast/ext of `mask` (inactive lanes are 0, like other=0).
+bool isOtherCastFromMask(Value other, Value mask);
+
 memref::SubViewOp makeSubViewOp(Value src,
                                 const llvm::SmallVector<OpFoldResult> &offsets,
                                 const llvm::SmallVector<OpFoldResult> &sizes,

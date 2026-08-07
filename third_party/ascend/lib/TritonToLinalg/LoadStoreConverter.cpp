@@ -227,34 +227,9 @@ void LoadConverter::fillTensorWithOtherForMaskScenario(
 LoadConverter::LoadConverter(MLIRContext *context)
     : OpConversionPattern<triton::LoadOp>(context) {}
 
-// Masked load whose `other` is a non-scalar tensor.
-// ---------------------------------------------------------------------------
-// Case 1: other = mask   (Python: tl.load(ptr, mask=mask, other=mask))
-//
-// DSL:
-//   mask = offs < N
-//   x = tl.load(in_ptr + offs, mask=mask, other=mask)
-//   tl.store(out_ptr + offs, x, mask=mask)
-//
-// TTIR (fp — uitofp; int — extui/extsi):
-//   %mask  = arith.cmpi slt, %offs, %N : tensor<Nx i1>
-//   %other = arith.uitofp %mask …            // or arith.extui for i8
-//   %x     = tt.load %ptr, %mask, %other
-//
-// Lowering (linalg):
-//   %alloc = memref.alloc()
-//   memref.copy %src_view, %dst_view         // active SRC only
-//   %loaded = bufferization.to_tensor %alloc
-//   %zeros  = linalg.fill 0                  // [OTHER] cast(mask)→0 on pad
-//   %x = arith.select %mask, %loaded, %zeros
-// ---------------------------------------------------------------------------
-// Case 2: other = prior tensor
-//   (Python: other = tl.load(fill_ptr+offs); x = tl.load(ptr, mask=mask,
-//   other=other); tl.store(out, x)  # full store — pad must stay OTHER)
-//
-// TTIR:
-//   %other = tt.load %fill_ptr
-//   %x     = tt.load %ptr, %mask, %other
+// Masked load whose `other` is a non-scalar prior tensor (not other=mask).
+// other=mask (cast/ext of the same mask → inactive 0) is handled like scalar
+// other=0 via fillTensorWithOtherForMaskScenario, not here.
 //
 // Lowering:
 //   %other_t = bufferization.to_tensor …    // prior load
@@ -262,7 +237,6 @@ LoadConverter::LoadConverter(MLIRContext *context)
 //   memref.copy …                           // active SRC
 //   %loaded = bufferization.to_tensor %alloc
 //   %x = arith.select %mask, %loaded, %other_t
-// ---------------------------------------------------------------------------
 LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
     triton::LoadOp op, Value alloc, bool mayImplicitTransposeWithLastAxis,
     ConversionPatternRewriter &rewriter) const {
@@ -286,32 +260,9 @@ LogicalResult LoadConverter::replaceMaskedLoadWithTensorOther(
                     UnitAttr::get(rewriter.getContext()));
   }
 
-  // Case 1: cast(mask) → inactive is 0. Cover fp (uitofp/sitofp) and int
-  // (extui/extsi). Case 2: keep prior tensor as-is.
   Value otherVal = tensorOther;
   if (Value remappedOther = rewriter.getRemappedValue(tensorOther))
     otherVal = remappedOther;
-
-  bool otherIsZeroOnInactive = false;
-  if (auto uitofp = tensorOther.getDefiningOp<arith::UIToFPOp>())
-    otherIsZeroOnInactive = (uitofp.getIn() == mask);
-  else if (auto sitofp = tensorOther.getDefiningOp<arith::SIToFPOp>())
-    otherIsZeroOnInactive = (sitofp.getIn() == mask);
-  else if (auto extui = tensorOther.getDefiningOp<arith::ExtUIOp>())
-    otherIsZeroOnInactive = (extui.getIn() == mask);
-  else if (auto extsi = tensorOther.getDefiningOp<arith::ExtSIOp>())
-    otherIsZeroOnInactive = (extsi.getIn() == mask);
-
-  if (otherIsZeroOnInactive) {
-    auto empty = rewriter.create<tensor::EmptyOp>(loc, tensorType.getShape(),
-                                                  tensorType.getElementType());
-    Value zero = rewriter.create<arith::ConstantOp>(
-        loc, rewriter.getZeroAttr(tensorType.getElementType()));
-    otherVal =
-        rewriter
-            .create<linalg::FillOp>(loc, ValueRange{zero}, ValueRange{empty})
-            .getResult(0);
-  }
 
   if (Value remappedMask = rewriter.getRemappedValue(mask))
     mask = remappedMask;
@@ -579,6 +530,13 @@ LoadConverter::matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
     if (scalarOther) {
       fillTensorWithOtherForMaskScenario(scalarOther, allocOp, mstate.dims,
                                          rewriter);
+    } else if (isa<RankedTensorType>(other.getType()) &&
+               mlir::ConverterUtils::isOtherCastFromMask(other, mask)) {
+      // other=mask → inactive is 0; same pad path as scalar other=0.
+      Value zero = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getZeroAttr(
+                   cast<RankedTensorType>(other.getType()).getElementType()));
+      fillTensorWithOtherForMaskScenario(zero, allocOp, mstate.dims, rewriter);
     } else if (isa<RankedTensorType>(other.getType())) {
       tensorOtherBase = other;
     } else {

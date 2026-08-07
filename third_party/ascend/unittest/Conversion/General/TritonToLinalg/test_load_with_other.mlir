@@ -1,15 +1,13 @@
 // RUN: triton-opt --discrete-mask-access-conversion "--triton-to-linalg=global-kernel=false named-ops=True" --split-input-file %s | FileCheck %s
 
-// Case 1: other = uitofp(mask) -> select(mask, loaded, zeros)
+// Case 1: other = uitofp(mask) → same pad path as scalar other=0 (no select).
 // CHECK-LABEL: func.func @load_other_mask
 // CHECK: %[[CST:.*]] = arith.constant 0.000000e+00 : f32
-// CHECK: %[[MASK:.*]] = arith.cmpi slt
 // CHECK: %[[ALLOC:.*]] = memref.alloc() : memref<128xf32>
+// CHECK: linalg.fill ins(%[[CST]] : f32) outs(%[[ALLOC]] : memref<128xf32>)
 // CHECK: memref.copy
-// CHECK: %[[LOADED:.*]] = bufferization.to_tensor %[[ALLOC]]
-// CHECK: linalg.fill ins(%[[CST]] : f32)
-// CHECK: arith.select %[[MASK]], %[[LOADED]], {{.*}}
-// CHECK-NOT: tensor.insert_slice
+// CHECK: bufferization.to_tensor %[[ALLOC]]
+// CHECK-NOT: arith.select
 
 module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
   tt.func public @load_other_mask(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg2: i32) attributes {noinline = false} {
@@ -34,16 +32,14 @@ module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
 
 // -----
 
-// Case 1b: other = extui(mask) for int8 — same select with zeros.
+// Case 1b: other = extui(mask) for int8 — same as scalar other=0.
 // CHECK-LABEL: func.func @load_other_mask_i8
 // CHECK: %[[CST:.*]] = arith.constant 0 : i8
-// CHECK: %[[MASK:.*]] = arith.cmpi slt
 // CHECK: %[[ALLOC:.*]] = memref.alloc() : memref<128xi8>
+// CHECK: linalg.fill ins(%[[CST]] : i8) outs(%[[ALLOC]] : memref<128xi8>)
 // CHECK: memref.copy
-// CHECK: %[[LOADED:.*]] = bufferization.to_tensor %[[ALLOC]]
-// CHECK: linalg.fill ins(%[[CST]] : i8)
-// CHECK: arith.select %[[MASK]], %[[LOADED]], {{.*}}
-// CHECK-NOT: tensor.insert_slice
+// CHECK: bufferization.to_tensor %[[ALLOC]]
+// CHECK-NOT: arith.select
 
 module attributes {hacc.target = #hacc.target<"Ascend910B4">} {
   tt.func public @load_other_mask_i8(%arg0: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg2: i32) attributes {noinline = false} {

@@ -553,12 +553,15 @@ LogicalResult triton::runUseAnalysis(triton::FuncOp &funcOp) {
       op->removeAttr("MetaUse");
     }
   });
-  // Masked load with non-scalar tensor `other` lowers as
+  // Masked load with non-scalar tensor `other` (not other=mask) lowers as
   // arith.select(mask, loaded, other) so the mask SSA must stay live.
+  // other=mask uses the scalar-zero fill path; mask can remain MetaUse.
   funcOp.walk([&](triton::LoadOp load) {
     Value mask = load.getMask();
     Value other = load.getOther();
     if (!mask || !other)
+      return;
+    if (ConverterUtils::isOtherCastFromMask(other, mask))
       return;
     if (other.getDefiningOp<triton::SplatOp>())
       return;
