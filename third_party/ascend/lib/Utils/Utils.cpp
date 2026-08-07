@@ -261,7 +261,8 @@ SmallVector<utils::IteratorType> getNParallelLoopsAttrs(unsigned n) {
 
 Value getScalarValue(Value operand, Location loc,
                      ConversionPatternRewriter &rewriter) {
-  // Peel splat / cast / select chains down to a scalar; nullptr if non-splat tensor.
+  // Peel splat / cast / select chains down to a scalar; nullptr if non-splat
+  // tensor.
   SmallVector<Operation *> ops;
   auto reconstructScalarValue = [&](Value src) {
     for (auto op = ops.rbegin(); op != ops.rend(); ++op) {
