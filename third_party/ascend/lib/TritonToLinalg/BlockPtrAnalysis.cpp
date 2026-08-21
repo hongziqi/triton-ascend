@@ -1256,6 +1256,90 @@ void BlockDataParser::parseSelect(
   }
 }
 
+// Convert tt.int_to_ptr into hivm.pointer_cast and set data.source.
+// Returns true if data.source was updated.
+//
+// Example 1 (int_to_ptr):
+//   %addr = ... : i64
+//   %p = tt.int_to_ptr %addr : i64 -> !tt.ptr<f32>
+//   %blk = tt.make_tensor_ptr %p, [%n], [%c1_i64], [%off]
+//       {order = array<i32: 0>} : <tensor<256xf32>>
+//
+// will be converted to:
+//   %m = hivm.pointer_cast %addr : memref<?xf32>
+//   %full = memref.reinterpret_cast %m to offset: [%c0], sizes: [%n],
+//       strides: [%c1] : memref<?xf32> to memref<?xf32, strided<[?], offset: ?>>
+//   %view = memref.reinterpret_cast %full to offset: [%off], sizes: [256],
+//       strides: [%c1] : ... to memref<256xf32, strided<[?], offset: ?>>
+//   (replace %blk with %view)
+//
+// Example 2 (int_to_ptr + bitcast, possibly multi-layer):
+//   %addr = ... : i64
+//   %p0 = tt.int_to_ptr %addr : i64 -> !tt.ptr<i32>
+//   %p1 = tt.bitcast %p0 : !tt.ptr<i32> -> !tt.ptr<f32>
+//   %blk = tt.make_tensor_ptr %p1, [%n], [%c1_i64], [%off]
+//       {order = array<i32: 0>} : <tensor<256xf32>>
+//
+// will be converted to:
+//   %m = hivm.pointer_cast %addr : memref<?xf32>
+//   %full / %view = memref.reinterpret_cast ... (same pattern as example 1)
+//
+// Example 3 (bitcast only, no int_to_ptr — this helper returns false):
+//   %arg0: !tt.ptr<i32>         // after type convert: memref<?xi32>
+//   %p1 = tt.bitcast %arg0 : !tt.ptr<i32> -> !tt.ptr<f32>
+//   %blk = tt.make_tensor_ptr %p1, [%n], [%c1_i64], [%off]
+//       {order = array<i32: 0>} : <tensor<256xf32>>
+//
+// will be converted to (in rewriteMakeTensorPtrOp, not here):
+//   %m_f32 = builtin.unrealized_conversion_cast %arg0_memref
+//       : memref<?xi32> to memref<?xf32>
+//   %full / %view = memref.reinterpret_cast ...
+static bool materializeIntToPtrAsMemref(Value tritonPtr, BlockData &data,
+                                        ConversionPatternRewriter &rewriter) {
+  Value cur = tritonPtr;
+  while (auto bitcastOp = cur.getDefiningOp<triton::BitcastOp>())
+    cur = bitcastOp.getSrc();
+
+  auto intToPtrOp = cur.getDefiningOp<triton::IntToPtrOp>();
+  // Fallback: parse() may have put a remapped value into data.source, e.g.
+  //   %p = tt.int_to_ptr %addr : i64 -> !tt.ptr<f32>
+  //   %tmp = builtin.unrealized_conversion_cast %p : !tt.ptr<f32> to memref<?xf32>
+  //   data.source = %tmp
+  // or with bitcast:
+  //   %p0 = tt.int_to_ptr %addr : i64 -> !tt.ptr<i32>
+  //   %p1 = tt.bitcast %p0 : !tt.ptr<i32> -> !tt.ptr<f32>
+  //   %tmp = builtin.unrealized_conversion_cast %p1 : !tt.ptr<f32> to memref<?xf32>
+  //   data.source = %tmp
+  // Peel unrealized_conversion_cast (then bitcast) to recover the underlying int_to_ptr.
+  if (!intToPtrOp && data.hasSource()) {
+    Value src = data.getSourceRef();
+    while (auto uc = src.getDefiningOp<UnrealizedConversionCastOp>()) {
+      if (uc.getInputs().size() != 1)
+        break;
+      src = uc.getInputs()[0];
+    }
+    while (auto bitcastOp = src.getDefiningOp<triton::BitcastOp>())
+      src = bitcastOp.getSrc();
+    intToPtrOp = src.getDefiningOp<triton::IntToPtrOp>();
+  }
+  if (!intToPtrOp)
+    return false;
+
+  // Prefer bitcast's final pointee (data.resElemTy from parseBitcast) so the
+  // resulting PointerCast feeds ReinterpretCast directly.
+  Type elemTy;
+  if (data.hasResElemTy())
+    elemTy = data.getResElemTyRef();
+  else
+    elemTy = cast<triton::PointerType>(intToPtrOp.getResult().getType())
+                 .getPointeeType();
+  auto memrefType = MemRefType::get({ShapedType::kDynamic}, elemTy);
+  auto hivmPointCastOp = rewriter.create<hivm::PointerCastOp>(
+      intToPtrOp.getLoc(), memrefType, ValueRange{intToPtrOp.getSrc()});
+  data.setSource(hivmPointCastOp.getResult());
+  return true;
+}
+
 void BlockDataParser::rewriteAddPtr(
     triton::AddPtrOp op, triton::AddPtrOp::Adaptor &adaptor,
     ConversionPatternRewriter &rewriter,
@@ -1326,18 +1410,11 @@ void BlockDataParser::rewriteAddPtr(
     }
   }
 
-  if (auto intToPtrOp =
-          dyn_cast<triton::IntToPtrOp>(data.getSourceRef().getDefiningOp())) {
-    auto rtype = cast<triton::PointerType>(intToPtrOp.getResult().getType());
-    auto memrefType =
-        MemRefType::get({ShapedType::kDynamic}, rtype.getPointeeType());
-    auto hivmPointCastOp = rewriter.create<hivm::PointerCastOp>(
-        intToPtrOp.getLoc(), memrefType, ValueRange{intToPtrOp.getSrc()});
-    data.setSource(hivmPointCastOp.getResult());
-  }
+  bool fromIntToPtr =
+      materializeIntToPtrAsMemref(op.getPtr(), data, rewriter);
 
-  if (data.hasResElemTy()) {
-    // Handle bitcast scenario
+  // Arg ptr + bitcast only: int_to_ptr(+bitcast) already has final elem type.
+  if (!fromIntToPtr && data.hasResElemTy()) {
     auto memrefType = dyn_cast<BaseMemRefType>(data.getSourceRef().getType())
                           .cloneWith(std::nullopt, data.getResElemTyRef());
     UnrealizedConversionCastOp castOp =
@@ -1432,17 +1509,17 @@ void BlockDataParser::rewriteMakeTensorPtrOp(
 
   auto orderSize = op.getOrder().size();
 
-  // Handle base is defined by tt.bitcast
+  // Handle base is defined by tt.bitcast / tt.int_to_ptr
   BlockDataParser::parse(op.getBase(), data, loc, rewriter, known);
-  if (data.hasResElemTy()) {
+  bool fromIntToPtr =
+      materializeIntToPtrAsMemref(op.getBase(), data, rewriter);
+  if (!fromIntToPtr && data.hasResElemTy()) {
     auto memrefType = dyn_cast<BaseMemRefType>(data.getSourceRef().getType())
                           .cloneWith(std::nullopt, data.getResElemTyRef());
     UnrealizedConversionCastOp castOp =
         rewriter.create<mlir::UnrealizedConversionCastOp>(loc, memrefType,
                                                           data.getSourceRef());
     data.setSource(castOp.getOutputs()[0]);
-  } else {
-    data.setSource(rewriter.getRemappedValue(op.getBase()));
   }
 
   data.getOffsetsRef() =
