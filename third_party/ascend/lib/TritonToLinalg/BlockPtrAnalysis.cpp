@@ -1330,6 +1330,8 @@ static bool materializeIntToPtrAsMemref(Value tritonPtr, BlockData &data,
   Type elemTy;
   if (data.hasResElemTy())
     elemTy = data.getResElemTyRef();
+  else if (auto ptrTy = dyn_cast<triton::PointerType>(tritonPtr.getType()))
+    elemTy = ptrTy.getPointeeType();
   else
     elemTy = cast<triton::PointerType>(intToPtrOp.getResult().getType())
                  .getPointeeType();
