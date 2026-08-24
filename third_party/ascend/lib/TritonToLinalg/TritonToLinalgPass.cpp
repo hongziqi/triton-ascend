@@ -508,8 +508,12 @@ static LogicalResult propagateRebasedSubviewTypes(Value rebasedSource,
 
 // Returns true when rebasing a descriptor would change a type owned by a
 // different operation. A subview chain ending in direct memref loads/stores is
-// local to this rewrite. Calls, returns, SCF/CFG boundaries, and every other
-// user retain their existing descriptor layout and therefore stop rebasing.
+// local to this rewrite. Block-pointer load/store lowering also uses local
+// memref.copy / bufferization.to_tensor / materialize_in_destination through
+// that subview chain; those consumers do not own an external descriptor layout
+// and must not force the ScalarPointerCarrier "keep offset" path. Calls,
+// returns, SCF/CFG boundaries, and every other user retain their existing
+// descriptor layout and therefore stop rebasing.
 static bool reachesLayoutSensitiveBoundary(Value root) {
   SmallVector<Value> worklist{root};
   llvm::DenseSet<Value> visited;
@@ -530,6 +534,20 @@ static bool reachesLayoutSensitiveBoundary(Value root) {
       }
       if (auto store = dyn_cast<memref::StoreOp>(user)) {
         if (store.getMemRef() == value)
+          continue;
+      }
+      // Local consumers produced by LoadStoreConverter for block pointers.
+      if (auto copy = dyn_cast<memref::CopyOp>(user)) {
+        if (copy.getSource() == value || copy.getTarget() == value)
+          continue;
+      }
+      if (auto toTensor = dyn_cast<bufferization::ToTensorOp>(user)) {
+        if (toTensor.getBuffer() == value)
+          continue;
+      }
+      if (auto materialize =
+              dyn_cast<bufferization::MaterializeInDestinationOp>(user)) {
+        if (materialize.getDest() == value)
           continue;
       }
       return true;

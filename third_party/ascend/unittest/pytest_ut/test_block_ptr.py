@@ -193,3 +193,282 @@ def test_func(param_list):
     ref_output = ref_func(inputs, scale, cu_lens)
     tt_output = tt_func(inputs, scale, cu_lens)
     torch.testing.assert_close(ref_output, tt_output)
+
+
+@triton.jit
+def triton_block_ptr_with_int_to_ptr(
+    src_ptr,  # i64 from host data_ptr()
+    dst_ptr,
+    n_elements,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """make_block_ptr base = tt.int_to_ptr (i64 -> !tt.ptr)."""
+    src = src_ptr.to(tl.pointer_type(tl.float32))
+    dst = dst_ptr.to(tl.pointer_type(tl.float32))
+    pid = tl.program_id(0)
+    offsets = (pid * BLOCK_SIZE,)
+    src_block = tl.make_block_ptr(
+        base=src,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    dst_block = tl.make_block_ptr(
+        base=dst,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    tl.store(dst_block, tl.load(src_block, boundary_check=(0,)), boundary_check=(0,))
+
+
+@pytest.mark.parametrize("n,block_size", [
+    (256, 64),
+    (1000, 256),  # not divisible: exercises boundary_check
+])
+def test_triton_block_ptr_with_int_to_ptr(n, block_size):
+    src = torch.randn(n, device="npu", dtype=torch.float32)
+    dst = torch.empty_like(src)
+    grid = (triton.cdiv(n, block_size),)
+    triton_block_ptr_with_int_to_ptr[grid](
+        src.data_ptr(),
+        dst.data_ptr(),
+        n,
+        BLOCK_SIZE=block_size,
+    )
+    torch.testing.assert_close(dst, src)
+
+
+@triton.jit
+def triton_block_ptr_with_int_to_ptr_bitcast(
+    src_ptr,  # i64 from host data_ptr()
+    dst_ptr,
+    n_elements,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """make_block_ptr base = tt.int_to_ptr + tt.bitcast (same bitwidth)."""
+    # i64 -> !tt.ptr<i32> (int_to_ptr), then !tt.ptr<i32> -> !tt.ptr<f32> (bitcast)
+    src = src_ptr.to(tl.pointer_type(tl.int32)).to(tl.pointer_type(tl.float32))
+    dst = dst_ptr.to(tl.pointer_type(tl.int32)).to(tl.pointer_type(tl.float32))
+    pid = tl.program_id(0)
+    offsets = (pid * BLOCK_SIZE,)
+    src_block = tl.make_block_ptr(
+        base=src,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    dst_block = tl.make_block_ptr(
+        base=dst,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    tl.store(dst_block, tl.load(src_block, boundary_check=(0,)), boundary_check=(0,))
+
+
+@pytest.mark.parametrize("n,block_size", [
+    (256, 64),
+    (512, 128),
+])
+def test_triton_block_ptr_with_int_to_ptr_bitcast(n, block_size):
+    src = torch.randn(n, device="npu", dtype=torch.float32)
+    dst = torch.empty_like(src)
+    grid = (triton.cdiv(n, block_size),)
+    triton_block_ptr_with_int_to_ptr_bitcast[grid](
+        src.data_ptr(),
+        dst.data_ptr(),
+        n,
+        BLOCK_SIZE=block_size,
+    )
+    torch.testing.assert_close(dst, src)
+
+
+@triton.jit
+def triton_block_ptr_int_to_ptr_if(
+    src_ptr,
+    dst_ptr,
+    n_elements,
+    add_one,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """int_to_ptr + make_block_ptr, with scf.if on loaded values (same pointer)."""
+    src = src_ptr.to(tl.pointer_type(tl.float32))
+    dst = dst_ptr.to(tl.pointer_type(tl.float32))
+    pid = tl.program_id(0)
+    offsets = (pid * BLOCK_SIZE,)
+    src_block = tl.make_block_ptr(
+        base=src,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    dst_block = tl.make_block_ptr(
+        base=dst,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    x = tl.load(src_block, boundary_check=(0,))
+    if add_one:
+        x = x + 1.0
+    tl.store(dst_block, x, boundary_check=(0,))
+
+
+def test_triton_block_ptr_int_to_ptr_if():
+    n = 256
+    bs = 64
+    grid = (triton.cdiv(n, bs),)
+    src = torch.randn(n, device="npu", dtype=torch.float32)
+    dst = torch.empty_like(src)
+    triton_block_ptr_int_to_ptr_if[grid](src.data_ptr(), dst.data_ptr(), n, True, BLOCK_SIZE=bs)
+    torch.testing.assert_close(dst, src + 1.0)
+
+
+@triton.jit
+def triton_block_ptr_int_to_ptr_for(
+    src_ptr,
+    dst_ptr,
+    n_elements,
+    reps,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """int_to_ptr + make_block_ptr, with scf.for on loaded values (same pointer)."""
+    src = src_ptr.to(tl.pointer_type(tl.float32))
+    dst = dst_ptr.to(tl.pointer_type(tl.float32))
+    pid = tl.program_id(0)
+    offsets = (pid * BLOCK_SIZE,)
+    src_block = tl.make_block_ptr(
+        base=src,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    dst_block = tl.make_block_ptr(
+        base=dst,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    x = tl.load(src_block, boundary_check=(0,))
+    for _ in range(reps):
+        x = x + 1.0
+    tl.store(dst_block, x, boundary_check=(0,))
+
+
+def test_triton_block_ptr_int_to_ptr_for():
+    n = 256
+    bs = 64
+    reps = 3
+    grid = (triton.cdiv(n, bs),)
+    src = torch.randn(n, device="npu", dtype=torch.float32)
+    dst = torch.empty_like(src)
+    triton_block_ptr_int_to_ptr_for[grid](src.data_ptr(), dst.data_ptr(), n, reps, BLOCK_SIZE=bs)
+    torch.testing.assert_close(dst, src + reps)
+
+
+@triton.jit
+def triton_block_ptr_int_to_ptr_bitcast_if(
+    src_ptr,
+    dst_ptr,
+    n_elements,
+    add_one,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """int_to_ptr + bitcast + make_block_ptr, with scf.if on loaded values."""
+    src = src_ptr.to(tl.pointer_type(tl.int32)).to(tl.pointer_type(tl.float32))
+    dst = dst_ptr.to(tl.pointer_type(tl.int32)).to(tl.pointer_type(tl.float32))
+    pid = tl.program_id(0)
+    offsets = (pid * BLOCK_SIZE,)
+    src_block = tl.make_block_ptr(
+        base=src,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    dst_block = tl.make_block_ptr(
+        base=dst,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    x = tl.load(src_block, boundary_check=(0,))
+    if add_one:
+        x = x + 1.0
+    tl.store(dst_block, x, boundary_check=(0,))
+
+
+def test_triton_block_ptr_int_to_ptr_bitcast_if():
+    n = 256
+    bs = 64
+    grid = (triton.cdiv(n, bs),)
+    src = torch.randn(n, device="npu", dtype=torch.float32)
+    dst = torch.empty_like(src)
+    triton_block_ptr_int_to_ptr_bitcast_if[grid](src.data_ptr(), dst.data_ptr(), n, True, BLOCK_SIZE=bs)
+    torch.testing.assert_close(dst, src + 1.0)
+
+
+@triton.jit
+def triton_block_ptr_int_to_ptr_bitcast_for(
+    src_ptr,
+    dst_ptr,
+    n_elements,
+    reps,
+    BLOCK_SIZE: tl.constexpr,
+):
+    """int_to_ptr + bitcast + make_block_ptr, with scf.for on loaded values."""
+    src = src_ptr.to(tl.pointer_type(tl.int32)).to(tl.pointer_type(tl.float32))
+    dst = dst_ptr.to(tl.pointer_type(tl.int32)).to(tl.pointer_type(tl.float32))
+    pid = tl.program_id(0)
+    offsets = (pid * BLOCK_SIZE,)
+    src_block = tl.make_block_ptr(
+        base=src,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    dst_block = tl.make_block_ptr(
+        base=dst,
+        shape=(n_elements,),
+        strides=(1,),
+        offsets=offsets,
+        block_shape=(BLOCK_SIZE,),
+        order=(0,),
+    )
+    x = tl.load(src_block, boundary_check=(0,))
+    for _ in range(reps):
+        x = x + 1.0
+    tl.store(dst_block, x, boundary_check=(0,))
+
+
+def test_triton_block_ptr_int_to_ptr_bitcast_for():
+    n = 256
+    bs = 64
+    reps = 3
+    grid = (triton.cdiv(n, bs),)
+    src = torch.randn(n, device="npu", dtype=torch.float32)
+    dst = torch.empty_like(src)
+    triton_block_ptr_int_to_ptr_bitcast_for[grid](src.data_ptr(), dst.data_ptr(), n, reps, BLOCK_SIZE=bs)
+    torch.testing.assert_close(dst, src + reps)
