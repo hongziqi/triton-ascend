@@ -83,10 +83,6 @@ Vector/Memory Extension Ops
     sort
     flip
     cast
-    index_put
-    gather_out_to_ub
-    scatter_ub_to_out
-    index_select_simd
 
 Custom Ops
 ----------

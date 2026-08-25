@@ -353,16 +353,6 @@ CONSTRAINTS = {
         ],
         "example": "triton.language.fdiv",
     },
-    "triton.language.extra.cann.extension.index_select_simd": {
-        "constraints": [
-            "DataType: Ascend A2/A3 does not support fp64, fp8e4, fp8e5, uint16, uint32, uint64 (hardware limitation).",
-            "``index``: The data type of the index must be int32 or int64.",
-            "``dim``: The dimension cannot be the trailing axis (the last dimension), i.e., dim < len(src_shape) - 1.",
-            "The index_select operation is not supported along the trailing axis (the last dimension).",
-            "Out-of-bounds indices are not checked; users must ensure index validity on their own.",
-            "The index must be a 1D tensor.",
-        ],
-    },
     "triton.language.extra.cann.extension.ascend_address_space": {
         "constraints": [
             "Provides UB, L1, L0A, L0B, L0C address space constants for use with bl.alloc.",
@@ -960,46 +950,6 @@ CONSTRAINTS = {
             "DataType: Ascend A2/A3 does not support uint16, uint32, uint64 (hardware limitation).",
         ],
         "example": "triton.language.zeros_like",
-    },
-    "triton.language.extra.cann.extension.index_put": {
-        "constraints": [
-            "Only supported on Ascend 950.",
-            "``ptr.dtype``: only supports float16, bfloat16, float32.",
-            "``ptr`` and ``value`` must have the same rank.",
-            "``index``: must be an integer tensor. If ``index.rank`` != 1, it will be reshaped to 1D.",
-            "``index.numel``: must equal ``value.shape[dim]``.",
-            "``value``: supports 2~5D tensors.",
-            "``dim``: must satisfy 0 <= dim < rank(value) - 1.",
-        ],
-        "example":
-        "triton.language.extra.cann.extension.index_put",
-    },
-    "triton.language.extra.cann.extension.gather_out_to_ub": {
-        "constraints": [
-            "Only supported on Ascend 950.",
-            "``src.dtype``: only supports float16, bfloat16, float32.",
-            "``src`` and ``index`` must have the same rank.",
-            "``index``: must be an integer tensor, with rank in [1, 5].",
-            "``dim``: must satisfy 0 <= dim < rank(index).",
-            "``other``: must be a scalar value.",
-            "For every dimension ``i`` not equal to ``dim``, ``index.size[i]`` <= ``src.size[i]``.",
-            "The output shape is the same as ``index.shape``.",
-        ],
-        "example":
-        "triton.language.extra.cann.extension.gather_out_to_ub",
-    },
-    "triton.language.extra.cann.extension.scatter_ub_to_out": {
-        "constraints": [
-            "Only supported on Ascend 950.",
-            "``ptr.dtype``: only supports float16, bfloat16, float32.",
-            "``ptr``, ``index`` and ``value`` must have the same rank.",
-            "``index``: must be an integer tensor, with rank in [1, 5].",
-            "``dim``: must satisfy 0 <= dim < rank(index).",
-            "For every dimension ``i`` not equal to ``dim``, ``index.size[i]`` <= ``ptr.size[i]``.",
-            "The output shape is the same as ``index.shape``.",
-        ],
-        "example":
-        "triton.language.extra.cann.extension.scatter_ub_to_out",
     },
     "triton.language.extra.cann.libdevice.acos": {
         "example": "triton.language.extra.cann.libdevice.acos",

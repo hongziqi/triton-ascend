@@ -73,33 +73,6 @@ def index_select_manual_kernel(in_ptr, indices_ptr, out_ptr, dim, g_stride: tl.c
 
 
 @triton.jit
-def index_select_extension_kernel(in_ptr, indices_ptr, out_ptr, dim: tl.constexpr, other_numel: tl.constexpr,
-                                  g_stride: tl.constexpr, indice_length: tl.constexpr, g_block: tl.constexpr,
-                                  g_block_sub: tl.constexpr, other_block: tl.constexpr):
-    """
-    Implementation using extension.index_select_simd intrinsic.
-
-    This uses the hardware-accelerated SIMD index_select operation.
-    """
-    g_begin = tl.program_id(0) * g_block
-    for goffs in range(0, g_block, g_block_sub):
-        g_idx = tl.arange(0, g_block_sub) + g_begin + goffs
-        g_mask = g_idx < indice_length
-        indices = tl.load(indices_ptr + g_idx, g_mask, other=0)
-
-        for other_offset in range(0, g_stride, other_block):
-            other_idx = tl.arange(0, other_block) + other_offset
-            other_mask = other_idx < g_stride
-
-            # Use extension index_select_simd
-            tmp_buf = extension.index_select_simd(src=in_ptr, dim=dim, index=indices, src_shape=(other_numel, g_stride),
-                                                  src_offset=(-1, 0), read_shape=(-1, other_block))
-
-            tl.store(out_ptr + g_idx[:, None] * g_stride + other_idx[None, :], tmp_buf,
-                     g_mask[:, None] & other_mask[None, :])
-
-
-@triton.jit
 def index_select_auto_kernel(in_ptr, indices_ptr, out_ptr, dim: tl.constexpr, other_numel: tl.constexpr,
                              g_stride: tl.constexpr, indice_length: tl.constexpr, g_block: tl.constexpr,
                              g_block_sub: tl.constexpr, other_block: tl.constexpr):
@@ -131,7 +104,7 @@ def index_select_auto_kernel(in_ptr, indices_ptr, out_ptr, dim: tl.constexpr, ot
 # ============================================================================
 
 
-def triton_index_select(x0, dim, indices, impl='extension', num_vec_core=48):
+def triton_index_select(x0, dim, indices, impl='auto', num_vec_core=48):
     """
     Triton implementation of index_select.
 
@@ -139,7 +112,7 @@ def triton_index_select(x0, dim, indices, impl='extension', num_vec_core=48):
         x0: Source tensor
         dim: Dimension to select from
         indices: Indices to select
-        impl: Implementation to use ('manual', 'extension', or 'auto')
+        impl: Implementation to use ('manual', or 'auto')
         num_vec_core: Number of vector cores to use
 
     Returns:
@@ -169,11 +142,6 @@ def triton_index_select(x0, dim, indices, impl='extension', num_vec_core=48):
         kernel = index_select_manual_kernel
         kernel[num_vec_core, 1, 1](x0, indices, out, dim, g_stride=g_stride, indice_length=indice_length,
                                    g_block=g_block, g_block_sub=g_block_sub, other_block=other_block, multibuffer=False)
-    elif impl == 'extension':
-        kernel = index_select_extension_kernel
-        kernel[num_vec_core, 1,
-               1](x0, indices, out, dim, other_numel=sz[0], g_stride=g_stride, indice_length=indice_length,
-                  g_block=g_block, g_block_sub=g_block_sub, other_block=other_block)
     elif impl == 'auto':
         kernel = index_select_auto_kernel
         kernel[num_vec_core, 1,
@@ -236,18 +204,6 @@ def test_index_select_manual(src_shape, dim, indice_shape, dtype):
 
 
 @pytest.mark.parametrize("src_shape, dim, indice_shape, dtype", INDEX_SELECT_TEST_CASES)
-def test_index_select_extension(src_shape, dim, indice_shape, dtype):
-    """Test extension.index_select_simd implementation."""
-    x0 = test_common.generate_tensor(shape=src_shape, dtype=dtype).npu()
-    indices = torch.randint(0, src_shape[dim], size=indice_shape, dtype=torch.int32).npu()
-
-    torch_ref = torch_index_select(x0, dim, indices)
-    triton_cal = triton_index_select(x0, dim, indices, impl='extension', num_vec_core=48)
-
-    test_common.validate_cmp(dtype, triton_cal, torch_ref)
-
-
-@pytest.mark.parametrize("src_shape, dim, indice_shape, dtype", INDEX_SELECT_TEST_CASES)
 def test_index_select_auto(src_shape, dim, indice_shape, dtype):
     """Test auto-lowering implementation using standard tl.load."""
     x0 = test_common.generate_tensor(shape=src_shape, dtype=dtype).npu()
@@ -261,8 +217,5 @@ def test_index_select_auto(src_shape, dim, indice_shape, dtype):
 
 # Quick smoke test
 if __name__ == "__main__":
-    test_index_select_extension((500000, 37), 0, (324344, ), "float32")
-    print("extension implementation passed")
-
     test_index_select_auto((500000, 37), 0, (324344, ), "float32")
     print("auto-lowering implementation passed")

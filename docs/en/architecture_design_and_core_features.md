@@ -209,7 +209,7 @@ TritonToLinalg converts ttir to linalg ir.
 
 | No.| Operator | Description|
 |---|---|---|
-| 1 | tl.custom_op | A set of custom operators extended by Ascend NPU, used to support hardware-specific memory access and data movement patterns. For example:<br>• `index_select`: selects data based on an index.<br>• `index_put`: places data based on an index.<br>• `gather_out_to_ub`: collects external data to the unified buffer (UB).<br>• `scatter_ub_to_out`: scatters data from the UB to the output.<br>• `indirect_load`: loads content from an indirect address.<br>• `indirect_store`: stores content to an indirect address.|
+| 1 | tl.custom_op | A set of custom operators extended by Ascend NPU, used to support hardware-specific memory access and data movement patterns. For example:<br>• `indirect_load`: loads content from an indirect address.<br>• `indirect_store`: stores content to an indirect address.|
 | 2 | tl.compile_hint | Provides hardware-specific compilation hints to the compiler, which are used to guide the backend optimization policy, resource allocation, or kernel configuration.|
 | 3 | tl.sync_block_wait(`sender, receiver, event_id`) | Waits for block synchronization. The `receiver` waits for the event signal (`event_id`) sent by the `sender`, which is used to manage data dependencies and execution sequence in the cross-core pipeline.|
 | 4 | tl.sync_block_set(`sender, receiver, event_id`) | Sets block synchronization. The `sender` sends an event signal (`event_id`) to the `receiver`, indicating that an execution phase or data is ready.|

@@ -209,7 +209,7 @@ TritonToLinalg converts ttir to linalg ir.
 
 | 序号 | Operator | 功能描述 |
 |---|---|---|
-| 1 | tl.custom_op | Ascend NPU扩展的自定义算子集，用于支持硬件特定的内存访问与数据搬运模式，例如：<br>• `index_select`: 基于索引选择数据<br>• `index_put`: 基于索引放置数据<br>• `gather_out_to_ub`: 将外部数据收集到Unified Buffer (UB)<br>• `scatter_ub_to_out`: 将UB中的数据分散输出<br>• `indirect_load`: 间接地址加载<br>• `indirect_store`: 间接地址存储 |
+| 1 | tl.custom_op | Ascend NPU扩展的自定义算子集，用于支持硬件特定的内存访问与数据搬运模式，例如：<br>• `indirect_load`: 间接地址加载<br>• `indirect_store`: 间接地址存储 |
 | 2 | tl.compile_hint | 向编译器传递硬件特定的编译提示信息，用于指导后端优化策略、资源分配或内核配置。 |
 | 3 | tl.sync_block_wait(`sender, receiver, event_id`) | 块同步等待操作。指定接收核 (`receiver`) 等待由发送核 (`sender`) 发出的事件信号 (`event_id`)，用于管理跨核流水线中的数据依赖与执行顺序。 |
 | 4 | tl.sync_block_set(`sender, receiver, event_id`) | 块同步设置操作。指定发送核 (`sender`) 向接收核 (`receiver`) 发出一个事件信号 (`event_id`)，表明某个执行阶段或数据已准备就绪。 |

@@ -54,8 +54,6 @@ from .custom_op import (
     SyncEventSlot,
 )
 
-from . import builtin_custom_ops
-
 from .math_ops import (atan2, isfinited, finitef)
 
 from .aux_ops import (
@@ -71,13 +69,6 @@ from .vec_ops import (
     sort,
     flip,
     cast,
-)
-
-from .mem_ops import (
-    index_put,
-    gather_out_to_ub,
-    scatter_ub_to_out,
-    index_select_simd,
 )
 
 __all__ = [
@@ -150,12 +141,6 @@ __all__ = [
     "sort",
     "flip",
     "cast",
-
-    # mem ops
-    "index_put",
-    "gather_out_to_ub",
-    "scatter_ub_to_out",
-    "index_select_simd",
 
     # utils
     "is_compile_on_910_95",
