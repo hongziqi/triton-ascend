@@ -52,7 +52,7 @@
 #include "bishengir/Dialect/HIVM/IR/HIVMInterfaces.h"
 #include "bishengir/Dialect/Scope/IR/Scope.h"
 #include "mlir/Pass/PassManager.h"
-#include "third_party/ascend/include/DynamicCVPipeline/AddControlFlowCondition/UpdateConditionInfo.h"
+#include "DynamicCVPipeline/AddControlFlowCondition/UpdateConditionInfo.h"
 
 static constexpr const char *DEBUG_TYPE = "UpdateConditionInfoPass";
 static constexpr int VECTOR_SSBUF_OFFSET = 1024;

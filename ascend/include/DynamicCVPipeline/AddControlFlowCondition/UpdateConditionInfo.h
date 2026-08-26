@@ -38,7 +38,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
 
-#include "third_party/ascend/include/DynamicCVPipeline/AddControlFlowCondition.h"
+#include "DynamicCVPipeline/AddControlFlowCondition.h"
 
 namespace mlir {
 namespace triton {

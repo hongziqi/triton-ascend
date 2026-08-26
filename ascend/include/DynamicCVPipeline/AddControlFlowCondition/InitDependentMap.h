@@ -20,31 +20,30 @@
  * THE SOFTWARE.
  */
 
-#ifndef TRITON_ADAPTER_DYNAMIC_CV_PIPELINE_PASSES_H
-#define TRITON_ADAPTER_DYNAMIC_CV_PIPELINE_PASSES_H
+#ifndef TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H
+#define TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H
 
-#include "AddDynamicCVPipeline.h"
-#include "ascend/include/DynamicCVPipeline/PreCheckAvailable.h"
-#include "ascend/include/DynamicCVPipeline/RemoveAttributes.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/AddBlockIdForControlOps.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/DataDependencyAnalysis.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/InterCoreTransferAndSync.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/MarkMainLoop.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/PreserveControlAttrsCanonicalize.h"
-#include "ascend/include/DynamicCVPipeline/SplitDataflow/SeparateCVScope.h"
-#include "ascend/include/DynamicCVPipeline/StandardizeOp.h"
-#include "third_party/ascend/include/DynamicCVPipeline/ComputeBlockOptPass.h"
-#include "third_party/ascend/include/DynamicCVPipeline/PlanComputeBlock/OpClassifier.h"
-#include "third_party/ascend/include/DynamicCVPipeline/PlanComputeBlockPass.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/Pass.h"
+#include "DynamicCVPipeline/AddControlFlowCondition.h"
 
 namespace mlir {
 namespace triton {
 
-using namespace mlir;
-#define GEN_PASS_REGISTRATION
-#include "ascend/include/DynamicCVPipeline/Passes.h.inc"
+class InitDependentMapPass
+    : public PassWrapper<InitDependentMapPass, OperationPass<ModuleOp>> {
+public:
+  InitDependentMapPass() = default;
+  void runOnOperation() override;
+  void setConditionInfo(ControlFlowConditionInfo *info) { this->info = info; }
+
+private:
+  ControlFlowConditionInfo *info = nullptr;
+};
+
+std::unique_ptr<OperationPass<ModuleOp>> createInitDependentMapPass();
 
 } // namespace triton
 } // namespace mlir
 
-#endif // TRITON_ADAPTER_DYNAMIC_CV_PIPELINE_PASSES_H
+#endif // TRITON_ASCEND_SSBUF_INITDEPENDENTMAPFORCONTROLFLOW_H

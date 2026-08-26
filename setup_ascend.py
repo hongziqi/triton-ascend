@@ -15,6 +15,8 @@ except ImportError:
 
 _THIS_DIR = Path(__file__).resolve().parent
 _TRITON_SETUP = _THIS_DIR / "setup.py"
+# Out-of-tree Ascend plugin root (Layer A + B via TRITON_PLUGIN_DIRS).
+_ASCEND_DIR = _THIS_DIR / "ascend"
 
 
 def _set_default_env_vars():
@@ -38,7 +40,7 @@ def _is_linux_os(os_id):
 
 
 def _get_llvm_patch_hash():
-    patch_dir = _THIS_DIR / "third_party" / "ascend" / "patch"
+    patch_dir = _ASCEND_DIR / "patch"
     if patch_dir.is_dir():
         patch_files = sorted(f for f in os.listdir(patch_dir)
                              if f.startswith("llvm_patch_") and f.endswith(".patch") and (patch_dir / f).is_file())
@@ -159,8 +161,8 @@ def _get_npuir_patch_files():
 
 def _apply_npuir_patch():
     """Apply AscendNPU-IR adaptations for LLVM 23 (Triton Ascend 3.7)."""
-    patch_path = os.path.join("third_party", "ascend", "patch", "npuir_adapter_to_llvm_23.patch")
-    npuir_dir = os.path.join("third_party", "ascend", "AscendNPU-IR")
+    patch_path = os.path.join("ascend", "patch", "npuir_adapter_to_llvm_23.patch")
+    npuir_dir = os.path.join("ascend", "AscendNPU-IR")
     if not os.path.isfile(patch_path):
         raise RuntimeError(f"patch({patch_path}) not found.")
     if not os.path.isdir(npuir_dir):
@@ -170,7 +172,7 @@ def _apply_npuir_patch():
 
 
 def _apply_triton_ascend_patch():
-    patch_path = os.path.join("third_party", "ascend", "patch")
+    patch_path = os.path.join("ascend", "patch")
     dev_patch = os.path.join(patch_path, "triton-ascend-dev-3.7.0.patch")
     patch = os.path.join(patch_path, "triton-ascend-3.7.0.patch")
     patch_files, dev_patch_files = _get_triton_ascend_patch_file()
@@ -271,7 +273,7 @@ def add_git_safe_dir(path: str):
 def _ensure_distributed_submodule():
     if os.getenv("TRITON_BUILD_TD", "OFF").upper() not in ["ON", "1", "YES", "TRUE", "Y"]:
         return
-    distributed_dir = _THIS_DIR / "third_party" / "ascend" / "Triton-distributed-ascend"
+    distributed_dir = _ASCEND_DIR / "Triton-distributed-ascend"
     commit_id = "7786ae06d5cf16fc232d3ccfeb4a18f5d6a9e26e"
     if not distributed_dir.is_dir():
         subprocess.check_call([
@@ -280,7 +282,7 @@ def _ensure_distributed_submodule():
             "https://gitcode.com/Ascend/Triton-distributed-ascend.git",
             "-b",
             "master",
-        ], cwd=_THIS_DIR / "third_party" / "ascend")
+        ], cwd=_ASCEND_DIR)
     if _is_git_repo():
         add_git_safe_dir(str(distributed_dir))
         subprocess.check_call([
@@ -353,8 +355,12 @@ def _get_install_requirements():
 def _patch_module(mod):
     """Apply all Ascend-specific overrides to the imported setup_triton module."""
 
-    # 1. Add "ascend" to the in-tree backends list.
-    ascend_backend = mod.BackendInstaller.prepare("ascend")
+    # 1. Register Ascend as an external plugin (TRITON_PLUGIN_DIRS / Layer A+B).
+    ascend_backend = mod.BackendInstaller.prepare(
+        "ascend",
+        backend_src_dir=str(_ASCEND_DIR),
+        is_external=True,
+    )
     mod.backends = [ascend_backend, *mod.backends]
 
     # 2. Replace LLVM package info with Ascend build.
@@ -477,7 +483,7 @@ def _patch_module(mod):
         yield from _orig_get_package_dirs()
         if mod.check_env_flag("TRITON_BUILD_TD", "OFF"):
             yield ("triton_dist",
-                   os.path.join("third_party", "ascend", "Triton-distributed-ascend", "python", "triton_dist"))
+                   os.path.join("ascend", "Triton-distributed-ascend", "python", "triton_dist"))
 
     mod.get_package_dirs = get_package_dirs
 
@@ -487,7 +493,7 @@ def _patch_module(mod):
     def get_packages():
         yield from _orig_get_packages()
         if mod.check_env_flag("TRITON_BUILD_TD", "OFF"):
-            distributed_pkg_root = os.path.join("third_party", "ascend", "Triton-distributed-ascend", "python",
+            distributed_pkg_root = os.path.join("ascend", "Triton-distributed-ascend", "python",
                                                 "triton_dist")
             if os.path.isdir(distributed_pkg_root):
                 for dirpath, _dirnames, filenames in os.walk(distributed_pkg_root):
@@ -507,7 +513,7 @@ def _patch_module(mod):
         _orig_add_links(external_only)
         if not external_only and \
                 mod.check_env_flag("TRITON_BUILD_TD", "OFF"):
-            distributed_dir = (_THIS_DIR / "third_party" / "ascend" / "Triton-distributed-ascend" / "python" /
+            distributed_dir = (_ASCEND_DIR / "Triton-distributed-ascend" / "python" /
                                "triton_dist").resolve()
             distributed_install_dir = _THIS_DIR / "python" / "triton_dist"
             mod.update_symlink(distributed_install_dir, distributed_dir)

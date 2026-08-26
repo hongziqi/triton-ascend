@@ -4,16 +4,29 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Triton Ascend is dependent on AscendNPU IR
-set(ASCENDNPU_IR_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/AscendNPU-IR" CACHE PATH
-    "Path to AscendNPU-IR source root")
+# Triton Ascend is dependent on AscendNPU IR.
+# Use FORCE when cached path is stale (e.g. after moving third_party/ascend -> ascend/).
+set(_ascend_npuir_default "${CMAKE_CURRENT_SOURCE_DIR}/AscendNPU-IR")
+if(NOT ASCENDNPU_IR_SRC_DIR OR NOT EXISTS "${ASCENDNPU_IR_SRC_DIR}/CMakeLists.txt")
+  set(ASCENDNPU_IR_SRC_DIR "${_ascend_npuir_default}" CACHE PATH
+      "Path to AscendNPU-IR source root" FORCE)
+else()
+  set(ASCENDNPU_IR_SRC_DIR "${ASCENDNPU_IR_SRC_DIR}" CACHE PATH
+      "Path to AscendNPU-IR source root")
+endif()
 set(ASCENDNPU_IR_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/AscendNPU-IR")
 
 set(BISHENGIR_ENABLE_A5_UNPUBLISHED_FEATURES ON)
 set(BISHENGIR_BUILD_STANDALONE_IR_ONLY ON)
 
-set(TRITON_DISTRIBUTED_ASCEND_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Triton-distributed-ascend" CACHE PATH
-    "Path to Triton-distributed-ascend source root")
+set(_ascend_td_default "${CMAKE_CURRENT_SOURCE_DIR}/Triton-distributed-ascend")
+if(NOT TRITON_DISTRIBUTED_ASCEND_SRC_DIR OR NOT EXISTS "${TRITON_DISTRIBUTED_ASCEND_SRC_DIR}")
+  set(TRITON_DISTRIBUTED_ASCEND_SRC_DIR "${_ascend_td_default}" CACHE PATH
+      "Path to Triton-distributed-ascend source root" FORCE)
+else()
+  set(TRITON_DISTRIBUTED_ASCEND_SRC_DIR "${TRITON_DISTRIBUTED_ASCEND_SRC_DIR}" CACHE PATH
+      "Path to Triton-distributed-ascend source root")
+endif()
 set(TRITON_DISTRIBUTED_ASCEND_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/Triton-distributed-ascend")
 
 # Temporarily save and clear the RULE_LAUNCH_* attributes in the current directory to ensure AscendNPU-IR is not affected.
@@ -76,7 +89,14 @@ endif()
 
 option(TRITON_ASCEND_ENABLE_COSTMODEL_INPROC "Enable in-process costmodel C++ bridge" ON)
 if(TRITON_ASCEND_ENABLE_COSTMODEL_INPROC)
-  set(TRITON_ASCEND_COSTMODEL_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/costmodel" CACHE PATH "Path to vendored vTriton source root")
+  set(_ascend_costmodel_default "${CMAKE_CURRENT_SOURCE_DIR}/costmodel")
+  if(NOT TRITON_ASCEND_COSTMODEL_SOURCE_DIR OR NOT EXISTS "${TRITON_ASCEND_COSTMODEL_SOURCE_DIR}/include/AscendModel/CMakeLists.txt")
+    set(TRITON_ASCEND_COSTMODEL_SOURCE_DIR "${_ascend_costmodel_default}" CACHE PATH
+        "Path to vendored vTriton source root" FORCE)
+  else()
+    set(TRITON_ASCEND_COSTMODEL_SOURCE_DIR "${TRITON_ASCEND_COSTMODEL_SOURCE_DIR}" CACHE PATH
+        "Path to vendored vTriton source root")
+  endif()
   set(_costmodel_include_dir "${TRITON_ASCEND_COSTMODEL_SOURCE_DIR}/include/AscendModel")
   set(_costmodel_lib_dir "${TRITON_ASCEND_COSTMODEL_SOURCE_DIR}/lib/AscendModel")
 
@@ -91,7 +111,7 @@ if(TRITON_ASCEND_ENABLE_COSTMODEL_INPROC)
     set(ASCEND_HBM_BW 1555 CACHE STRING "HBM Bandwidth GB/s")
     set(ASCEND_L2_SIZE 192 CACHE STRING "L2 Cache Size MB")
     set(ASCEND_L1_SIZE 1024 CACHE STRING "L1 Buffer Size KB")
-    set(_costmodel_gen_include "${CMAKE_BINARY_DIR}/third_party/ascend/costmodel_build/include")
+    set(_costmodel_gen_include "${CMAKE_CURRENT_BINARY_DIR}/costmodel_build/include")
     file(MAKE_DIRECTORY "${_costmodel_gen_include}/AscendModel")
     configure_file(
       "${_costmodel_include_dir}/HardwareParams.h.in"
@@ -100,11 +120,11 @@ if(TRITON_ASCEND_ENABLE_COSTMODEL_INPROC)
     )
     include_directories("${_costmodel_gen_include}")
     # TableGen outputs (*.inc) from AscendModel/include land in this binary dir.
-    include_directories("${CMAKE_BINARY_DIR}/third_party/ascend/costmodel_build/include_AscendModel")
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/costmodel_build/include_AscendModel")
     include_directories("${TRITON_ASCEND_COSTMODEL_SOURCE_DIR}/include")
 
-    add_subdirectory(${_costmodel_include_dir} ${CMAKE_BINARY_DIR}/third_party/ascend/costmodel_build/include_AscendModel)
-    add_subdirectory(${_costmodel_lib_dir} ${CMAKE_BINARY_DIR}/third_party/ascend/costmodel_build/lib_AscendModel)
+    add_subdirectory(${_costmodel_include_dir} ${CMAKE_CURRENT_BINARY_DIR}/costmodel_build/include_AscendModel)
+    add_subdirectory(${_costmodel_lib_dir} ${CMAKE_CURRENT_BINARY_DIR}/costmodel_build/lib_AscendModel)
     set(TRITON_ASCEND_HAS_INPROC_COSTMODEL 1)
   else()
     message(WARNING "Minimal costmodel sources not found under ${TRITON_ASCEND_COSTMODEL_SOURCE_DIR}; in-process costmodel bridge disabled")

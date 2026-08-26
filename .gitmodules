@@ -1,4 +1,4 @@
-[submodule "third_party/ascend/AscendNPU-IR"]
-	path = third_party/ascend/AscendNPU-IR
+[submodule "ascend/AscendNPU-IR"]
+	path = ascend/AscendNPU-IR
 	url = https://github.com/TecJesh/AscendNPU-IR.git
     depth = 1

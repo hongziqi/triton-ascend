@@ -34,7 +34,7 @@ index 43e33fbc80..d45302902e 100644
 +
 +  # To enable llvm-cov coverage tool, you need to pass the argument TRITON_APPEND_CMAKE_ARGS="-DTRITON_ENABLE_COVERAGE_LLVM_COV=ON" during compilation.
 +  if(TRITON_ENABLE_COVERAGE_LLVM_COV)
-+    if("${CMAKE_CURRENT_SOURCE_DIR}" MATCHES ".*/third_party/ascend/.*" AND NOT "${CMAKE_CURRENT_SOURCE_DIR}" MATCHES ".*/AscendNPU-IR/.*")
++    if("${CMAKE_CURRENT_SOURCE_DIR}" MATCHES ".*/(third_party/)?ascend/.*" AND NOT "${CMAKE_CURRENT_SOURCE_DIR}" MATCHES ".*/AscendNPU-IR/.*")
 +      message(STATUS "Enabling coverage for target ${name} (in Ascend plugin)")
 +      target_compile_options(${name} PRIVATE
 +        -fprofile-arcs
@@ -134,8 +134,8 @@ index 885cffb78e..14bf4e8526 100644
  get_property(triton_libs GLOBAL PROPERTY TRITON_LIBS)
  
 +include_directories(
-+    ${PROJECT_SOURCE_DIR}/third_party/ascend/include
-+    ${PROJECT_SOURCE_DIR}/third_party/ascend/AscendNPU-IR/bishengir/include
++    ${PROJECT_SOURCE_DIR}/ascend/include
++    ${PROJECT_SOURCE_DIR}/ascend/AscendNPU-IR/bishengir/include
 +    ${PROJECT_BINARY_DIR}/third_party/ascend/AscendNPU-IR/bishengir/include
 +  )
 +

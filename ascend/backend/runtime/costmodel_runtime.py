@@ -119,8 +119,6 @@ def _warn_costmodel(msg: str) -> None:
 def _resolve_default_hardware_config() -> str:
     candidates = [
         os.path.join(os.path.dirname(__file__), "../../../costmodel/configs/ascend_910b.json"),
-        os.path.join(os.path.dirname(__file__), "../../../../third_party/ascend/costmodel/configs/ascend_910b.json"),
-        os.path.join(os.path.dirname(__file__), "../../../../../third_party/ascend/costmodel/configs/ascend_910b.json"),
     ]
     for candidate in candidates:
         path = os.path.abspath(candidate)

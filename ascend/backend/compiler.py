@@ -38,6 +38,7 @@ from .debug_line_rewriter import rewrite_debug_line
 
 from triton._C.libtriton import ir, passes, ascend, buffer_ir
 from triton._C.libtriton.ascend import ir as ascend_ir
+from triton import knobs
 try:
     from triton._C.libtriton import distributed
 except ImportError:
@@ -1405,6 +1406,9 @@ class AscendBackend(BaseBackend):
             stages["ttir"] = lambda src, metadata: make_ttir(src, metadata, options)
             if options.force_simt_only:
                 stages["npubin"] = (lambda src, metadata: ttir_to_npubin(src, metadata, options))
+                # Allow out-of-tree pass plugins to inspect/rewrite Ascend stages.
+                if knobs.runtime.add_stages_inspection_hook is not None:
+                    knobs.runtime.add_stages_inspection_hook(self, stages, options, language, None)
                 return
             stages["ttadapter"] = lambda src, metadata: ttir_to_linalg(src, metadata, options, named_ops=True)
             # Support BC mode: convert Linalg IR to Bytecode format, then back to MLIR
@@ -1420,6 +1424,10 @@ class AscendBackend(BaseBackend):
                 stages["npubin"] = (
                     lambda src, metadata: linalg_to_bin_enable_npu_compile_A2_A3(src, metadata, options))
             stages["npubin"] = _with_debug_line(stages["npubin"], options)
+            # Mirror nvidia/amd: invoke stages hook so TRITON_PASS_PLUGIN_PATH passes
+            # can be inserted without patching this file further.
+            if knobs.runtime.add_stages_inspection_hook is not None:
+                knobs.runtime.add_stages_inspection_hook(self, stages, options, language, None)
         else:
             raise NotImplementedError(f"Backend '{self.target.backend}' is not supported. "
                                       "Please ensure the target backend is set to 'npu'.")

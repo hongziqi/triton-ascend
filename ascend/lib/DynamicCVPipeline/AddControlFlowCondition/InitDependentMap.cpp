@@ -20,14 +20,14 @@
  * THE SOFTWARE.
  */
 
-#include "third_party/ascend/include/DynamicCVPipeline/AddControlFlowCondition/InitDependentMap.h"
-#include "ascend/include/DynamicCVPipeline/Common/BufferCountManager.h"
+#include "DynamicCVPipeline/AddControlFlowCondition/InitDependentMap.h"
+#include "DynamicCVPipeline/Common/BufferCountManager.h"
 #include "bishengir/Dialect/Annotation/IR/Annotation.h"
 #include "bishengir/Dialect/HIVM/IR/HIVM.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "third_party/ascend/include/DynamicCVPipeline/AddControlFlowCondition.h"
-#include "third_party/ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "DynamicCVPipeline/AddControlFlowCondition.h"
+#include "DynamicCVPipeline/Common/Utils.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
