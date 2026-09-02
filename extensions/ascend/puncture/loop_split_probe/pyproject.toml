@@ -1,0 +1,20 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "cmake>=3.20", "ninja"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "triton-loop-split-probe"
+version = "0.0.1"
+description = "LoopSplit probe for Ascend plugin puncture (triton-ext toolchain)"
+requires-python = ">=3.9"
+
+[tool.triton-ext]
+status = "experimental"
+enabled = true
+
+[tool.scikit-build]
+cmake.version = ">=3.20"
+cmake.build-type = "Release"
+
+[tool.scikit-build.wheel.packages]
+triton_loop_split_probe = "python/triton_loop_split_probe"

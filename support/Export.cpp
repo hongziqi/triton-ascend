@@ -1,0 +1,119 @@
+#include "Export.h"
+#include "triton/Tools/PluginUtils.h" // For plugin:: callbacks and structs.
+#include "triton/Version.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "triton-ext"
+
+///
+/// Internal API.
+///
+namespace triton::ext::support {
+
+using namespace mlir::triton;
+
+// These registries are accessed both from static initializers in other
+// translation units (via the `exportPass`/`exportDialect`/`exportOp` calls
+// below) and from `tritonGetPluginInfo`. When the whole plugin is linked into a
+// single shared library, the static-initialization order across translation
+// units is unspecified, so a global map could be used before it is constructed
+// (yielding a modulo-by-zero SIGFPE inside `unordered_map`). Wrap each map in a
+// function-local static so it is constructed on first use regardless of order.
+static std::unordered_map<
+    std::string,
+    std::pair<plugin::AddPassCallback, plugin::RegisterPassCallback>> &
+passMap() {
+  static std::unordered_map<
+      std::string,
+      std::pair<plugin::AddPassCallback, plugin::RegisterPassCallback>>
+      map;
+  return map;
+}
+static std::unordered_map<std::string, plugin::RegisterDialectCallback> &
+dialectMap() {
+  static std::unordered_map<std::string, plugin::RegisterDialectCallback> map;
+  return map;
+}
+static std::unordered_map<std::string, plugin::AddOpCallback> &opMap() {
+  static std::unordered_map<std::string, plugin::AddOpCallback> map;
+  return map;
+}
+
+Result exportPass(const std::string passName,
+                  plugin::RegisterPassCallback registerFunc,
+                  plugin::AddPassCallback addFunc) {
+  LLVM_DEBUG(llvm::dbgs() << "internally exporting pass: " << passName << "\n");
+  passMap()[passName] = {addFunc, registerFunc};
+  return TP_SUCCESS;
+}
+
+Result exportDialect(const std::string dialectName,
+                     plugin::RegisterDialectCallback insertFunc) {
+  LLVM_DEBUG(llvm::dbgs() << "internally exporting dialect: " << dialectName
+                          << "\n");
+  dialectMap()[dialectName] = insertFunc;
+  return TP_SUCCESS;
+}
+
+Result exportOp(const std::string opName, plugin::AddOpCallback addFunc) {
+  LLVM_DEBUG(llvm::dbgs() << "internally exporting op: " << opName << "\n");
+  opMap()[opName] = addFunc;
+  return TP_SUCCESS;
+}
+} // namespace triton::ext::support
+
+///
+/// External API.
+///
+using namespace triton::ext::support;
+using namespace mlir::triton;
+
+// TODO: because TritonExtensionSupport is a separate library, it will not be
+// built with TRITON_EXT_NAME or TRITON_EXT_CLASS defined. This means that we
+// cannot statically generate the name here. (Register it with the internal
+// API?)
+static const char *PLUGIN_NAME = "triton-ext-todo";
+static const char *VERSION = "0.1.0";
+
+TRITON_PLUGIN_API plugin::PluginInfo *tritonGetPluginInfo() {
+  auto passes = new plugin::PassInfo[passMap().size()];
+  size_t numPasses = 0;
+  for (const auto &pair : passMap()) {
+    const std::string &passName = pair.first;
+    auto registerFunc = pair.second.second;
+    auto addFunc = pair.second.first;
+    passes[numPasses++] =
+        plugin::PassInfo{passName.c_str(), VERSION, addFunc, registerFunc};
+  }
+
+  auto dialects = new plugin::DialectInfo[dialectMap().size()];
+  size_t numDialects = 0;
+  for (const auto &pair : dialectMap()) {
+    const std::string &dialectName = pair.first;
+    auto registerFunc = pair.second;
+    dialects[numDialects++] =
+        plugin::DialectInfo{dialectName.c_str(), VERSION, registerFunc};
+  }
+
+  auto ops = new plugin::OpInfo[opMap().size()];
+  size_t numOps = 0;
+  for (const auto &pair : opMap()) {
+    const std::string &opName = pair.first;
+    auto addFunc = pair.second;
+    ops[numOps++] = plugin::OpInfo{opName.c_str(), addFunc};
+  }
+
+  auto info = new plugin::PluginInfo{TRITON_PLUGIN_API_VERSION,
+                                     PLUGIN_NAME,
+                                     VERSION,
+                                     passes,
+                                     numPasses,
+                                     dialects,
+                                     numDialects,
+                                     ops,
+                                     numOps,
+                                     TRITON_VERSION};
+  return info;
+}
+
+#undef DEBUG_TYPE

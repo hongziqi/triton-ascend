@@ -1,0 +1,3 @@
+# Ignore downloaded wheels and LLVM tarballs in CI scripts.
+triton-*.whl
+llvm-*.tar.xz
