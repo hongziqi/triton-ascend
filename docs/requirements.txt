@@ -5,7 +5,7 @@ matplotlib
 myst_parser
 sphinx_book_theme
 sphinx_copybutton
-pandas
+pandas<3.0
 pytest
 sphinx-gallery
 sphinx-multiversion

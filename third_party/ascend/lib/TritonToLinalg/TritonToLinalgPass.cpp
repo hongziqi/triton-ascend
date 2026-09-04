@@ -51,6 +51,7 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/TypeRange.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
@@ -807,6 +808,19 @@ static bool isSIMTOp(Operation *op) {
       return isSimt1DCumsum(scan);
     }
   }
+
+  // math.sin / math.cos on f16/f32 inputs: downstream (A5 RegBase normalize,
+  // enable-high-precision defaults to true) rewrites them into a Payne-Hanek
+  // range reduction that looks up a 320xi32 2/pi limbs table with two
+  // hfusion.gather ops per collapsed region.  Match that scenario here and
+  // route it to the SIMT template so the table gathers run in SIMT.
+  if (compileOn91095Flag && (isa<math::SinOp>(op) || isa<math::CosOp>(op))) {
+    Type inElem = getElementTypeOrSelf(op->getOperand(0).getType());
+    if (inElem.isF16() || inElem.isF32()) {
+      return true;
+    }
+  }
+
   return isa<triton::ascend::IndexPutOp, triton::ascend::GatherOutToUbOp,
              triton::ascend::ScatterUbToOutOp, triton::ascend::IndirectLoadOp,
              triton::ascend::StrideLoadOp, triton::ascend::StrideStoreOp,
@@ -1506,7 +1520,7 @@ TritonToLinalgPass::processDescriptorOperations(ModuleOp moduleOp) {
   // operands/results use TensorDescType.
   target.addDynamicallyLegalDialect<
       mlir::arith::ArithDialect, mlir::scf::SCFDialect, triton::TritonDialect>(
-      [](mlir::Operation *op) {
+      [](mlir::Operation *op) -> std::optional<bool> {
         return !DescriptorConverter::hasATensorDescriptorType(
                    op->getOperandTypes()) &&
                !DescriptorConverter::hasATensorDescriptorType(
@@ -1514,12 +1528,13 @@ TritonToLinalgPass::processDescriptorOperations(ModuleOp moduleOp) {
       });
   // Function signature legality: Triton FuncOp is legal if its inputs/outputs
   // contain no TensorDescType.
-  target.addDynamicallyLegalOp<triton::FuncOp>([](triton::FuncOp funcOp) {
-    return !DescriptorConverter::hasATensorDescriptorType(
-               funcOp.getFunctionType().getInputs()) &&
-           !DescriptorConverter::hasATensorDescriptorType(
-               funcOp.getFunctionType().getResults());
-  });
+  target.addDynamicallyLegalOp<triton::FuncOp>(
+      [](triton::FuncOp funcOp) -> std::optional<bool> {
+        return !DescriptorConverter::hasATensorDescriptorType(
+                   funcOp.getFunctionType().getInputs()) &&
+               !DescriptorConverter::hasATensorDescriptorType(
+                   funcOp.getFunctionType().getResults());
+      });
   target.addLegalOp<triton::MakeTensorDescOp>();
   target.addIllegalOp<triton::DescriptorLoadOp, triton::DescriptorStoreOp,
                       triton::DescriptorScatterOp, triton::DescriptorGatherOp,

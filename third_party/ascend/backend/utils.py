@@ -52,7 +52,6 @@ _DEPRECATED_NPU_OPTIONS = frozenset({
     "enable_cce_vf_auto_sync",
     "enable_cce_vf_remove_membar",
     "enable_cross_if_fusion",
-    "enable_costmodel_backend",
     "enable_drop_unit_dims",
     "enable_linearize",
     "enable_mask_fallback_conversion",
@@ -153,7 +152,7 @@ _DEPRECATED_NPU_OPTION_DETAILS = {
     "parallel_mode": "it is ignored; parallel mode is derived from compile_mode and Linalg IR.",
     "storage_align": "it is ignored; the removed vendor compiler control has no replacement.",
     "stream": "it is ignored; launch streams are managed by the runtime and driver.",
-    "use_bytecode": "it is ignored; the bytecode pipeline is always enabled.",
+    "use_bytecode": "it is ignored; the bytecode pipeline is disabled on Triton Ascend 3.7.",
     "warp_size": "it is ignored; the Ascend backend fixes warp_size to 32.",
 }
 

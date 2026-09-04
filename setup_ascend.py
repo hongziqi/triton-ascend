@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -88,18 +89,23 @@ def _get_ascend_llvm_package_info(base_dir):
     return {"name": name, "sym_name": sym_name, "url": url}
 
 
-def _apply_patch(patch_path):
+def _apply_patch(patch_path, *, directory=None, cwd=None):
+    cmd = ["git", "apply"]
+    if directory:
+        cmd.extend(["--directory", directory])
+    cmd.append(patch_path)
     try:
-        subprocess.run(["git", "apply", patch_path], check=True, stdout=subprocess.DEVNULL, cwd=str(_THIS_DIR))
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, cwd=str(cwd or _THIS_DIR))
     except subprocess.CalledProcessError:
         raise RuntimeError(f"patch({patch_path}) failed")
     except FileNotFoundError:
         raise RuntimeError(f"patch({patch_path}) not found.")
 
 
-def _checkout_file(files):
+def _checkout_file(files, *, cwd=None):
     try:
-        subprocess.run(["git", "checkout", "--"] + files, check=True, stdout=subprocess.DEVNULL, cwd=str(_THIS_DIR))
+        subprocess.run(["git", "checkout", "--"] + files, check=True, stdout=subprocess.DEVNULL, cwd=str(cwd
+                                                                                                         or _THIS_DIR))
     except subprocess.CalledProcessError:
         raise RuntimeError(f"init code failed, list:{files}")
 
@@ -113,47 +119,87 @@ def _is_dev_mode():
         return True
 
 
-def _get_triton_ascend_patch_file():
-    patch_files = [
-        "CMakeLists.txt",
-        "include/triton/Dialect/Triton/IR/TritonAttrDefs.td",
-        "lib/Dialect/Triton/IR/Traits.cpp",
-        "python/src/ir.cc",
-        "python/triton/_utils.py",
-        "python/triton/compiler/code_generator.py",
-        "python/triton/compiler/compiler.py",
-        "python/triton/compiler/errors.py",
-        "python/triton/language/math.py",
-        "python/triton/language/semantic.py",
-        "python/triton/language/standard.py",
-        "python/triton/runtime/interpreter.py",
-        "python/triton/runtime/jit.py",
-        "bin/RegisterTritonDialects.h",
-        "bin/triton-opt.cpp",
-        "bin/CMakeLists.txt",
-    ]
-    dev_patch_files = ["python/triton/runtime/autotuner.py"]
-    return patch_files, dev_patch_files
+def _get_patch_files(patch_path):
+    """Return repo-relative paths listed in a unified diff."""
+    path = Path(patch_path)
+    if not path.is_absolute():
+        path = _THIS_DIR / path
+    files = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if line.startswith("diff --git a/"):
+                target = line.split(" b/", 1)[-1].rstrip("\n")
+                if target != "/dev/null":
+                    files.append(target)
+    return files
+
+
+def _apply_npuir_patch():
+    """Apply AscendNPU-IR adaptations for LLVM 23 (Triton Ascend 3.7)."""
+    patch_path = os.path.join("third_party", "ascend", "patch", "npuir_adapter_to_llvm_23.patch")
+    npuir_dir = os.path.join("third_party", "ascend", "AscendNPU-IR")
+    if not os.path.isfile(patch_path):
+        raise RuntimeError(f"patch({patch_path}) not found.")
+    if not os.path.isdir(npuir_dir):
+        raise RuntimeError(f"AscendNPU-IR not found at {npuir_dir}")
+    patch_files = _get_patch_files(patch_path)
+    if not patch_files:
+        raise RuntimeError(f"patch({patch_path}) has no file sections.")
+    _checkout_file(patch_files, cwd=npuir_dir)
+    _apply_patch(patch_path, directory=npuir_dir)
 
 
 def _apply_triton_ascend_patch():
     patch_path = os.path.join("third_party", "ascend", "patch")
-    dev_patch = os.path.join(patch_path, "triton-ascend-dev-3.6.0.patch")
-    patch = os.path.join(patch_path, "triton-ascend-3.6.0.patch")
-    patch_files, dev_patch_files = _get_triton_ascend_patch_file()
+    dev_patch = os.path.join(patch_path, "triton-ascend-dev-3.7.0.patch")
+    patch = os.path.join(patch_path, "triton-ascend-3.7.0.patch")
     if _is_dev_mode() and os.path.isfile(dev_patch):
-        _checkout_file(dev_patch_files)
+        dev_patch_files = _get_patch_files(dev_patch)
+        if dev_patch_files:
+            _checkout_file(dev_patch_files)
         _apply_patch(str(dev_patch))
     if os.path.isfile(patch):
+        patch_files = _get_patch_files(patch)
+        if not patch_files:
+            raise RuntimeError(f"patch({patch}) has no file sections.")
         _checkout_file(patch_files)
         _apply_patch(str(patch))
+    _apply_npuir_patch()
+
+
+def _print_patch_restore_warning():
+    """Warn that the build left patched (dirty) source files in the worktree.
+
+    ``_apply_triton_ascend_patch`` modifies in-tree Triton sources, so a
+    subsequent ``git pull`` would fail with local changes. Users can restore
+    those files with ``python3 init_code.py`` (which runs ``git checkout --``
+    on the patched file list).
+    """
+    if not _is_git_repo():
+        return
+    if sys.stdout.isatty():
+        highlight = "\033[1;93m"
+        reset = "\033[0m"
+    else:
+        highlight = ""
+        reset = ""
+    print("")
+    print("=" * 72)
+    print("WARNING: Ascend patches were applied to the in-tree Triton sources")
+    print("         during this build. Your working tree is now dirty, which")
+    print("         will cause `git pull` to fail with local changes.")
+    print("")
+    print("         To restore the source files, run:")
+    print(f"            >>> {highlight}python3 init_code.py{reset} <<<")
+    print("=" * 72)
+    print("")
 
 
 def _get_default_version():
     version_file = _THIS_DIR / "version.txt"
     if version_file.exists():
         return version_file.read_text().strip()
-    return "3.6.0-dev"
+    return "3.7.0-dev"
 
 
 def _get_version(is_manylinux, get_git_commit_hash):
@@ -234,22 +280,51 @@ def add_git_safe_dir(path: str):
         ], cwd=_THIS_DIR)
 
 
+def _git_check_call_with_retry(cmd, cwd=None, retries=3, interval=5):
+    """Run a git network command (clone/fetch) with retries.
+
+    Network operations against the remote may fail intermittently; retry up to
+    ``retries`` times, waiting ``interval`` seconds between attempts.
+    """
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            subprocess.check_call(cmd, cwd=cwd)
+            return
+        except subprocess.CalledProcessError as e:
+            last_error = e
+            if attempt < retries:
+                print(f"Command '{' '.join(cmd)}' failed (attempt {attempt}/{retries}), "
+                      f"retrying in {interval}s...")
+                time.sleep(interval)
+            else:
+                print(f"Command '{' '.join(cmd)}' failed after {retries} attempts.")
+    raise last_error
+
+
 def _ensure_distributed_submodule():
     if os.getenv("TRITON_BUILD_TD", "OFF").upper() not in ["ON", "1", "YES", "TRUE", "Y"]:
         return
     distributed_dir = _THIS_DIR / "third_party" / "ascend" / "Triton-distributed-ascend"
     commit_id = "7786ae06d5cf16fc232d3ccfeb4a18f5d6a9e26e"
     if not distributed_dir.is_dir():
-        subprocess.check_call([
-            "git",
-            "clone",
-            "https://gitcode.com/Ascend/Triton-distributed-ascend.git",
-            "-b",
-            "master",
-        ], cwd=_THIS_DIR / "third_party" / "ascend")
+        try:
+            _git_check_call_with_retry([
+                "git",
+                "clone",
+                "https://gitcode.com/Ascend/Triton-distributed-ascend.git",
+                "-b",
+                "master",
+            ], cwd=_THIS_DIR / "third_party" / "ascend")
+        except Exception:
+            # A clone interrupted by a network failure leaves a partially
+            # populated directory; remove it so the next build retries cleanly.
+            if distributed_dir.is_dir():
+                shutil.rmtree(distributed_dir, ignore_errors=True)
+            raise
     if _is_git_repo():
         add_git_safe_dir(str(distributed_dir))
-        subprocess.check_call([
+        _git_check_call_with_retry([
             "git",
             "fetch",
             "origin",
@@ -271,8 +346,8 @@ def _ensure_distributed_submodule():
 
 
 def _copy_ascend_tools(extdir, cmake_dir):
+    # triton-mlir-opt is deprecated for Triton Ascend 3.7 / LLVM 23.
     for rel_src, name in [
-        ("third_party/ascend/bin/triton-mlir-opt", "triton-mlir-opt"),
         ("bin/triton-opt", "triton-opt"),
     ]:
         src = Path(cmake_dir) / rel_src
@@ -311,7 +386,7 @@ def _get_install_requirements():
         "pybind11",
         "pandas",
         "pyelftools>=0.29",
-        "triton==3.6.0",
+        "triton==3.7.0",
     ]
     return [*install_requires]
 
@@ -383,7 +458,7 @@ def _patch_module(mod):
 
             orig_check_call = subprocess.check_call
             asc_extra_args = list(_get_ascend_cmake_args())
-            asc_extra_args.append("-DLLVM_MAJOR_VERSION_22_COMPATIBLE=ON")
+            asc_extra_args.append("-DLLVM_MAJOR_VERSION_23_COMPATIBLE=ON")
             if mod.check_env_flag("TRITON_BUILD_TD", "OFF"):
                 asc_extra_args.append("-DTRITON_BUILD_TD=ON")
             else:
@@ -552,6 +627,7 @@ def main():
 
     kwargs = _build_setup_kwargs(mod, captured["kwargs"])
     _real_setup(**kwargs)
+    _print_patch_restore_warning()
 
 
 if __name__ == "__main__":

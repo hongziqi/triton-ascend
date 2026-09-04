@@ -282,8 +282,7 @@ makeExtractSliceOp(Value src, const llvm::SmallVector<OpFoldResult> &offsets,
   auto srcType = cast<RankedTensorType>(src.getType());
   SmallVector<OpFoldResult> strides(srcType.getRank(),
                                     rewriter.getIndexAttr(1));
-  auto dstType =
-      tensor::ExtractSliceOp::inferResultType(srcType, offsets, sizes, strides);
+  auto dstType = tensor::ExtractSliceOp::inferResultType(srcType, sizes);
   return rewriter.create<tensor::ExtractSliceOp>(loc, dstType, src, offsets,
                                                  sizes, strides);
 }
@@ -486,6 +485,10 @@ static std::optional<Value> getRootPointer(Value ptr) {
             .Case<triton::AddPtrOp>(
                 [](auto op) -> std::optional<Value> { return op.getPtr(); })
             .Case<triton::SplatOp>(
+                [](auto op) -> std::optional<Value> { return op.getSrc(); })
+            .Case<triton::BroadcastOp>(
+                [](auto op) -> std::optional<Value> { return op.getSrc(); })
+            .Case<triton::ExpandDimsOp>(
                 [](auto op) -> std::optional<Value> { return op.getSrc(); })
             .Case<triton::MakeTensorPtrOp>(
                 [](auto op) -> std::optional<Value> { return op.getBase(); })
