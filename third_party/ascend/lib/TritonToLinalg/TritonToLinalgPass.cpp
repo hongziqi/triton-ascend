@@ -499,6 +499,10 @@ void TritonToLinalgPass::convertTTFunc(triton::FuncOp func,
   if (autoBlockifyAttr)
     funcFunc->setAttr("auto_blockify_size", autoBlockifyAttr);
 
+  auto coreRatioAttr = func->getAttr("hivm.core_ratio");
+  if (coreRatioAttr)
+    funcFunc->setAttr("hivm.core_ratio", coreRatioAttr);
+
   auto &funcFuncBody = funcFunc.getBody();
   auto &funcBody = func.getBody();
 
@@ -905,6 +909,22 @@ void TritonToLinalgPass::runOnOperation() {
   // Check if the kernel contains tl.dot. Without tl.dot,
   // the kernel would be pure AIV kernel.
   bool existDot = false;
+  moduleOp.walk([&](hivm::CustomOp customOp) {
+      if (customOp.getCoreType() == hivm::TCoreType::CUBE_AND_VECTOR ||
+          customOp.getCoreType() == hivm::TCoreType::CUBE) {
+          existDot = true;
+          return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+  });
+  moduleOp.walk([&](hivm::CustomMacroOp customMacroOp) {
+      if (customMacroOp.getCoreType() == hivm::TCoreType::CUBE_AND_VECTOR ||
+          customMacroOp.getCoreType() == hivm::TCoreType::CUBE) {
+          existDot = true;
+          return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+  });
   moduleOp.walk([&](triton::DotOp dotOp) {
     existDot = true;
     return WalkResult::interrupt();
