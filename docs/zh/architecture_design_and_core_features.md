@@ -20,13 +20,16 @@
   接收来自上层 Triton compiler 生成的中间表示文件 `TTIR`（Triton IR），执行一系列适配昇腾硬件的转换。
 
   ```text
-  Triton IR → Linalg IR → AscendNPU IR → triton_xxx_kernel.o
+  Triton IR → Linalg IR → AscendNPU IR → kernel*.o
   ```
 
-  Triton IR 转换为 Linalg IR，再经 BiSheng Compiler 生成面向 Ascend NPU 的可执行二进制文件 `triton_xxx_kernel.o`。
+  整个编译流程分为两个阶段：
+
+  - **Triton-Ascend 阶段（Triton IR → Linalg IR）**：由 Triton-Ascend 的 MLIR Pass（如 `TritonToLinalg`）将 Triton IR 降级为 Linalg IR，完成算子语义到结构化线性代数表示的转换。
+  - **BiSheng Compiler 阶段（Linalg IR → AscendNPU IR → `kernel*.o`）**：BiSheng Compiler 接管后续编译，将 Linalg IR 降级为面向 Ascend NPU 的 AscendNPU IR，执行硬件相关的指令选择、内存分配与调度优化，最终生成设备侧可执行二进制文件 `kernel*.o`。
 
 - **`driver`**
-  提供 Triton 运行时与 Ascend 软件栈（CANN）之间的对接能力，加载由 BiSheng Compiler 生成的设备侧可执行内核 `triton_xxx_kernel.o`。
+  提供 Triton 运行时与 Ascend 软件栈（CANN）之间的对接能力，加载由 BiSheng Compiler 生成的设备侧可执行内核 `kernel*.o`。
 
 ## 2.代码结构
 
@@ -91,7 +94,7 @@
 | 19  | buf_slot_num_of_veccore                       | NPU        | 配置 veccore 内部 buffer slot 数量。 |
 | 20  | buf_slot_num_of_crosscore                     | NPU        | 配置跨 core buffer slot 数量。 |
 | 21  | buf_slot_num_of_gm                            | NPU        | 配置 GM load buffer slot 数量。 |
-| 22  | compile_mode                                  | NPU        | 编译模式：`"simd_simt_template"`（默认）/ `"simd"` / `"simt_only"`；`"simt_only"` 仅支持 Ascend 950。 |
+| 22  | compile_mode                                  | NPU        | 编译模式：`"simd_simt_template"`（默认）/ `"simd"` / `"simt_only"`；`"simt_only"` 仅支持 Ascend 950PR&950DT系列产品。 |
 
 已废弃选项的兼容行为和更名映射见 {ref}`编译选项清理与兼容性 <compiler-option-cleanup-and-compatibility>`。
 
@@ -212,9 +215,9 @@ TritonToLinalg converts ttir to linalg ir.
 | triton-to-hivm | 处理Triton的块同步操作 (`tl.sync_block_all`, `tl.sync_block_set`, `tl.sync_block_wait`)，将其转换为Ascend NPU的`HIVM`方言中的跨核心同步指令。这些指令用于管理多核流水线中的同步与数据依赖，是流水优化的关键。 | TritonCustomOpToHIVMSyncOpConversion | 实现Triton同步指令到HIVM同步指令的转换：<br>• `sync_block_all`：全局块同步<br>• `sync_block_set`：设置同步点<br>• `sync_block_wait`：等待同步点 |
 | triton-to-llvm | 将Triton中的内联汇编操作 (`tl.inline_assembly`) 转换为LLVM方言的内联汇编，并最终映射为Ascend NPU的CCE硬件固有函数（Intrinsics） | ElementwiseInlineAsmOpConversion | 将 `triton::ElementwiseInlineAsmOp` 转换为 `LLVM::InlineAsmOp` 。|
 
-#### 3.2.3 SIMT Compiler（Ascend 950）
+#### 3.2.3 SIMT Compiler（Ascend 950PR&950DT系列产品）
 
-昇腾 950 在 SIMD 路径之外增加 SIMT 能力，用于加速**非结构化 / 离散**访存（如间接索引的 load/store）。
+Ascend 950PR&950DT系列产品 在 SIMD 路径之外增加 SIMT 能力，用于加速**非结构化 / 离散**访存（如间接索引的 load/store）。
 开发者通过 `compile_mode` 选择编译路径。
 
 ##### 3.2.3.1 `compile_mode` 说明
@@ -231,7 +234,7 @@ TritonToLinalg converts ttir to linalg ir.
 # 纯 SIMD
 kernel[grid](..., compile_mode="simd")
 
-# 混合（默认；950 上离散访存优先走 SIMT）
+# 混合（默认；Ascend 950PR&950DT系列产品 上离散访存优先走 SIMT）
 kernel[grid](..., compile_mode="simd_simt_template")
 
 # 纯 SIMT
@@ -281,7 +284,7 @@ flowchart TD
 
 | 阶段 | `"simd"` | `"simd_simt_template"` | `"simt_only"` |
 |------|----------|--------------------------|---------------|
-| 离散 mask 处理 | 拆成连续/离散边界，用 load + select / store 处理 | Ascend 950 且张量维数 ≤ 5：标记后交给下游；否则同左 | 不运行 |
+| 离散 mask 处理 | 拆成连续/离散边界，用 load + select / store 处理 | Ascend 950PR&950DT系列产品 且张量维数 ≤ 5：标记后交给下游；否则同左 | 不运行 |
 | 非结构化访存 | 展开为标量循环 | 尽量转为 SIMT 间接访存（维数 ≤ 5）；失败则回退标量循环 | 不运行 |
 | TritonToLinalg | 常规 Linalg IR 降级 | 常规 Linalg IR 降级 | 不运行 |
 
@@ -290,11 +293,11 @@ flowchart TD
 混合模式**不会**把整个 kernel 切到 SIMT，只对离散 / 非结构化访存点走 SIMT，其余仍走 SIMD：
 
 1. **离散 mask 处理**
-   - 若判定为非连续 mask，且满足 Ascend 950、混合模式、维数 ≤ 5：不改写 IR，只标记「下游走 SIMT」。
+   - 若判定为非连续 mask，且满足 Ascend 950PR&950DT系列产品、混合模式、维数 ≤ 5：不改写 IR，只标记「下游走 SIMT」。
    - 否则（纯 SIMD 或不满足条件）：将 mask 拆成连续 / 离散部分，用连续边界限定全局内存访问，再通过 select 合并结果。
 
 2. **非结构化访存处理**
-   - 在 Ascend 950 混合模式下，对非结构化访存或已标记的离散访存走 SIMT 快速通道：
+   - 在 Ascend 950PR&950DT系列产品 混合模式下，对非结构化访存或已标记的离散访存走 SIMT 快速通道：
      - `load` / `store` → `indirect_load` / `indirect_store`（维数 ≤ 5）
      - `atomic` 操作 → `hivm.custom(symbol="__builtin_indirect_atomic")`
    - 不满足条件则回退为标量循环（与 `"simd"` 一致）。

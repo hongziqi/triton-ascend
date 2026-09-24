@@ -25,6 +25,7 @@
 #include "DynamicCVPipeline/PlanComputeBlock/Passes.h"
 #include "DynamicCVPipeline/PlanComputeBlock/ReorderOpsByBlockId.h"
 #include "ascend/include/DynamicCVPipeline/Common/Utils.h"
+#include "ascend/include/DynamicCVPipeline/ComputeBlockOpt/MergeCubeBlockPass.h"
 #include "ascend/include/DynamicCVPipeline/ComputeBlockOpt/Passes.h"
 #include "ascend/include/DynamicCVPipeline/PlanComputeBlockPass.h"
 
@@ -52,7 +53,6 @@ void ComputeBlockOptPass::runOnOperation() {
 
   pm.addPass(createMergeVectorIfBlockPass());
   pm.addPass(createReorderOpsByBlockIdPass());
-  pm.addPass(createMergeCubeForBlockPass());
   pm.addPass(createReorderOpsByBlockIdPass());
 
   pm.addPass(createUBUsageOptPass());
@@ -79,6 +79,9 @@ void ComputeBlockOptPass::runOnOperation() {
   pm.addPass(createMergeComputeBlockPass());
   pm.addPass(createReorderOpsByBlockIdPass());
 
+  pm.addPass(createMergeCubeBlockPass());
+  pm.addPass(createMergeInputInitSharedCubeBlockPass());
+  pm.addPass(createReorderOpsByBlockIdPass());
   pm.addPass(createRelocateMemrefDeclPass());
   if (failed(runPipeline(pm, module))) {
     if (!CVPipeline::hasFallbackAttr(module)) {
@@ -103,7 +106,6 @@ void registerComputeBlockOptPasses() {
   registerPass(createMergeSameSourceAxisPass);
   registerPass(createUnifyAllocBlockPass);
   registerPass(createMergeVectorIfBlockPass);
-  registerPass(createMergeCubeForBlockPass);
   registerPass(createFixpipeOptPass);
   registerPass(createUnifyStoreBlockPass);
   registerPass(createExpSubfPatternPass);
@@ -114,6 +116,8 @@ void registerComputeBlockOptPasses() {
   registerPass(createMergeSmallBlockPass);
   registerPass(createSplitIfByBlockIdPass);
   registerPass(createMergeComputeBlockPass);
+  registerPass(createMergeInputInitSharedCubeBlockPass);
+  registerPass(createMergeCubeBlockPass);
   registerPass(createRelocateMemrefDeclPass);
 }
 

@@ -236,6 +236,7 @@
   "ffts",
   "ctypes",
   "xdist",
+<<<<<<< HEAD
   "CUPTI",
   "cutile",
   "Ettiore",
@@ -251,4 +252,9 @@
   "ttgir",
   "upstreamed",
   "manylinux"
+=======
+  "manylinux",
+  "NVTX",
+  "CUPTI"
+>>>>>>> upstream/main
 ]

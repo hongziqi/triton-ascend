@@ -1,9 +1,4 @@
 <!-- markdownlint-disable-file MD041 -->
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vllm-project/vllm-ascend/main/docs/source/logos/vllm-ascend-logo-text-dark.png">
-  </picture>
-</p>
 
 <h3 align="center"><font size="68">
 Triton-Ascend
@@ -55,7 +50,7 @@ Triton-Ascend
 
 Supported operating systems: linux (aarch64/x86_64)
 
-Supported Ascend products: Atlas A2/A3/950 series
+Supported Ascend products: Atlas A2 products\Atlas A3 products\Ascend 950PR&950DT products
 
 Minimum hardware configuration: single card with 32GB memory (recommended)
 
@@ -144,7 +139,7 @@ TRITON_BUILD_WITH_CLANG_LLD=true \
 TRITON_BUILD_PROTON=OFF \
 TRITON_WHEEL_NAME="triton-ascend" \
 TRITON_APPEND_CMAKE_ARGS="-DTRITON_BUILD_UT=OFF" \
-python3 setup_ascend.py install
+python3 setup.py install
 ```
 
 </details>

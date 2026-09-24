@@ -1,11 +1,6 @@
 <!-- markdownlint-disable-file MD041 -->
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/vllm-project/vllm-ascend/main/docs/source/logos/vllm-ascend-logo-text-dark.png">
-  </picture>
-</p>
 
-<h3 align="center"><font size="68">
+<h3 align="center"><font size="6">
 Triton-Ascend
 </font></h3>
 
@@ -55,7 +50,7 @@ Triton-Ascend
 
 支持的操作系统：Linux(aarch64/x86_64)
 
-支持的Ascend产品：Atlas A2/A3/950系列
+支持的Ascend产品：Atlas A2系列产品、Atlas A3系列产品、Ascend 950PR&950DT系列产品
 
 最小硬件配置：单卡32GB显存（推荐）
 
@@ -144,7 +139,7 @@ TRITON_BUILD_WITH_CLANG_LLD=true \
 TRITON_BUILD_PROTON=OFF \
 TRITON_WHEEL_NAME="triton-ascend" \
 TRITON_APPEND_CMAKE_ARGS="-DTRITON_BUILD_UT=OFF" \
-python3 setup_ascend.py install
+python3 setup.py install
 ```
 
 </details>

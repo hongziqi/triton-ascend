@@ -711,13 +711,13 @@ CONSTRAINTS = {
         ],
         "dtype_support":
         """
-            +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+
-            | 平台         | uint8 | int8 | uint16 | int16 | uint32 | int32 | uint64 | int64 | fp16 | fp32 | fp64 | bf16 | fp8e(e4m3) | fp8e5(e5m2) | bool |
-            +==============+=======+======+========+=======+========+=======+========+=======+======+======+======+======+============+=============+======+
-            | Ascend A2/A3 |   ×   |  ×   |   ×    |   ×   |   ×    |   ×   |   ×    |   ×   |  √   |  ×   |  ×   |  √   |     ×      |      ×      |  ×   |
-            +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+
-            | Ascend 950   |   ×   |  ×   |   ×    |   ×   |   ×    |   ×   |   ×    |   ×   |  ×   |  ×   |  ×   |  ×   |     √      |      √      |  ×   |
-            +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+
+            +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+-----------+
+            | 平台         | uint8 | int8 | uint16 | int16 | uint32 | int32 | uint64 | int64 | fp16 | fp32 | fp64 | bf16 | fp8e(e4m3) | fp8e5(e5m2) | bool | fp4e2(e2m1) |
+            +==============+=======+======+========+=======+========+=======+========+=======+======+======+======+======+============+=============+======+============+
+            | Ascend A2/A3 |   ×   |  ×   |   ×    |   ×   |   ×    |   ×   |   ×    |   ×   |  √   |  ×   |  ×   |  √   |     ×      |      ×      |  ×   |      ×     |
+            +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+------------+
+            | Ascend 950   |   ×   |  ×   |   ×    |   ×   |   ×    |   ×   |   ×    |   ×   |  √   |  ×   |  ×   |  √   |     √      |      √      |  ×   |     √      |
+            +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+------------+
             """,
         "example":
         "triton.language.dot_scaled",
@@ -951,7 +951,7 @@ CONSTRAINTS = {
     },
     "triton.language.extra.cann.extension.scope": {
         "constraints": [
-            "core_mode: must be 'vector', 'cube', 'SIMT', or 'SIMD'.",
+            "core_mode: must be 'vector', 'cube'.",
             "Each kernel supports one cube scope and one vector scope; they execute in parallel.",
             "Explicit synchronization (sync_block_set/sync_block_wait) required for cross-scope data dependencies.",
         ],
@@ -1331,7 +1331,13 @@ CONSTRAINTS = {
     },
     "triton.language.map_elementwise": {
         "constraints": [
-            "`while` loops are not supported inside the scalar function.",
+            "`while` loops are not supported inside the scalar function. Reason: The compilation "
+            "implementation of `map_elementwise` (TritonToLinalg Pass) needs to promote all operations "
+            "in the scalar function to the tensor level for vectorization. However, the `scf.condition` "
+            "in the `scf.while` operation requires a scalar `i1` type condition value, which cannot be "
+            "promoted to a tensor, so the compiler reports an error during the conversion phase. "
+            "`if/elif/else` branches and `for` loops are not subject to this limitation because their "
+            "control flow can be vectorized.",
             "`pack` has no semantic effect on NPU backends as the implementation is always vectorized.",
         ],
         "example":
@@ -2325,7 +2331,7 @@ CONSTRAINTS = {
             +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+
             | 平台         | uint8 | int8 | uint16 | int16 | uint32 | int32 | uint64 | int64 | fp16 | fp32 | fp64 | bf16 | fp8e(e4m3) | fp8e5(e5m2) | bool |
             +==============+=======+======+========+=======+========+=======+========+=======+======+======+======+======+============+=============+======+
-            | Ascend A2/A3 |   √   |  √   |   ×    |   √   |   ×    |   √   |   ×    |   √   |  ×   |  ×   |  ×   |  ×   |     ×      |      ×      |  √   |
+            | Ascend A2/A3 |   ×   |  ×   |   ×    |   ×   |   ×    |   ×   |   ×    |   ×   |  ×   |  ×   |  ×   |  ×   |     ×      |      ×      |  √   |
             +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+
             | Ascend 950   |   ×   |  ×   |   ×    |   ×   |   ×    |   ×   |   ×    |   ×   |  ×   |  ×   |  ×   |  ×   |     ×      |      ×      |  √   |
             +--------------+-------+------+--------+-------+--------+-------+--------+-------+------+------+------+------+------------+-------------+------+
