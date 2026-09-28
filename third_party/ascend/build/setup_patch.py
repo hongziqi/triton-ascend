@@ -115,33 +115,19 @@ def _apply_patch(patch_path, *, directory=None, cwd=None):
         cmd.extend(["--directory", directory])
     cmd.append(patch_path)
     try:
-<<<<<<< HEAD:setup_ascend.py
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, cwd=str(cwd or _THIS_DIR))
-    except subprocess.CalledProcessError:
-        raise RuntimeError(f"patch({patch_path}) failed")
-=======
-        subprocess.run(["git", "apply", patch_path], check=True, stdout=subprocess.DEVNULL, cwd=str(_REPO_ROOT))
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, cwd=str(cwd or _REPO_ROOT))
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"patch({patch_path}) failed,cmd={e.cmd}, retcode={e.returncode}") from e
->>>>>>> upstream/main:third_party/ascend/build/setup_patch.py
     except FileNotFoundError:
         raise RuntimeError(f"patch({patch_path}) not found.")
 
 
-<<<<<<< HEAD:setup_ascend.py
-def _checkout_file(files, *, cwd=None):
+def checkout_file(files, *, cwd=None):
     try:
         subprocess.run(["git", "checkout", "--"] + files, check=True, stdout=subprocess.DEVNULL, cwd=str(cwd
-                                                                                                         or _THIS_DIR))
-    except subprocess.CalledProcessError:
-        raise RuntimeError(f"init code failed, list:{files}")
-=======
-def checkout_file(files):
-    try:
-        subprocess.run(["git", "checkout", "--"] + files, check=True, stdout=subprocess.DEVNULL, cwd=str(_REPO_ROOT))
+                                                                                                         or _REPO_ROOT))
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"restore sources failed, list:{files}, cmd={e.cmd}, retcode={e.returncode}") from e
->>>>>>> upstream/main:third_party/ascend/build/setup_patch.py
 
 
 def _is_dev_mode():
@@ -154,12 +140,11 @@ def _is_dev_mode():
     return False
 
 
-<<<<<<< HEAD:setup_ascend.py
 def _get_patch_files(patch_path):
     """Return repo-relative paths listed in a unified diff."""
     path = Path(patch_path)
     if not path.is_absolute():
-        path = _THIS_DIR / path
+        path = _REPO_ROOT / path
     files = []
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
@@ -168,6 +153,15 @@ def _get_patch_files(patch_path):
                 if target != "/dev/null":
                     files.append(target)
     return files
+
+
+def get_triton_ascend_patch_file():
+    patch_dir = _REPO_ROOT / "third_party" / "ascend" / "patch"
+    dev_patch = patch_dir / "triton-ascend-dev-3.7.0.patch"
+    patch = patch_dir / "triton-ascend-3.7.0.patch"
+    dev_patch_files = _get_patch_files(dev_patch) if dev_patch.is_file() else []
+    patch_files = _get_patch_files(patch) if patch.is_file() else []
+    return patch_files, dev_patch_files
 
 
 def _apply_npuir_patch():
@@ -181,58 +175,24 @@ def _apply_npuir_patch():
     patch_files = _get_patch_files(patch_path)
     if not patch_files:
         raise RuntimeError(f"patch({patch_path}) has no file sections.")
-    _checkout_file(patch_files, cwd=npuir_dir)
+    checkout_file(patch_files, cwd=npuir_dir)
     _apply_patch(patch_path, directory=npuir_dir)
-=======
-def get_triton_ascend_patch_file():
-    patch_files = [
-        "CMakeLists.txt",
-        "include/triton/Dialect/Triton/IR/TritonAttrDefs.td",
-        "lib/Dialect/Triton/IR/Traits.cpp",
-        "python/src/ir.cc",
-        "python/triton/_utils.py",
-        "python/triton/compiler/code_generator.py",
-        "python/triton/compiler/compiler.py",
-        "python/triton/compiler/errors.py",
-        "python/triton/language/math.py",
-        "python/triton/language/semantic.py",
-        "python/triton/language/standard.py",
-        "python/triton/runtime/interpreter.py",
-        "python/triton/runtime/jit.py",
-        "bin/RegisterTritonDialects.h",
-        "bin/triton-opt.cpp",
-        "bin/CMakeLists.txt",
-    ]
-    dev_patch_files = ["python/triton/runtime/autotuner.py"]
-    return patch_files, dev_patch_files
->>>>>>> upstream/main:third_party/ascend/build/setup_patch.py
 
 
 def _apply_triton_ascend_patch():
     patch_path = os.path.join("third_party", "ascend", "patch")
-<<<<<<< HEAD:setup_ascend.py
     dev_patch = os.path.join(patch_path, "triton-ascend-dev-3.7.0.patch")
     patch = os.path.join(patch_path, "triton-ascend-3.7.0.patch")
     if _is_dev_mode() and os.path.isfile(dev_patch):
         dev_patch_files = _get_patch_files(dev_patch)
         if dev_patch_files:
-            _checkout_file(dev_patch_files)
+            checkout_file(dev_patch_files)
         _apply_patch(str(dev_patch))
     if os.path.isfile(patch):
         patch_files = _get_patch_files(patch)
         if not patch_files:
             raise RuntimeError(f"patch({patch}) has no file sections.")
-        _checkout_file(patch_files)
-=======
-    dev_patch = os.path.join(patch_path, "triton-ascend-dev-3.6.0.patch")
-    patch = os.path.join(patch_path, "triton-ascend-3.6.0.patch")
-    patch_files, dev_patch_files = get_triton_ascend_patch_file()
-    if _is_dev_mode() and os.path.isfile(dev_patch):
-        checkout_file(dev_patch_files)
-        _apply_patch(str(dev_patch))
-    if os.path.isfile(patch):
         checkout_file(patch_files)
->>>>>>> upstream/main:third_party/ascend/build/setup_patch.py
         _apply_patch(str(patch))
     _apply_npuir_patch()
 

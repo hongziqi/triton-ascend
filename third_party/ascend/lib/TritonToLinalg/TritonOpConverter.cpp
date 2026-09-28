@@ -1799,11 +1799,7 @@ ScanConverter::convertToTargetOp(triton::ScanOp op,
 
     auto memrefType = MemRefType::get(shape, elementType);
     Value inputMemRef =
-<<<<<<< HEAD
         rewriter.create<bufferization::ToMemrefOp>(loc, memrefType, scanInput);
-    Value outputMemRef = rewriter.create<memref::AllocOp>(loc, memrefType);
-=======
-        rewriter.create<bufferization::ToBufferOp>(loc, memrefType, scanInput);
 
     // Wrap scan logic in a scope with UB address space for the output buffer.
     auto tensorResultType = RankedTensorType::get(shape, elementType);
@@ -1816,7 +1812,6 @@ ScanConverter::convertToTargetOp(triton::ScanOp op,
         shape, elementType, nullptr,
         rewriter.getAttr<hivm::AddressSpaceAttr>(hivm::AddressSpace::UB));
     Value outputMemRef = rewriter.create<memref::AllocOp>(loc, ubMemRefType);
->>>>>>> upstream/main
 
     auto processDimension = [&](ArrayRef<Value> baseIdxsArray) {
       auto startInd = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0);
