@@ -1,0 +1,2 @@
+[triton.backends]
+ascend = triton_ascend.backend

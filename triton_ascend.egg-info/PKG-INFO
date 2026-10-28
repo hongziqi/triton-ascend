@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: triton-ascend
+Version: 3.8.0
+Summary: Ascend NPU backend plugin for community Triton
+Requires-Python: >=3.9
+Requires-Dist: triton
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

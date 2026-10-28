@@ -1,0 +1,84 @@
+# Cube与Vector软件流水优化
+
+本文介绍HIVM中的CV Pipelining Pass。该Pass针对CV类kernel进行优化。在阅读本文之前，建议先阅读[CV Optimization](./cv_optimization.md)，了解CV编译相关术语。
+
+## 硬件背景
+
+昇腾核心中包括Cube核心（负责矩阵乘相关运算）与Vector核心（负责其他向量运算）。这两个核心可以在没有相互依赖的情况下并行异步运行，提高硬件利用率是性能优化中尤其重要的一部分。
+
+对MIX算子中有多个Cube与Vector指令相互依赖的循环的场景进行优化（例如FlashAttention等算子）。通过并行Vector与Cube核心，获得更高的硬件利用率（ILP），达到更高的性能。
+
+该功能使用了Multi-Buffering优化，会导致部分UB空间占用更多，因此需要根据实际场景调整软流水的阶段数来达到最好的性能。
+
+## 算法原理
+
+寻找适当的`for`循环，将Cube与Vector指令分开成独立的Work Item，建立每个Work Item之间的数据依赖并将其中需要扩展成`multi-buffer`的`tensor`扩展，将原循环`unroll`后，再将每个Work Item放至单独循环中。
+
+变换前：
+
+```mlir
+scf.for 0 to N step S {
+    %c = Cube() : tensor<16x16xf32>
+    %v = Vector(%c) : tensor<16x16xf32>
+    %c1 = Cube(%v) : tensor<16x16xf32>
+    %v1 = Vector(%c1) : tensor<16x16xf32>
+}
+
+```
+
+变换后：
+
+```mlir
+scf.for 0 to N step 3*S {
+    %c = scf.for 0 to 3 -> tensor<3x16x16xf32> {
+        Cube();
+        tensor.insert_slice
+    } {cube_loop}
+    %v = scf.for 0 to 3 -> tensor<3x16x16xf32> {
+        %c_slice = extract_slice %c
+        Vector(%c_slice) : tensor<16x16xf32>
+        tensor.insert_slice
+    } {vector_loop}
+    %c1 = scf.for 0 to 3 -> tensor<3x16x16xf32> {
+        %v_slice = extract_slice %v
+        Cube(%v_slice) : tensor<16x16xf32>
+        tensor.insert_slice
+    } {cube_loop}
+    // When no other Work Item needs the result, no buffer expansion needed
+    %v1 = scf.for 0 to 3 -> tensor<16x16xf32> {
+        %c_slice = extract_slice %c1
+        Vector(%c_slice) : tensor<16x16xf32>
+    } {vector_loop}
+}
+```
+
+## 编译选项
+
+| 选项 | 默认值 | 含义 |
+|------|--------|------|
+| `set-workspace-multibuffer` | 2 | 软件流水的阶段数，同时也是Multi-Buffering的数量 |
+| `--enable-lazy-loading` | false | 开启CV Pipelining中的Lazy Load功能，允许将Load op克隆到多个Work Item中，以减少中间buffer扩展 |
+
+也可以在算子侧通过`cv_pipeline_lazy_load`编译提示为指定tensor开启Lazy Load功能：
+
+```python
+extension.compile_hint(t, "cv_pipeline_lazy_load", True)
+```
+
+## 使用约束
+
+1. 支持Pipeline处理的循环中，仅`scf.for`与`scf.if` op可包含region/block，且上述算子的region内部仅允许存在cube或vector指令。
+2. 迭代间的数据依赖必须能够拆分到各自独立的Work Item中
+    - 无法开启CV-Pipelining场景：若`v0`与`v1`无法被提取至同一Work Item（因为中间有Cube依赖），同时参数`arg0`由`v1`定义却被`v0`使用。
+    - CV-Pipelining可正常生效场景：若Cube未使用`v0`，则`v0`可下沉至`v1`所在的Work Item，此时CV-Pipelining可正常生效。
+
+示例代码：
+
+```mlir
+scf.for iter_args(%arg0 = %init) {
+    %v0 = Vector(%arg0)
+    %c = Cube(%v0)
+    %v1 = Vector(%c)
+    yield %v1
+}
+```
