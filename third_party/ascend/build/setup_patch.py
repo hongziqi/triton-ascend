@@ -481,8 +481,10 @@ def _get_install_requirements():
         "pybind11",
         "pandas",
         "pyelftools>=0.29",
-        "triton==3.6.0",
     ]
+    argv = " ".join(sys.argv).lower()
+    if "editable_wheel" not in argv and "dist_info" not in argv:
+        install_requires.append("triton==3.6.0")
     return [*install_requires]
 
 
