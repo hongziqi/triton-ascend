@@ -53,25 +53,7 @@ git checkout main
 pip install -e . --extra-index-url=https://repo.huaweicloud.com/repository/pypi/simple
 ```
 
-The prebuilt Ascend images (for example
-`quay.io/ascend/triton:3.2.2-cann9.1.0-torch_npu2.7.1.post8-910b-ubuntu24.04-py3.11`) already
-contain every build dependency declared in `pyproject.toml` (`setuptools`, `cmake`, `ninja`,
-`pybind11`). Build isolation would download them again into a temporary environment, so add
-`--no-build-isolation` to reuse the installed versions:
-
-```bash
-pip install -e . --no-build-isolation
-```
-
-### Verify the Installation
-
-```bash
-python3 -c "import triton.backends.ascend; print('ascend backend OK')"
-```
-
-If `triton.backends.ascend` cannot be imported after a source install, check whether a PyPI `triton`
-distribution is shadowing the editable install (`pip show triton`) and uninstall it
-(`pip uninstall -y triton`) before retrying.
+> Tip: Pass `--no-build-isolation` to `pip install` to make nop builds faster.
 
 ### Custom LLVM Build (Optional)
 
@@ -153,6 +135,22 @@ If you need to customize the LLVM build process, follow the steps below to compi
 4.2 Compile from source:
 
 Refer to the **'Installation' -> 'Method 3: Source Code Compilation'** section in the README.md of the [shmem project](https://gitcode.com/cann/shmem).
+
+### Verify the Installation
+
+Run:
+
+```bash
+python3 -c "import triton.backends.ascend as ascend;print('triton-ascend version:', ascend.__version__)"
+```
+
+If the output is:
+
+```bash
+triton-ascend version: <version>
+```
+
+Triton-Ascend is installed successfully.
 
 ## Container Image Installation
 

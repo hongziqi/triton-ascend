@@ -54,21 +54,7 @@ git checkout main
 pip install -e . --extra-index-url=https://repo.huaweicloud.com/repository/pypi/simple
 ```
 
-预构建昇腾镜像（例如 `quay.io/ascend/triton:3.2.2-cann9.1.0-torch_npu2.7.1.post8-910b-ubuntu24.04-py3.11`）已预装 `pyproject.toml` 中声明的全部构建依赖
-（`setuptools`、`cmake`、`ninja`、`pybind11`）。默认的 build isolation 会在临时环境中重新
-下载这些依赖，因此在镜像内建议加上 `--no-build-isolation` 以复用已安装的版本：
-
-```bash
-pip install -e . --no-build-isolation
-```
-
-### 验证安装
-
-```bash
-python3 -c "import triton.backends.ascend; print('ascend backend OK')"
-```
-
-若源码安装后无法导入 `triton.backends.ascend`，请检查是否有 PyPI 的 `triton` 分发包覆盖了 editable 安装（`pip show triton`），如有请先卸载（`pip uninstall -y triton`）后重试。
+> 提醒：`pip install` 传入 `--no-build-isolation` 参数，可加快无变更构建速度。
 
 ### 自定义LLVM构建（可选）
 
@@ -151,6 +137,22 @@ python3 -c "import triton.backends.ascend; print('ascend backend OK')"
 4.2 源码编译：
 
 参见 [shmem项目](https://gitcode.com/cann/shmem) README.md中 "安装"->"方式三： 源码编译" 章节。
+
+### 验证安装
+
+执行以下命令：
+
+```bash
+python3 -c "import triton.backends.ascend as ascend;print('triton-ascend version:', ascend.__version__)"
+```
+
+如果输出：
+
+```bash
+triton-ascend version: 版本号
+```
+
+说明Triton-Ascend安装成功了。
 
 ## 镜像安装
 
