@@ -1,230 +1,133 @@
-<!-- markdownlint-disable-file MD041 -->
+# triton-ascend-plugin-1-3（社区 Plugin ABI / OpInfo）
 
-<h3 align="center"><font size="68">
-Triton-Ascend
-</font></h3>
+树外 Ascend 后端插件：产出 **`libtriton_ascend.so`**，对接社区 Triton（Plugin ABI **v2**）。
 
-<p align="center">
-  <a href="https://deepwiki.com/triton-lang/triton-ascend">
-    <img src="https://deepwiki.com/badge.svg" alt="Ask AI on DeepWiki">
-  </a>
-</p>
+- `passes.plugin.extend_with(so)` — PassInfo
+- `ir.extend_dialects_with(so)` — DialectInfo
+- `ir.builder.extend_with(so)` — OpInfo → `create_*`
 
-<p align="center">
-<a href="README.md"><b>English</b></a> | <a href="README_zh.md"><b>中文</b></a>
-</p>
-
-<p align="center">
-| <a href="https://triton-ascend.readthedocs.io/en/latest/"><b>Official Documentation</b></a> | <a href="https://www.hiascend.com/cn/developer/operator?tag=triton&tab=triton"><b>Operator Development User Journey</b></a> | <a href="https://docs.google.com/document/d/1qfat2wZtO2nfZb5FC2dWAcR6sTqgTNSvvh7MzTDoI4s/edit?pli=1&tab=t.0"><b>Community Meetings</b></a> | <a href="https://www.hiascend.com/"><b>About Ascend</b></a> |
-</p>
+细节：[`PLUGINIZATION_1_3.md`](PLUGINIZATION_1_3.md)、[`standalone/README.md`](standalone/README.md)。
 
 ---
 
-## 🔥 Latest News
+## 仓库布局
 
-- [2026.07.31] Triton-Ascend 3.2.2 official release is now available
-- [2026.04.30] Triton-Ascend 3.2.1 official release is now available
-- [2026.01.20] Triton-Ascend 3.2.0 official release is now available
+```text
+.
+├── AscendNPU-IR/          # git submodule（干净 HEAD；构建时打 adapter patch）
+├── backend/               # Python backend + triton_hotpatch
+├── language/              # cann DSL / kernels
+├── include/ lib/          # Ascend C++ passes / dialects
+├── standalone/            # 插件 CMake：编出 libtriton_ascend.so
+├── patch/
+│   ├── llvm_patch_b010a18.patch      # 一次性打进 llvm-project
+│   └── npuir_adapter_to_llvm_24.patch # 每次构建打进 AscendNPU-IR
+├── scripts/apply_npuir_patch.py
+├── _C/                    # 构建产物（gitignore）
+└── unittest/
+```
 
-<div style="margin-left:1em">
-<details>
-<summary>More latest news</summary>
+**不是** monorepo：宿主 `triton` 来自 PyPI/conda，**不要**再挂 `third_party/triton`。
 
-- [2025.11.14] Triton-Ascend 3.2.0rc4 pre-release is now available:<br>- [Extended the tt.fp_to_fp interface to add FP8 type conversion support](https://gitcode.com/Ascend/triton-ascend/pull/891) <br>- [Added the scatter_ub_to_out interface to support efficient data scatter operations from UB to GM](https://gitcode.com/Ascend/triton-ascend/pull/864)
-- [2025.09.30] Improved Scan/Sort Triton Python APIs, supporting non-contiguous memory access, and completed adaptation of key Triton operators in vLLM and sglang open-source repositories
-- [2025.09.19] Supported Triton-Ascend [nightly package](https://test.pypi.org/project/triton-ascend/#history) extraction
-- [2025.08.15] Improved Atomic-class Triton Python API support, completed adaptation of key Triton operators in the Flaggems open-source repository, and provided reference examples for high-performance implementations of simple operators such as Matmul
-- [2025.06.30] Supported 85% of Triton Python APIs, supporting contiguous memory access, covering basic usage scenarios
-- [2025.05.20] Triton-Ascend is open-sourced, Gitcode repository is alive!
+### Submodule
 
-</details>
-</div>
+```bash
+git submodule update --init AscendNPU-IR
+# 当前穿刺 pin：aea934a6（与 monorepo main + npuir_adapter_to_llvm_24 对齐）
+```
+
+`AscendNPU-IR` 工作树在构建前后可能短暂脏（patch 已打入）；下次构建会先 `git checkout` 相关文件再重新 `git apply`。
 
 ---
 
-## 📖 Quick Installation
+## 穿刺依赖（LLVM 必须一致）
 
-### Environment Preparation
-
-#### Hardware Requirements
-
-Supported operating systems: linux (aarch64/x86_64)
-
-Supported Ascend products: Atlas A2 products\Atlas A3 products\Ascend 950PR&950DT products
-
-Minimum hardware configuration: single card with 32GB memory (recommended)
-
-#### Software Dependencies
-
-Determine and install the Python, CANN, and TorchNPU software versions. This step must be completed before both package installation and source code compilation installation.
-
-- Python version selection: py3.9-py3.13 are all supported.
-
-- CANN version selection: You can visit the Ascend community website and follow the <a href="https://www.hiascend.com/cann/download" style="text-decoration: none; color: #0066cc;">community software installation guide</a> to complete the CANN installation and configuration. It is recommended to download and install version 9.1.0.
-
-- TorchNPU version selection: The currently bundled TorchNPU version is 2.7.1.post8.
-
-### Accessing Ascend NPU
-
-If you need to access Ascend NPU computing resources for development or testing, please visit the [HiDevLab - Online Development](https://hidevlab.huawei.com/online-develop-intro) page on the HiDevLab platform to apply for free access.
-
-### Quick Installation
-
-```bash
-# Taking the installation of triton-ascend 3.2.2 as an example
-pip install triton-ascend --extra-index-url=https://mirrors.huaweicloud.com/ascend/repos/pypi
+```text
+        LLVM_SYSPATH（同一棵 install）
+                 │
+     ┌───────────┴───────────┐
+     ▼                       ▼
+ 宿主 triton wheel      triton-ascend 插件
+ libtriton.so  ◄DT_NEEDED─  libtriton_ascend.so
 ```
 
-### Source Installation
+| 项 | 当前穿刺结论 |
+|------|------|
+| LLVM commit | 社区 Triton **3.9.0** → **`b010a18d`**（LLVM 24） |
+| Ascend LLVM patch | `patch/llvm_patch_b010a18.patch`（一次性打进 llvm-project） |
+| NPUIR adapter | `patch/npuir_adapter_to_llvm_24.patch`（**每次构建**打进 submodule） |
+| 本机 install 前缀 | `/home/coder/bin/llvm-project-3.9-b010a18-patch` |
+| 宿主 | PyPI **`triton==3.9.0`**（ABI v2） |
+| AscendNPU-IR pin | `aea934a66646e837c54fea11e87db54d42eb3221` |
 
-<div style="margin-left:1em">
-<details>
-<summary>More source installation</summary>
+### `patch/` 保留什么
 
-#### Install Dependencies
+| 文件 | 何时打 | 打到哪 |
+|------|--------|--------|
+| `llvm_patch_b010a18.patch` | 编 LLVM 前，一次性 | `llvm-project` @ `b010a18d` |
+| `npuir_adapter_to_llvm_24.patch` | **每次** `pip install` / cmake configure | `AscendNPU-IR/` submodule |
+
+社区源码树（LLVM / AscendNPU-IR）保持干净，便于跟上游；Ascend 适配以独立 `.patch` 沉淀。
+
+### 与 triton-shared 的差异（Linalg）
+
+| | **triton-shared** | **本插件（树外 `.so`）** |
+|--|--|--|
+| 集成 | `TRITON_PLUGIN_DIRS` → OBJECT 打进宿主 | 独立 `libtriton_ascend.so`，运行时 `dlopen` |
+| Linalg/Tensor | 普通链进宿主 | `link_ext_dialects.py`：四方言 `.a` → `.o`，宿主已有符号改 UND |
+| TypeID | 天然单份 | 禁止与宿主重复（勿整库 Affine + Linalg 同一次 `ld -r`） |
+
+社区 PyPI 宿主已带 Affine / 部分 Tensor TypeID。默认 **`TRITON_ASCEND_LINK_AFFINE_OPS_THIN=OFF`**。
+
+---
+
+## 构建 patched LLVM
 
 ```bash
-apt update
-# Supported clang versions: clang-15, clang-17, clang-20.1.8
-apt install zlib1g-dev clang-15 lld-15
-apt install ccache # optional
-update-alternatives --install /usr/bin/clang clang /usr/bin/clang-15 100
-update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 100
-pip install ninja cmake wheel pybind11 # build-time dependencies
+git clone git@github.com:llvm/llvm-project.git
+mv llvm-project llvm-project-3.9-b010a18-patch
+cd llvm-project-3.9-b010a18-patch
+git checkout b010a18d2b648cab83c83967ff26b8fde11acdc6
+export LLVM_INSTALL_PREFIX_3_9_PATCH=/path/to/bin/llvm-project-3.9-b010a18-patch
+git apply /path/to/triton-ascend/patch/llvm_patch_b010a18.patch
+
+mkdir -p build && cd build
+cmake ../llvm -G Ninja \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DLLVM_ENABLE_PROJECTS="mlir;llvm;lld" \
+  -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
+  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_PREFIX_3_9_PATCH} \
+  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+ninja install
 ```
 
-#### Build Triton-Ascend
+---
+
+## 宿主Triton + 插件Triton-Ascend安装
 
 ```bash
-git clone https://github.com/triton-lang/triton-ascend.git && cd triton-ascend
-git checkout main
+pip install 'triton==3.9.0'
+
+git submodule update --init AscendNPU-IR
+
+export LLVM_SYSPATH=/home/coder/bin/llvm-project-3.9-b010a18-patch
+cd /path/to/triton-ascend-plugin-1-3
+
+# tips: 使用  --no-build-isolation 加快构建
 pip install -e .
 ```
 
-#### Custom LLVM Build (Optional)
+验证：
 
 ```bash
-# If you need to customize the LLVM build process, you can execute this step first before compiling Triton-Ascend
-# Check out the specified version of LLVM source code and apply patches
-git clone --no-checkout https://github.com/llvm/llvm-project.git
-cd llvm-project
-git checkout f6ded0be897e2878612dd903f7e8bb85448269e5
-wget https://raw.githubusercontent.com/triton-lang/triton-ascend/main/third_party/ascend/patch/llvm_patch_f6ded0b.patch
-git apply llvm_patch_f6ded0b.patch
-
-export LLVM_INSTALL_PREFIX=/path/to/llvm-install
-
-# Build a custom LLVM version
-cd {PATH_TO}/llvm_project
-mkdir build
-cd build
-cmake ../llvm \
-    -G Ninja \
-    -DCMAKE_C_COMPILER=/usr/bin/clang-15 \
-    -DCMAKE_CXX_COMPILER=/usr/bin/clang++-15 \
-    -DCMAKE_LINKER=/usr/bin/lld-15 \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_ENABLE_ASSERTIONS=ON \
-    -DLLVM_ENABLE_PROJECTS="mlir;llvm;lld" \
-    -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
-    -DLLVM_ENABLE_LLD=ON \
-    -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_PREFIX}
-ninja install
-
-# Compile Triton-Ascend
-git clone https://github.com/triton-lang/triton-ascend.git && cd triton-ascend
-
-LLVM_SYSPATH=${LLVM_INSTALL_PREFIX} \
-TRITON_BUILD_WITH_CCACHE=true \
-TRITON_BUILD_WITH_CLANG_LLD=true \
-TRITON_BUILD_PROTON=OFF \
-TRITON_WHEEL_NAME="triton-ascend" \
-TRITON_APPEND_CMAKE_ARGS="-DTRITON_BUILD_UT=OFF" \
-python3 setup.py install
+rm -rf ~/.triton/cache ~/.triton/dump
+pytest unittest/pytest_ut/test_add.py 
 ```
 
-</details>
-</div>
+### 链接硬规则
 
-### Docker Image Usage
-
-<div style="margin-left:1em">
-<details>
-<summary>More Docker image usage</summary>
-
-- We provide a Dockerfile to help you install the Docker environment image. The build process uses the `quay.io/ascend/cann` pre-built image as the base image, skipping the CANN installation step and significantly speeding up the build.
-
-- You need to specify the `CANN_BASE_IMAGE` parameter via `--build-arg` to select the appropriate CANN base image for your machine. Available CANN base image tags can be found at [quay.io/ascend/cann](https://quay.io/repository/ascend/cann?tab=tags).
-
-- You can check the NPU model on your system using the npu-smi command.
-
-```bash
-git clone https://github.com/triton-lang/triton-ascend.git && cd triton-ascend
-docker build \
---build-arg CANN_BASE_IMAGE=quay.io/ascend/cann:9.1.0-a3-ubuntu22.04-py3.12 \
--t triton-ascend-image:latest -f ./docker/Dockerfile .
-```
-
-- To start a container from this image, you can refer to the following command:
-
-```bash
-docker run -u 0 -dit --shm-size=512g --name=triton-ascend_container --net=host --privileged \
---security-opt seccomp=unconfined \
---device=/dev/davinci0 \
---device=/dev/davinci1 \
---device=/dev/davinci2 \
---device=/dev/davinci3 \
---device=/dev/davinci4 \
---device=/dev/davinci5 \
---device=/dev/davinci6 \
---device=/dev/davinci7 \
---device=/dev/davinci_manager \
---device=/dev/devmm_svm \
---device=/dev/hisi_hdc \
--v /usr/local/dcmi:/usr/local/dcmi \
--v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
--v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
--v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
--v /home:/home \
--v /etc/ascend_install.info:/etc/ascend_install.info \
-triton-ascend-image:latest \
-/bin/bash
-
-# Enter the container
-docker exec -u root -it triton-ascend_container /bin/bash
-```
-
-</details>
-</div>
-
-## ✏️ Documentation Entry
-
-- [Quick Start](./docs/en/quick_start.md)
-
-- [Complete Online Documentation (Recommended)](https://triton-ascend.readthedocs.io/en/latest/index.html)
-
-- [Installation Guide](./docs/en/installation_guide.md)
-
-- [Architecture Design and Core Features](./docs/en/architecture_design_and_core_features.md)
-
-- [Operator Development Guide](./docs/en/programming_guide/index.md)
-
-- [Operator Migration Guide](./docs/en/migration_guide/migrate_from_gpu.md)
-
-- [Operator Debugging Guide](./docs/en/debug_guide/debugging.md#)
-
-- [Performance Tuning Guide](./docs/en/debug_guide/profiling.md#)
-
-- [Environment Variables Reference](./docs/en/environment_variable_and_compiler_options_reference.md)
-
-- [FAQ](./docs/en/FAQ.md)
-
-## 🏘️ Community Activities
-
-1. [Meeting Time, Link, and Minutes](https://docs.google.com/document/d/1qfat2wZtO2nfZb5FC2dWAcR6sTqgTNSvvh7MzTDoI4s/edit?pli=1&tab=t.0)
-
-## 🤝 Community and Contribution
-
-- Welcome to participate in Triton-Ascend development and code contribution. For details, please refer to the [Contribution Guide](./docs/en/community/CONTRIBUTING.md)
-
-- Please report any bugs you encounter via [Issue](https://github.com/triton-lang/triton-ascend/issues).
+- Helper：`${LLVM_SYSPATH}/lib/lib*.a` + `--start-group`，禁止 MLIR CMake TARGET。
+- 四方言 → `ext_dialects_unique.o`（`link_ext_dialects.py`）。
+- 默认不链 AffineOps 薄抽取；仅 EXT 宿主缺 MaybeAlign 时：`-DTRITON_ASCEND_LINK_AFFINE_OPS_THIN=ON`。
+- `_C/` 只保留 `libtriton_ascend.so`。

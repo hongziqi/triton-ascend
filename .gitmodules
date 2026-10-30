@@ -1,4 +1,5 @@
-[submodule "third_party/ascend/AscendNPU-IR"]
-	path = third_party/ascend/AscendNPU-IR
+[submodule "AscendNPU-IR"]
+	path = AscendNPU-IR
 	url = https://gitcode.com/Ascend/AscendNPU-IR.git
-    depth = 1
+	# Pin used by triton-ascend main for LLVM 24 / npuir_adapter_to_llvm_24.patch
+	# (aea934a66646e837c54fea11e87db54d42eb3221). Update together with the patch.
