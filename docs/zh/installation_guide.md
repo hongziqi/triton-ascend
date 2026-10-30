@@ -138,22 +138,6 @@ pip install -e . --extra-index-url=https://repo.huaweicloud.com/repository/pypi/
 
 参见 [shmem项目](https://gitcode.com/cann/shmem) README.md中 "安装"->"方式三： 源码编译" 章节。
 
-### 验证安装
-
-执行以下命令：
-
-```bash
-python3 -c "import triton.backends.ascend as ascend;print('triton-ascend version:', ascend.__version__)"
-```
-
-如果输出：
-
-```bash
-triton-ascend version: 版本号
-```
-
-说明Triton-Ascend安装成功了。
-
 ## 镜像安装
 
 **表2**Triton-Ascend部分镜像表
@@ -208,7 +192,19 @@ docker exec -u root -it triton-ascend_container /bin/bash
 
 ### 验证安装
 
-运行tutorials中向量加法示例验证安装**Triton-Ascend**结果。向量加法示例：[01-vector-add.py](../../third_party/ascend/tutorials/01-vector-add.py)。
+执行以下命令：
+
+```bash
+python3 -c "import triton.backends.ascend as ascend;print('triton-ascend version:', ascend.__version__)"
+```
+
+如果输出：
+
+```bash
+triton-ascend version: 版本号
+```
+
+说明Triton-Ascend包安装成功了。继续运行tutorials中向量加法示例验证后端是否编译成功。向量加法示例：[01-vector-add.py](../../third_party/ascend/tutorials/01-vector-add.py)。
 
 ```bash
 # 设置CANN环境变量（以root用户默认安装路径`/usr/local/Ascend`为例）

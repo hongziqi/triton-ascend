@@ -136,22 +136,6 @@ If you need to customize the LLVM build process, follow the steps below to compi
 
 Refer to the **'Installation' -> 'Method 3: Source Code Compilation'** section in the README.md of the [shmem project](https://gitcode.com/cann/shmem).
 
-### Verify the Installation
-
-Run:
-
-```bash
-python3 -c "import triton.backends.ascend as ascend;print('triton-ascend version:', ascend.__version__)"
-```
-
-If the output is:
-
-```bash
-triton-ascend version: <version>
-```
-
-Triton-Ascend is installed successfully.
-
 ## Container Image Installation
 
 **Table 2** Selected Triton-Ascend Container Images
@@ -207,7 +191,19 @@ Note: If you want to compile Triton‑Ascend from source inside this container, 
 
 ### Verify Installation
 
-Run the vector‑add tutorial example to validate your Triton‑Ascend setup. Example file: [01-vector-add.py](https://github.com/triton-lang/triton-ascend/blob/main/third_party/ascend/tutorials/01-vector-add.py)
+Run:
+
+```bash
+python3 -c "import triton.backends.ascend as ascend;print('triton-ascend version:', ascend.__version__)"
+```
+
+If the output is:
+
+```bash
+triton-ascend version: <version>
+```
+
+The Triton-Ascend package is installed successfully. Continue by running the vector-add example in the tutorials to verify that the backend compiled successfully. Vector-add example: [01-vector-add.py](../../third_party/ascend/tutorials/01-vector-add.py).
 
 ```bash
 # Set CANN environment variables (using root user default install path `/usr/local/Ascend` as example)
