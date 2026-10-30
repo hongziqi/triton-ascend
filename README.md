@@ -27,19 +27,6 @@
 └── unittest/
 ```
 
-**不是** monorepo：宿主 `triton` 来自 PyPI/conda，**不要**再挂 `third_party/triton`。
-
-### Submodule
-
-```bash
-git submodule update --init AscendNPU-IR
-# 当前穿刺 pin：aea934a6（与 monorepo main + npuir_adapter_to_llvm_24 对齐）
-```
-
-`AscendNPU-IR` 工作树在构建前后可能短暂脏（patch 已打入）；下次构建会先 `git checkout` 相关文件再重新 `git apply`。
-
----
-
 ## 穿刺依赖（LLVM 必须一致）
 
 ```text
@@ -59,27 +46,6 @@ git submodule update --init AscendNPU-IR
 | 本机 install 前缀 | `/home/coder/bin/llvm-project-3.9-b010a18-patch` |
 | 宿主 | PyPI **`triton==3.9.0`**（ABI v2） |
 | AscendNPU-IR pin | `aea934a66646e837c54fea11e87db54d42eb3221` |
-
-### `patch/` 保留什么
-
-| 文件 | 何时打 | 打到哪 |
-|------|--------|--------|
-| `llvm_patch_b010a18.patch` | 编 LLVM 前，一次性 | `llvm-project` @ `b010a18d` |
-| `npuir_adapter_to_llvm_24.patch` | **每次** `pip install` / cmake configure | `AscendNPU-IR/` submodule |
-
-社区源码树（LLVM / AscendNPU-IR）保持干净，便于跟上游；Ascend 适配以独立 `.patch` 沉淀。
-
-### 与 triton-shared 的差异（Linalg）
-
-| | **triton-shared** | **本插件（树外 `.so`）** |
-|--|--|--|
-| 集成 | `TRITON_PLUGIN_DIRS` → OBJECT 打进宿主 | 独立 `libtriton_ascend.so`，运行时 `dlopen` |
-| Linalg/Tensor | 普通链进宿主 | `link_ext_dialects.py`：四方言 `.a` → `.o`，宿主已有符号改 UND |
-| TypeID | 天然单份 | 禁止与宿主重复（勿整库 Affine + Linalg 同一次 `ld -r`） |
-
-社区 PyPI 宿主已带 Affine / 部分 Tensor TypeID。默认 **`TRITON_ASCEND_LINK_AFFINE_OPS_THIN=OFF`**。
-
----
 
 ## 构建 patched LLVM
 
@@ -107,14 +73,13 @@ ninja install
 ## 宿主Triton + 插件Triton-Ascend安装
 
 ```bash
+export LLVM_SYSPATH=/path/to/bin/llvm-project-3.9-b010a18-patch
+git clone https://github.com/hongziqi/triton-ascend.git
+cd triton-ascend
 pip install 'triton==3.9.0'
 
 git submodule update --init AscendNPU-IR
-
-export LLVM_SYSPATH=/home/coder/bin/llvm-project-3.9-b010a18-patch
-cd /path/to/triton-ascend-plugin-1-3
-
-# tips: 使用  --no-build-isolation 加快构建
+# tips: 使用  --no-build-isolation 加快无变更构建
 pip install -e .
 ```
 
@@ -122,7 +87,8 @@ pip install -e .
 
 ```bash
 rm -rf ~/.triton/cache ~/.triton/dump
-pytest unittest/pytest_ut/test_add.py 
+# TRITON_DEBUG=1 当前会检索triton-opt，上游并没有打包triton-opt,所以会失败（待修复）
+TRITON_DEBUG=0 pytest unittest/pytest_ut/test_add.py
 ```
 
 ### 链接硬规则
