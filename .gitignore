@@ -1,95 +1,64 @@
-# Triton builds
+# Build / install artifacts
 build/
 build-*/
+_C/
+*.egg-info/
+dist/
+wheels/
 
+# Native leftovers (only libtriton_ascend.so under _C is packaged)
+*.so
+*.so.*
+*.dylib
+*.a
+*.o
+*.obj
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.venv/
+venv/
+venv.bak/
+
+# Editors / IDE
+.vscode/
+.vs/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+compile_commands.json
+
+# Local LLVM trees (never vendored here)
 llvm-project/
 llvm-project-*/
 .llvm-project/
 
-# Triton Python module builds
-python/build/
-python/dist/
-python/triton*.egg-info/
-python/triton_kernels/triton*.egg-info/
+# Host Triton is installed from PyPI / conda — do not vendor a full clone.
+# (Legacy dual-tree experiments may leave this directory around.)
+third_party/triton/
 
-python/triton/_C/*.pyd
-python/triton/_C/*.so
-python/triton/_C/*.dylib
-python/triton/_C/*.pdb
-python/triton/_C/*.exe
-python/triton/_C/*.ilk
-python/triton/FileCheck
+# AscendNPU-IR is a git submodule: track the gitlink, ignore local patch dirt
+# left after build-time `git apply` (re-applied from patch/ on each build).
+AscendNPU-IR/**/*.orig
+AscendNPU-IR/**/*.rej
 
-# Backends copied from submodules
-python/triton/backends/*
-!python/triton/backends/__init__.py
-!python/triton/backends/compiler.py
-!python/triton/backends/driver.py
+# Test / dump noise
+*.log
+*.mlir.dump
+/tmp_*/
+.triton_cache/
 
-# Language extras
-python/triton/language/extra/*
-!python/triton/language/extra/__init__.py
-!python/triton/language/extra/libdevice.py
-
-# Tools extras
-python/triton/tools/extra
-
-# Proton
-python/triton/profiler
-
-# Pytest
-pytest.ini
-
-# Instrumentation
-python/triton/instrumentation
-
-# Python caches
-__pycache__/
-*.py[cod]
-.pytest_cache
-
-# Environments
-.venv
-venv/
-venv.bak/
-
-# VS Code project files
-.vscode
-.vs
-
-# JetBrains project files
-.idea
-cmake-build-*
-
-# Third-party binaries
-cuobjdump
-nvdisasm
-ptxas
-ptxas-blackwell
-
-# Third-party include
-third_party/nvidia/backend/include
-third_party/nvidia/backend/lib/cupti
-
-# Docs
-docs/_build/
-docs/*/python-api/generated/
-docs/dialects/
-docs/getting-started/tutorials
-docs/sg_execution_times.rst
-!python/tutorials/*.py
-!python/tutorials/*.rst
-
-# clangd index. (".clangd" is a config file now, thus trailing slash)
-.clangd/
-.cache
-/compile_commands.json
-.vscode
-.vs
-.cursor
-
-# Vim
-*.swp
-
-# macOS
-.DS_Store
+# Optional local notes
+*.local.md
