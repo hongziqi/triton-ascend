@@ -18,18 +18,47 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import sys
+
 from triton.language import math
 
-try:
-    from . import libdevice
-    from . import extension
+libdevice = None  # type: ignore
+extension = None  # type: ignore
 
-    extension.parallel = extension.aux_ops.parallel
-    math.tanh = libdevice.tanh
+
+def _drop_failed_submodule(name: str) -> None:
+    """Remove a failed-import ``None`` sentinel so a later retry can load."""
+    key = f"{__name__}.{name}"
+    if sys.modules.get(key) is None:
+        sys.modules.pop(key, None)
+
+
+# libdevice (tanh etc.) must not depend on HostExtend / affine_expr. Keep it
+# independent so community OpInfo hosts still get cann.libdevice.
+try:
+    from . import libdevice as _libdevice
+
+    libdevice = _libdevice
+    try:
+        math.tanh = libdevice.tanh
+    except Exception:
+        pass
 except Exception:
-    # Owned/self-contained .so may not yet expose the Ascend IR builder
-    # (affine_expr, etc.). Keep ``import triton`` / extra.cann discovery alive.
+    _drop_failed_submodule("libdevice")
     libdevice = None  # type: ignore
+
+# extension needs richer IR (affine_*). Soft-fail on OpInfo-only hosts; do not
+# undo a successful libdevice import.
+try:
+    from . import extension as _extension
+
+    extension = _extension
+    try:
+        extension.parallel = extension.aux_ops.parallel
+    except Exception:
+        pass
+except Exception:
+    _drop_failed_submodule("extension")
     extension = None  # type: ignore
 
 __all__ = ["libdevice", "extension"]

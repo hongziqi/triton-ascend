@@ -1,13 +1,22 @@
-from triton.backends.ascend.utils import is_compile_on_910_95
-from triton_ascend import ir as _ascend_ir
+import sys
 
-# MLIR affine bindings (same objects as triton_ascend.ir).
-affine_expr = _ascend_ir.affine_expr
-affine_constant_expr = _ascend_ir.affine_constant_expr
-affine_dim_expr = _ascend_ir.affine_dim_expr
-affine_symbol_expr = _ascend_ir.affine_symbol_expr
-affine_binary_op_expr = _ascend_ir.affine_binary_op_expr
-affine_map = _ascend_ir.affine_map
+from triton.backends.ascend.utils import is_compile_on_910_95
+
+# Do not ``from triton_ascend import ir`` here: this package is often imported
+# while ``triton_ascend`` is still initializing (backend discovery → __init__).
+# Prefer an already-published alias, else the host libtriton ir module.
+_ascend_ir = sys.modules.get("triton_ascend.ir")
+if _ascend_ir is None:
+    from triton._C.libtriton import ir as _ascend_ir
+
+# MLIR affine bindings (HostExtend-only on some builds). Soft-bind so OpInfo
+# hosts can still import sibling extension submodules that do not need them.
+affine_expr = getattr(_ascend_ir, "affine_expr", None)
+affine_constant_expr = getattr(_ascend_ir, "affine_constant_expr", None)
+affine_dim_expr = getattr(_ascend_ir, "affine_dim_expr", None)
+affine_symbol_expr = getattr(_ascend_ir, "affine_symbol_expr", None)
+affine_binary_op_expr = getattr(_ascend_ir, "affine_binary_op_expr", None)
+affine_map = getattr(_ascend_ir, "affine_map", None)
 
 AffineExpr = affine_expr
 AffineConstantExpr = affine_constant_expr
