@@ -384,5 +384,18 @@ set_target_properties(libtriton_ascend PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${STANDALONE_OUTPUT_DIR}"
 )
 
+# Ascend/bishengir TUs instantiate Unique TypeIDResolver<> copies (e.g.
+# OpTrait::IsTerminator). Those shadow libtriton's Weak TypeIDs, so host CSE
+# drops linalg.yield and verify_each fails. Rebind overlapping dynsyms to host.
+add_custom_command(
+  TARGET libtriton_ascend POST_BUILD
+  COMMAND "${Python_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/link_ext_dialects.py"
+    --libtriton "${TRITON_LIB}"
+    --bind-so "$<TARGET_FILE:libtriton_ascend>"
+  COMMENT "Bind host-overlapping TypeIDs in libtriton_ascend.so to libtriton"
+  VERBATIM
+)
+
 message(STATUS "scheme 1 plugin: link only ${TRITON_LIB}")
 message(STATUS "scheme 1 plugin: output ${STANDALONE_OUTPUT_DIR}/libtriton_ascend.so")

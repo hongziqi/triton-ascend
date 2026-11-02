@@ -2357,16 +2357,18 @@ LogicalResult ExternElementwiseClOpConverter::matchAndRewrite(
           op.getLoc(), cast<RankedTensorType>(dstTy).getShape(), dstElemTy);
     }
     // 3. create the linalg.map op
+    // MapOp region args are (inputs..., init); the callee is inputs-only.
     auto mapOp = rewriter.create<linalg::MapOp>(
         loc,
         /*inputs=*/srcs,
         /*init=*/output,
         /*bodyBuilder=*/
         [&](OpBuilder &builder, Location loc, ValueRange regionArgs) {
-          auto elemOp = builder.create<func::CallOp>(loc,
-                                                     /*name=*/op.getSymbol(),
-                                                     /*resultType=*/dstElemTy,
-                                                     /*operands=*/regionArgs);
+          auto elemOp =
+              builder.create<func::CallOp>(loc,
+                                           /*name=*/op.getSymbol(),
+                                           /*resultType=*/dstElemTy,
+                                           /*operands=*/regionArgs.drop_back());
           builder.create<linalg::YieldOp>(loc, elemOp->getResults());
         });
     if (isDstScalar) {
