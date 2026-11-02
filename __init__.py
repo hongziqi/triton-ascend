@@ -107,6 +107,13 @@ def _drop_none_module_sentinels(prefix: str) -> None:
                 sys.modules.pop(key, None)
 
 
+def _drop_modules(prefix: str) -> None:
+    """Remove ``prefix`` and every loaded submodule (including real modules)."""
+    for key in list(sys.modules):
+        if key == prefix or key.startswith(prefix + "."):
+            sys.modules.pop(key, None)
+
+
 def _seed_backends_ascend_alias() -> None:
     """Publish ``triton.backends.ascend`` before cann.libdevice imports utils."""
     if "triton.backends.ascend" in sys.modules:
@@ -135,9 +142,43 @@ def _inject_namespace_package(fullname: str, src: Path) -> object | None:
     return mod
 
 
+def _cann_orphans_present() -> bool:
+    """True when cann child modules exist without the parent package.
+
+    A failed earlier inject pops only ``triton.language.extra.cann`` while
+    leaving ``...cann.libdevice`` etc. in ``sys.modules``. Later
+    ``import ...cann.libdevice`` then raises ``cannot import name 'cann'``.
+    """
+    if sys.modules.get("triton.language.extra.cann") is not None:
+        return False
+    return any(
+        key.startswith("triton.language.extra.cann.") for key in sys.modules
+    )
+
+
+def _clear_failed_cann_inject() -> None:
+    _drop_modules("triton.language.extra.cann")
+    try:
+        extra = sys.modules.get("triton.language.extra")
+        if extra is not None and getattr(extra, "cann", None) is not None:
+            delattr(extra, "cann")
+    except Exception:
+        pass
+
+
 def _ensure_cann_language() -> None:
-    """Expose ``triton.language.extra.cann`` without copying it into the wheel."""
-    _drop_none_module_sentinels("triton.language.extra.cann")
+    """Expose ``triton.language.extra.cann`` without copying it into the wheel.
+
+    ``language/cann`` imports ``triton.extension.buffer.language`` (via
+    ``extension.opinfo`` / ``core``), so buffer injection must succeed first.
+    """
+    # Dependency: soft-bound buffer package under ``triton.extension``.
+    _ensure_buffer_language()
+
+    if _cann_orphans_present():
+        _clear_failed_cann_inject()
+    else:
+        _drop_none_module_sentinels("triton.language.extra.cann")
 
     existing = sys.modules.get("triton.language.extra.cann")
     if existing is not None:
@@ -160,20 +201,12 @@ def _ensure_cann_language() -> None:
             return
         extra.cann = mod  # type: ignore[attr-defined]
     except Exception as exc:
-        sys.modules.pop("triton.language.extra.cann", None)
-        _drop_none_module_sentinels("triton.language.extra.cann")
-        try:
-            extra = importlib.import_module("triton.language.extra")
-            if getattr(extra, "cann", None) is not None:
-                delattr(extra, "cann")
-        except Exception:
-            pass
+        _clear_failed_cann_inject()
         warnings.warn(
             f"triton.language.extra.cann injection failed ({exc!r})",
             ImportWarning,
             stacklevel=2,
         )
-
 
 def _ensure_buffer_language() -> None:
     """Expose former invasive ``triton.extension.buffer`` from the plugin tree.
@@ -220,12 +253,7 @@ def _ensure_buffer_language() -> None:
         if not hasattr(buf_mod, "language"):
             buf_mod.language = lang  # type: ignore[attr-defined]
     except Exception as exc:
-        for key in (
-            "triton.extension.buffer.language",
-            "triton.extension.buffer",
-        ):
-            sys.modules.pop(key, None)
-            _drop_none_module_sentinels(key)
+        _drop_modules("triton.extension.buffer")
         warnings.warn(
             f"triton.extension.buffer injection failed ({exc!r})",
             ImportWarning,
@@ -284,10 +312,12 @@ class _DeferredAscendSetupFinder:
             return None
         if not cann_request:
             return None
+        # ensure_cann pulls buffer first; also heal orphan child modules.
         _ensure_cann_language()
         if fullname == "triton.language.extra.cann":
             mod = sys.modules.get(fullname)
             return getattr(mod, "__spec__", None) if mod is not None else None
+        # Submodules (e.g. cann.libdevice) load via cann.__path__ after parent exists.
         return None
 
 
@@ -320,19 +350,21 @@ except Exception as _ascend_exc:
 _install_cann_import_hook()
 
 if _triton_jit_ready():
-    try:
-        _ensure_cann_language()
-    except Exception as _cann_exc:
-        warnings.warn(
-            f"triton_ascend cann language setup failed ({_cann_exc!r})",
-            ImportWarning,
-            stacklevel=1,
-        )
+    # buffer before cann: cann.extension.opinfo imports
+    # ``triton.extension.buffer.language``.
     try:
         _ensure_buffer_language()
     except Exception as _buf_exc:
         warnings.warn(
             f"triton_ascend buffer language setup failed ({_buf_exc!r})",
+            ImportWarning,
+            stacklevel=1,
+        )
+    try:
+        _ensure_cann_language()
+    except Exception as _cann_exc:
+        warnings.warn(
+            f"triton_ascend cann language setup failed ({_cann_exc!r})",
             ImportWarning,
             stacklevel=1,
         )
