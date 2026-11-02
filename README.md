@@ -60,20 +60,10 @@ ninja install
 ```bash
 source ~/miniconda/etc/profile.d/conda.sh && conda activate plugin3.7
 export LLVM_SYSPATH=${LLVM_INSTALL_PREFIX_3_7_1_PATCH:-/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch}
-export LD=$LLVM_SYSPATH/bin/ld.lld
 cd ~/workspace/main/triton-ascend-plugin-3.7-1-3
 git submodule update --init AscendNPU-IR third_party/triton
 
-cmake -S standalone -B build/plugin \
-  -DLLVM_SYSPATH=$LLVM_SYSPATH \
-  -DASCEND_ROOT=$PWD \
-  -DSTANDALONE_OUTPUT_DIR=$PWD/_C \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build/plugin -j --target libtriton_ascend
-strip -g _C/libtriton_ascend.so
-pip install . --no-build-isolation
-# 若未自动写入 .pth：
-echo 'import triton_ascend._autoload_plugin' > $CONDA_PREFIX/lib/python3.11/site-packages/triton_ascend_plugin.pth
+pip install -e . --no-build-isolation
 ```
 
 ## 验证（插件 ABI）

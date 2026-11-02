@@ -138,6 +138,27 @@ def _find_cmake() -> str:
 
 
 class CMakeBuild(build_ext):
+    def run(self) -> None:
+        super().run()
+        # PEP 660 ``pip install -e .`` builds an editable wheel and does NOT
+        # invoke setuptools ``develop`` / ``install`` cmdclass hooks. The Ascend
+        # ``.pth`` that sets TRITON_PLUGIN_PATHS before ``import triton`` must
+        # therefore be written from ``build_ext``, which still runs.
+        try:
+            _install_plugin_pth()
+        except Exception as e:
+            print(
+                f"[triton-ascend] WARNING: plugin .pth install failed: {e}",
+                file=sys.stderr,
+            )
+        try:
+            _install_language_into_triton()
+        except Exception as e:
+            print(
+                f"[triton-ascend] WARNING: language install failed: {e}",
+                file=sys.stderr,
+            )
+
     def build_extension(self, ext: Extension) -> None:
         if not isinstance(ext, CMakeExtension):
             return super().build_extension(ext)
@@ -224,11 +245,24 @@ class CMakeBuild(build_ext):
                 except OSError:
                     pass
         print(f"[triton-ascend] native -> {ext_path}")
+        # PEP 660 ``pip install -e .`` builds the editable wheel via build_ext but
+        # does *not* run setuptools ``develop``/``install`` cmdclass hooks. Write
+        # the site ``.pth`` here so TRITON_PLUGIN_PATHS is set before libtriton
+        # loads on the next interpreter start.
+        try:
+            _install_plugin_pth()
+        except Exception as e:
+            print(f"[triton-ascend] WARNING: plugin .pth install failed: {e}", file=sys.stderr)
+        try:
+            _install_language_into_triton()
+        except Exception as e:
+            print(f"[triton-ascend] WARNING: language install failed: {e}", file=sys.stderr)
 
 
 class _PostInstallMixin:
     def run(self):
         super().run()
+        # Keep for classic ``python setup.py develop`` / non-editable install.
         try:
             _install_plugin_pth()
         except Exception as e:

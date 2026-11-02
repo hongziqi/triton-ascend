@@ -386,16 +386,22 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
         if opt.debug:
             # Print the equivalent triton-opt command line so the pass
             # pipeline can be reproduced and debugged outside of Python.
+            # Community PyPI wheels often omit triton-opt; do not fail compile.
             print_src_path, print_dst_path = _get_dump_paths(metadata["hash"], src_path, dst_path)
-            cmd = [
-                _get_triton_opt_path(),
-                print_src_path,
-                f"--pass-pipeline={pm.get_pipeline_str()}",
-                "--mlir-print-debuginfo",
-                "-o",
-                print_dst_path,
-            ]
-            print(f"[DEBUG] cmd list: {shlex.join(cmd)}")
+            try:
+                triton_opt = _get_triton_opt_path()
+            except OSError as e:
+                print(f"[DEBUG] skip triton-opt cmdline ({e})")
+            else:
+                cmd = [
+                    triton_opt,
+                    print_src_path,
+                    f"--pass-pipeline={pm.get_pipeline_str()}",
+                    "--mlir-print-debuginfo",
+                    "-o",
+                    print_dst_path,
+                ]
+                print(f"[DEBUG] cmd list: {shlex.join(cmd)}")
 
         pm.run(mod, 'ttir_to_linalg')
         _adjust_metadata_by_module_result(mod, metadata, opt, enable_mixed_cv=enable_mixed_cv,
