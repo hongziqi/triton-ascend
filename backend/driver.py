@@ -101,8 +101,18 @@ class NPUUtils(object):
         self.npu_utils_mod = mod
         return self.npu_utils_mod
 
-    def load_binary(self, name, kernel, shared, device, mix_mode):
+    def load_binary(self, name, kernel, shared, device, mix_mode=None):
+        # Community / nightly CompiledKernel._init_handles calls
+        # load_binary(name, kernel, shared, device) without mix_mode.
+        # NPULauncher stashes mix_mode on this singleton just before that call.
+        if mix_mode is None:
+            mix_mode = getattr(type(self), "_pending_mix_mode", None) or "aiv"
         return self._load_mod().load_kernel_binary(name, kernel, shared, device, mix_mode)
+
+    def unload_module(self, module):
+        # Nightly CompiledKernel.__del__ always calls utils.unload_module.
+        # CANN kernel modules are process-lifetime for now.
+        return None
 
     def _get_npu_device_limit_form_env(self) -> tuple[int, int]:
         """Read and validate the NPU_DEVICE_LIMIT env var, return the capped AICore and AIVector counts.
@@ -207,6 +217,8 @@ class NPULauncher(object):
         self.src = src
         self.metadata = metadata
         self.mix_mode = metadata.mix_mode
+        # Stash for NPUUtils.load_binary when host omits mix_mode (see above).
+        NPUUtils._pending_mix_mode = metadata.mix_mode
         self.shared = metadata.shared
         key_index = lambda key: src.fn.arg_names.index(key) if isinstance(key, str) else key
         self.signature = {key_index(key): value for key, value in src.signature.items()}

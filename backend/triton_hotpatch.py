@@ -350,15 +350,13 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
-    # Triton 3.7 AssertOp expects i1; Ascend overflow packing still emits i32
-    # conditions that fail TritonToLinalg. Skip overflow hotpatches on 3.7.
-    import triton as _triton
-
-    _is_37 = str(getattr(_triton, "__version__", "")).startswith("3.7")
-    if not _is_37:
-        _install_auto_overflow_assert_builder()
-        _install_semantic_overflow_patches()
-        _install_interpreter_overflow()
+    # Overflow hotpatches are required on 3.7 as well: stock sanitize_overflow
+    # emits plain tt.assert without tt.auto_overflow_assert, and DeviceAssertConverter
+    # only erases asserts that carry that attr. OpInfo must create i1 conditions
+    # (AssertOp's ODS type); see addAutoOverflowAssert in AscendOpInfo.cpp.
+    _install_auto_overflow_assert_builder()
+    _install_semantic_overflow_patches()
+    _install_interpreter_overflow()
     _install_block_shape_relax()
     _install_arange_relax()
     _install_compiler_parse()

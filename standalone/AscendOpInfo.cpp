@@ -23,6 +23,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/TypeUtilities.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
@@ -760,6 +761,32 @@ static void addConvertLayout(TritonOpBuilder &b, std::vector<Value> &ops) {
                .getResult();
 }
 
+/// Triton 3.7 ``tt.assert`` ODS requires I1 / tensor<*xi1>. Coerce wider
+/// integer conditions (legacy Ascend i32 packing) down to i1.
+static Value ensureI1AssertCondition(OpBuilder &builder, Location loc,
+                                     Value condition) {
+  Type ty = condition.getType();
+  auto elemTy = getElementTypeOrSelf(ty);
+  if (elemTy.isInteger(1))
+    return condition;
+
+  Type i1Ty = builder.getI1Type();
+  Type outTy = ty;
+  if (auto ranked = dyn_cast<RankedTensorType>(ty))
+    outTy = RankedTensorType::get(ranked.getShape(), i1Ty);
+  else
+    outTy = i1Ty;
+
+  if (isa<IntegerType>(elemTy) && cast<IntegerType>(elemTy).getWidth() > 1)
+    return builder.create<arith::TruncIOp>(loc, outTy, condition);
+
+  // Non-integer fallback: compare against zero.
+  Value zero =
+      builder.create<arith::ConstantOp>(loc, builder.getZeroAttr(ty));
+  return builder.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne,
+                                       condition, zero);
+}
+
 // create_auto_overflow_assert(condition, message_str)
 // Dual-package stand-in for the invasive host ir.cc binding that monorepo
 // Ascend used to ship. Marks AssertOp with tt.auto_overflow_assert so
@@ -772,7 +799,10 @@ static void addAutoOverflowAssert(TritonOpBuilder &b, std::vector<Value> &ops) {
   std::string message;
   if (!decodeString(ops, idx, message))
     message = "overflow detected";
-  auto *ctx = b.getBuilder().getContext();
+  OpBuilder &builder = b.getBuilder();
+  auto *ctx = builder.getContext();
+  Location loc = condition.getLoc();
+  condition = ensureI1AssertCondition(builder, loc, condition);
   auto messageAttr = StringAttr::get(ctx, message);
   auto assertOp = b.create<triton::AssertOp>(condition, messageAttr);
   assertOp->setAttr("tt.auto_overflow_assert", UnitAttr::get(ctx));
