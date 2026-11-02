@@ -1,10 +1,10 @@
 diff --git a/mlir/include/mlir/Dialect/Arith/IR/ArithOps.td b/mlir/include/mlir/Dialect/Arith/IR/ArithOps.td
-index 54481d323248..4fdd487232fb 100644
+index 77d780425c3c..c8736e4e9f71 100644
 --- a/mlir/include/mlir/Dialect/Arith/IR/ArithOps.td
 +++ b/mlir/include/mlir/Dialect/Arith/IR/ArithOps.td
-@@ -212,8 +212,9 @@ class Arith_IntBinaryOpWithExactFlag<string mnemonic, list<Trait> traits = []> :
+@@ -166,8 +166,9 @@ class Arith_IntBinaryOpWithExactFlag<string mnemonic, list<Trait> traits = []> :
                 UnitAttr:$isExact)>,
-     Results<(outs Arith_SignlessIntegerOrIndexLike:$result)> {
+     Results<(outs SignlessIntegerOrIndexLike:$result)> {
  
 -  let assemblyFormat = [{ $lhs `,` $rhs (`exact` $isExact^)?
 -                          attr-dict `:` type($result) }];
@@ -14,7 +14,7 @@ index 54481d323248..4fdd487232fb 100644
  }
  
  //===----------------------------------------------------------------------===//
-@@ -1549,10 +1550,7 @@ def Arith_TruncIOp : Arith_Op<"trunci",
+@@ -1357,10 +1358,7 @@ def Arith_TruncIOp : Arith_Op<"trunci",
        DefaultValuedAttr<Arith_IntegerOverflowAttr,
            "::mlir::arith::IntegerOverflowFlags::none">:$overflowFlags);
    let results = (outs SignlessFixedWidthIntegerLike:$out);
@@ -155,7 +155,7 @@ index a441fd82546e..543ab84ef896 100644
  
  //===----------------------------------------------------------------------===//
 diff --git a/mlir/include/mlir/Dialect/Func/IR/FuncOps.td b/mlir/include/mlir/Dialect/Func/IR/FuncOps.td
-index a31b86027609..23a22b6af279 100644
+index 06ce4f16c867..a17cec470904 100644
 --- a/mlir/include/mlir/Dialect/Func/IR/FuncOps.td
 +++ b/mlir/include/mlir/Dialect/Func/IR/FuncOps.td
 @@ -119,9 +119,7 @@ def CallOp : Func_Op<"call",
@@ -170,30 +170,24 @@ index a31b86027609..23a22b6af279 100644
  
  //===----------------------------------------------------------------------===//
 diff --git a/mlir/include/mlir/Dialect/GPU/IR/GPUOps.td b/mlir/include/mlir/Dialect/GPU/IR/GPUOps.td
-index de145960692a..386aa9c38568 100644
+index 7891cf19ac92..f1bd61e5b888 100644
 --- a/mlir/include/mlir/Dialect/GPU/IR/GPUOps.td
 +++ b/mlir/include/mlir/Dialect/GPU/IR/GPUOps.td
-@@ -1507,13 +1507,8 @@ def GPU_BarrierOp : GPU_Op<"barrier">,
-     example, have the two subgroups of a workgroup arrive at `gpu.barrier` ops in
-     different branches of an if statement and have this work.
+@@ -1470,7 +1470,8 @@ def GPU_BarrierOp : GPU_Op<"barrier">,
+     Either none or all work items of a workgroup need to execute this op
+     in convergence.
    }];
--  let assemblyFormat = [{
--    oilist(
--        `named` `(` $named_barrier `:` type($named_barrier) `)`
--      | `memfence` $address_spaces
--      | `scope` $scope
--    ) attr-dict
--  }];
+-  let assemblyFormat = "(`memfence` $address_spaces^)? attr-dict";
 +  // LLVM 20: attr-dict only.
 +  let hasCustomAssemblyFormat = 1;
    let hasCanonicalizer = 1;
-   let hasVerifier = 1;
    let builders = [OpBuilder<(
+                       ins CArg<"std::optional<::mlir::gpu::AddressSpace>",
 diff --git a/mlir/include/mlir/Dialect/LLVMIR/LLVMIntrinsicOps.td b/mlir/include/mlir/Dialect/LLVMIR/LLVMIntrinsicOps.td
-index 464779e006d7..80f1b90b5dab 100644
+index e31e46124faf..c02cfd0d8946 100644
 --- a/mlir/include/mlir/Dialect/LLVMIR/LLVMIntrinsicOps.td
 +++ b/mlir/include/mlir/Dialect/LLVMIR/LLVMIntrinsicOps.td
-@@ -646,12 +646,6 @@ def LLVM_AssumeOp
+@@ -569,12 +569,6 @@ def LLVM_AssumeOp
    dag args = (ins I1:$cond);
    let arguments = !con(args, baseArgs);
  
@@ -207,7 +201,7 @@ index 464779e006d7..80f1b90b5dab 100644
    let builders = [
      OpBuilder<(ins "Value":$cond)>,
 diff --git a/mlir/include/mlir/Dialect/LLVMIR/LLVMOps.td b/mlir/include/mlir/Dialect/LLVMIR/LLVMOps.td
-index 84f71054994f..22f9a364eacc 100644
+index f6f1c90b481c..7d733db714ff 100644
 --- a/mlir/include/mlir/Dialect/LLVMIR/LLVMOps.td
 +++ b/mlir/include/mlir/Dialect/LLVMIR/LLVMOps.td
 @@ -416,14 +416,7 @@ def LLVM_LoadOp : LLVM_MemAccessOpBase<"load",
@@ -240,7 +234,7 @@ index 84f71054994f..22f9a364eacc 100644
    string llvmBuilder = [{
      auto *inst = builder.CreateStore($value, $addr, $volatile_);
    }] # setOrderingCode
-@@ -645,7 +633,10 @@ def LLVM_AddrSpaceCastOp : LLVM_CastOp<"addrspacecast", "AddrSpaceCast",
+@@ -625,7 +613,10 @@ def LLVM_AddrSpaceCastOp : LLVM_CastOp<"addrspacecast", "AddrSpaceCast",
  }
  def LLVM_IntToPtrOp : LLVM_DereferenceableCastOp<"inttoptr", "IntToPtr",
                                    LLVM_ScalarOrVectorOf<AnySignlessInteger>,
@@ -252,7 +246,7 @@ index 84f71054994f..22f9a364eacc 100644
  def LLVM_PtrToIntOp : LLVM_CastOp<"ptrtoint", "PtrToInt",
                                    LLVM_ScalarOrVectorOf<LLVM_AnyPointer>,
                                    LLVM_ScalarOrVectorOf<AnySignlessInteger>>;
-@@ -2487,16 +2478,7 @@ def LLVM_InlineAsmOp : LLVM_Op<"inline_asm", [DeclareOpInterfaceMethods<MemoryEf
+@@ -2409,16 +2400,7 @@ def LLVM_InlineAsmOp : LLVM_Op<"inline_asm", [DeclareOpInterfaceMethods<MemoryEf
  
    let results = (outs Optional<LLVM_Type>:$res);
  
@@ -271,10 +265,10 @@ index 84f71054994f..22f9a364eacc 100644
    let extraClassDeclaration = [{
      static StringRef getElementTypeAttrName() {
 diff --git a/mlir/lib/Dialect/Arith/IR/ArithOps.cpp b/mlir/lib/Dialect/Arith/IR/ArithOps.cpp
-index ff6a5d4a0c29..99baffd6523c 100644
+index 83b3cec8d41a..fb2a0909f73e 100644
 --- a/mlir/lib/Dialect/Arith/IR/ArithOps.cpp
 +++ b/mlir/lib/Dialect/Arith/IR/ArithOps.cpp
-@@ -788,6 +788,254 @@ void arith::MulUIExtendedOp::getCanonicalizationPatterns(
+@@ -668,6 +668,254 @@ void arith::MulUIExtendedOp::getCanonicalizationPatterns(
    patterns.add<MulUIExtendedToMulI>(context);
  }
  
@@ -529,7 +523,7 @@ index ff6a5d4a0c29..99baffd6523c 100644
  //===----------------------------------------------------------------------===//
  // DivUIOp
  //===----------------------------------------------------------------------===//
-@@ -1835,6 +2083,83 @@ LogicalResult arith::ScalingExtFOp::verify() {
+@@ -1572,6 +1820,83 @@ LogicalResult arith::ScalingExtFOp::verify() {
  // TruncIOp
  //===----------------------------------------------------------------------===//
  
@@ -614,10 +608,10 @@ index ff6a5d4a0c29..99baffd6523c 100644
    if (matchPattern(getOperand(), m_Op<arith::ExtUIOp>()) ||
        matchPattern(getOperand(), m_Op<arith::ExtSIOp>())) {
 diff --git a/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp b/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp
-index e39b20492e5e..e03b65a7541b 100644
+index 08319ef9df79..3dbc4773b681 100644
 --- a/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp
 +++ b/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp
-@@ -722,7 +722,9 @@ bool AnalysisState::canOmitTensorCopy(OpOperand &opOperand) const {
+@@ -659,7 +659,9 @@ bool AnalysisState::canOmitTensorCopy(OpOperand &opOperand) const {
  }
  
  bool AnalysisState::isInPlace(OpOperand &opOperand) const {
@@ -629,7 +623,7 @@ index e39b20492e5e..e03b65a7541b 100644
      return true;
  
 diff --git a/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp b/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp
-index 80db89aa1b4b..335b809f1f53 100644
+index 71ad8bbf91c3..0b1f66919cd5 100644
 --- a/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp
 +++ b/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp
 @@ -14,6 +14,7 @@
@@ -640,7 +634,7 @@ index 80db89aa1b4b..335b809f1f53 100644
  #include "llvm/ADT/SmallVectorExtras.h"
  #include <optional>
  
-@@ -142,6 +143,53 @@ LogicalResult mlir::bufferization::foldToBufferToTensorPair(
+@@ -129,6 +130,53 @@ LogicalResult mlir::bufferization::foldToBufferToTensorPair(
    return success();
  }
  
@@ -694,7 +688,7 @@ index 80db89aa1b4b..335b809f1f53 100644
  void mlir::bufferization::populateDynamicDimSizes(
      OpBuilder &b, Location loc, Value shapedValue,
      SmallVector<Value> &dynamicDims) {
-@@ -768,6 +816,92 @@ bool ToTensorOp::isWritable(Value value, const AnalysisState &state) {
+@@ -753,6 +801,92 @@ bool ToTensorOp::isWritable(Value value, const AnalysisState &state) {
    return getWritable();
  }
  
@@ -787,7 +781,7 @@ index 80db89aa1b4b..335b809f1f53 100644
  OpFoldResult ToTensorOp::fold(FoldAdaptor) {
    if (auto toBuffer = getBuffer().getDefiningOp<ToBufferOp>())
      // Approximate alias analysis by conservatively folding only when no there
-@@ -775,6 +909,12 @@ OpFoldResult ToTensorOp::fold(FoldAdaptor) {
+@@ -760,6 +894,12 @@ OpFoldResult ToTensorOp::fold(FoldAdaptor) {
      if (toBuffer->getBlock() == this->getOperation()->getBlock() &&
          toBuffer->getNextNode() == this->getOperation())
        return toBuffer.getTensor();
@@ -800,7 +794,7 @@ index 80db89aa1b4b..335b809f1f53 100644
    return {};
  }
  
-@@ -1216,6 +1356,107 @@ void bufferization::populateDeallocOpCanonicalizationPatterns(
+@@ -1201,6 +1341,107 @@ void bufferization::populateDeallocOpCanonicalizationPatterns(
                 RemoveAllocDeallocPairWhenNoOtherUsers>(context);
  }
  
@@ -909,10 +903,10 @@ index 80db89aa1b4b..335b809f1f53 100644
  // TableGen'd op method definitions
  //===----------------------------------------------------------------------===//
 diff --git a/mlir/lib/Dialect/ControlFlow/IR/ControlFlowOps.cpp b/mlir/lib/Dialect/ControlFlow/IR/ControlFlowOps.cpp
-index 435c37bc95aa..1269ff04e5d1 100644
+index d2078d8ab5ca..f95d30b74f3a 100644
 --- a/mlir/lib/Dialect/ControlFlow/IR/ControlFlowOps.cpp
 +++ b/mlir/lib/Dialect/ControlFlow/IR/ControlFlowOps.cpp
-@@ -561,6 +561,114 @@ struct DropUnreachableCondBranch : public OpRewritePattern<CondBranchOp> {
+@@ -479,6 +479,114 @@ struct DropUnreachableCondBranch : public OpRewritePattern<CondBranchOp> {
  };
  } // namespace
  
@@ -1028,7 +1022,7 @@ index 435c37bc95aa..1269ff04e5d1 100644
                                                 MLIRContext *context) {
    results.add<SimplifyConstCondBranchPred, SimplifyPassThroughCondBranch,
 diff --git a/mlir/lib/Dialect/Func/IR/FuncOps.cpp b/mlir/lib/Dialect/Func/IR/FuncOps.cpp
-index 42925ce4fd6a..77df26e10e5b 100644
+index 0e0863be9b47..2afc4a3a971c 100644
 --- a/mlir/lib/Dialect/Func/IR/FuncOps.cpp
 +++ b/mlir/lib/Dialect/Func/IR/FuncOps.cpp
 @@ -60,6 +60,66 @@ Operation *FuncDialect::materializeConstant(OpBuilder &builder, Attribute value,
@@ -1099,10 +1093,10 @@ index 42925ce4fd6a..77df26e10e5b 100644
    // Check that the callee attribute was specified.
    auto fnAttr = (*this)->getAttrOfType<FlatSymbolRefAttr>("callee");
 diff --git a/mlir/lib/Dialect/GPU/IR/GPUDialect.cpp b/mlir/lib/Dialect/GPU/IR/GPUDialect.cpp
-index 22c5e3c9b86a..a8391de343de 100644
+index 8bd508b364e3..a525a4418d66 100644
 --- a/mlir/lib/Dialect/GPU/IR/GPUDialect.cpp
 +++ b/mlir/lib/Dialect/GPU/IR/GPUDialect.cpp
-@@ -1581,6 +1581,15 @@ static LogicalResult eraseRedundantGpuBarrierOps(BarrierOp op,
+@@ -1508,6 +1508,15 @@ static LogicalResult eraseRedundantGpuBarrierOps(BarrierOp op,
    return success();
  }
  
@@ -1119,10 +1113,10 @@ index 22c5e3c9b86a..a8391de343de 100644
                                              MLIRContext *context) {
    results.add(eraseRedundantGpuBarrierOps);
 diff --git a/mlir/lib/Dialect/LLVMIR/IR/LLVMDialect.cpp b/mlir/lib/Dialect/LLVMIR/IR/LLVMDialect.cpp
-index 6382dfcbc8ad..90a3bebcf55d 100644
+index 41c6b43473aa..d8cbb1992848 100644
 --- a/mlir/lib/Dialect/LLVMIR/IR/LLVMDialect.cpp
 +++ b/mlir/lib/Dialect/LLVMIR/IR/LLVMDialect.cpp
-@@ -836,6 +836,172 @@ LogicalResult LLVM::GEPOp::verify() {
+@@ -834,6 +834,172 @@ LogicalResult LLVM::GEPOp::verify() {
  // LoadOp
  //===----------------------------------------------------------------------===//
  
@@ -1295,7 +1289,7 @@ index 6382dfcbc8ad..90a3bebcf55d 100644
  void LoadOp::getEffects(
      SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
          &effects) {
-@@ -914,6 +1080,171 @@ void LoadOp::build(OpBuilder &builder, OperationState &state, Type type,
+@@ -912,6 +1078,171 @@ void LoadOp::build(OpBuilder &builder, OperationState &state, Type type,
  //===----------------------------------------------------------------------===//
  // StoreOp
  //===----------------------------------------------------------------------===//
@@ -1467,7 +1461,7 @@ index 6382dfcbc8ad..90a3bebcf55d 100644
  
  void StoreOp::getEffects(
      SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
-@@ -4464,6 +4795,230 @@ LogicalResult InlineAsmOp::verify() {
+@@ -4351,6 +4682,230 @@ LogicalResult InlineAsmOp::verify() {
    return success();
  }
  
@@ -1699,10 +1693,10 @@ index 6382dfcbc8ad..90a3bebcf55d 100644
  // UDivOp
  //===----------------------------------------------------------------------===//
 diff --git a/mlir/lib/Dialect/Linalg/IR/LinalgOps.cpp b/mlir/lib/Dialect/Linalg/IR/LinalgOps.cpp
-index 170e1edf8a55..2cc7d7f0e54b 100644
+index eba3fa6db212..fc52524001af 100644
 --- a/mlir/lib/Dialect/Linalg/IR/LinalgOps.cpp
 +++ b/mlir/lib/Dialect/Linalg/IR/LinalgOps.cpp
-@@ -1694,10 +1694,15 @@ void MapOp::print(OpAsmPrinter &p) {
+@@ -1660,10 +1660,15 @@ void MapOp::print(OpAsmPrinter &p) {
  
    if (!useShortForm) {
      // Print region if the payload op was not detected.
@@ -1719,7 +1713,7 @@ index 170e1edf8a55..2cc7d7f0e54b 100644
                            [&](auto arg) { p.printRegionArgument(arg); });
      p << ") ";
  
-@@ -4064,33 +4069,14 @@ static FailureOr<ArrayAttr> parseIndexingMapsAttr(OpAsmParser &parser) {
+@@ -3919,33 +3924,14 @@ static FailureOr<ArrayAttr> parseIndexingMapsAttr(OpAsmParser &parser) {
  }
  
  ParseResult MatmulOp::parse(OpAsmParser &parser, OperationState &result) {
@@ -1759,7 +1753,7 @@ index 170e1edf8a55..2cc7d7f0e54b 100644
  }
  
  /// Verify the user defined indexing maps.
-@@ -4849,11 +4835,10 @@ void BatchMatmulOp::print(OpAsmPrinter &p) {
+@@ -4699,11 +4685,10 @@ void BatchMatmulOp::print(OpAsmPrinter &p) {
    SmallVector<Attribute, 3> indexingMaps = llvm::map_to_vector<3>(
        BatchMatmulOp::getDefaultIndexingMaps(getContext()),
        [](AffineMap map) -> Attribute { return AffineMapAttr::get(map); });
@@ -1774,10 +1768,10 @@ index 170e1edf8a55..2cc7d7f0e54b 100644
                             elidedAttrs);
  }
 diff --git a/mlir/lib/Dialect/SCF/IR/SCF.cpp b/mlir/lib/Dialect/SCF/IR/SCF.cpp
-index 54d28783ddc4..f3b2aa4cbcc5 100644
+index c46a0577c4b9..dc1ba567e4a8 100644
 --- a/mlir/lib/Dialect/SCF/IR/SCF.cpp
 +++ b/mlir/lib/Dialect/SCF/IR/SCF.cpp
-@@ -510,9 +510,6 @@ static void printInitializationList(OpAsmPrinter &p,
+@@ -494,9 +494,6 @@ static void printInitializationList(OpAsmPrinter &p,
  }
  
  void ForOp::print(OpAsmPrinter &p) {
@@ -1788,10 +1782,10 @@ index 54d28783ddc4..f3b2aa4cbcc5 100644
      << getUpperBound() << " step " << getStep();
  
 diff --git a/mlir/lib/IR/AsmPrinter.cpp b/mlir/lib/IR/AsmPrinter.cpp
-index b95ab00bd5fd..3922ffff8183 100644
+index 81455699421c..0c2e4c462753 100644
 --- a/mlir/lib/IR/AsmPrinter.cpp
 +++ b/mlir/lib/IR/AsmPrinter.cpp
-@@ -3816,9 +3816,17 @@ void OperationPrinter::printGenericOp(Operation *op, bool printOpName) {
+@@ -3769,9 +3769,17 @@ void OperationPrinter::printGenericOp(Operation *op, bool printOpName) {
  
    // Print the properties.
    if (Attribute prop = op->getPropertiesAsAttribute()) {

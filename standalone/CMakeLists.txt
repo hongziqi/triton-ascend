@@ -59,14 +59,40 @@ if(NOT _triton_import_rc EQUAL 0)
     "  pip install -e . --no-build-isolation\n"
     "(default pip isolation sets PYTHONPATH and hides site-packages).")
 endif()
-set(TRITON_WHEEL_INCLUDE_DIR "${TRITON_WHEEL_DIR}/include")
 find_library(TRITON_LIB NAMES triton PATHS "${TRITON_WHEEL_DIR}/_C" NO_DEFAULT_PATH REQUIRED)
 message(STATUS "Host libtriton: ${TRITON_LIB}")
-if(NOT EXISTS "${TRITON_WHEEL_INCLUDE_DIR}/triton/Tools/PluginUtils.h")
+
+# Triton 3.7.1 wheels do not ship C++ headers. Use the third_party/triton
+# submodule (pinned to v3.7.1) for PluginUtils.h / Dialects / python/src/ir.h.
+set(TRITON_SRC_ROOT "${ASCEND_ROOT}/third_party/triton" CACHE PATH
+  "Community Triton source tree providing C++ headers")
+if(NOT EXISTS "${TRITON_SRC_ROOT}/include/triton/Tools/PluginUtils.h")
   message(FATAL_ERROR
-    "Triton wheel is missing C++ headers at ${TRITON_WHEEL_INCLUDE_DIR}. "
-    "Build the host with TRITON_EXT_ENABLED=1 so wheel_headers are installed.")
+    "Missing Triton headers at ${TRITON_SRC_ROOT}/include/triton/Tools/PluginUtils.h.\n"
+    "Init the submodule: git submodule update --init third_party/triton")
 endif()
+set(TRITON_SRC_INCLUDE_DIR "${TRITON_SRC_ROOT}/include")
+set(TRITON_SRC_PYTHON_DIR "${TRITON_SRC_ROOT}/python/src")
+
+# Generate Version.h to match the installed host (partial release check).
+execute_process(
+  COMMAND "${CMAKE_COMMAND}" -E env --unset=PYTHONPATH --unset=PYTHONHOME
+          "${Python_EXECUTABLE}" -c "import triton; print(triton.__version__)"
+  OUTPUT_VARIABLE TRITON_HOST_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE _triton_ver_rc
+  ERROR_VARIABLE _triton_ver_err)
+if(NOT _triton_ver_rc EQUAL 0 OR TRITON_HOST_VERSION STREQUAL "")
+  message(FATAL_ERROR "Could not read triton.__version__: ${_triton_ver_err}")
+endif()
+set(TRITON_VERSION "${TRITON_HOST_VERSION}")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include/triton")
+configure_file(
+  "${TRITON_SRC_ROOT}/include/triton/Version.h.in"
+  "${CMAKE_BINARY_DIR}/include/triton/Version.h"
+  @ONLY)
+message(STATUS "Host triton version: ${TRITON_VERSION}")
+message(STATUS "Triton headers: ${TRITON_SRC_INCLUDE_DIR}")
 
 list(APPEND CMAKE_PREFIX_PATH "${LLVM_SYSPATH}")
 find_package(LLVM REQUIRED CONFIG)
@@ -76,7 +102,14 @@ include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
 
-include_directories(SYSTEM ${MLIR_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS} "${TRITON_WHEEL_INCLUDE_DIR}")
+include_directories(SYSTEM
+  ${MLIR_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS}
+  "${TRITON_SRC_INCLUDE_DIR}"
+  # PluginUtils.h includes "python/src/ir.h" relative to the Triton source root.
+  "${TRITON_SRC_ROOT}"
+  "${CMAKE_BINARY_DIR}/include"
+)
 add_definitions(${LLVM_DEFINITIONS})
 
 if(NOT MSVC)
@@ -130,14 +163,14 @@ endforeach()
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/PassObjects.cmake")
 
-# Detect host API version for PluginInfo layout (extend field on v3).
+# Triton 3.7 Plugin ABI is v2 (TRITON_PLUGIN_PATHS). No extend_with / HostExtend.
 set(TRITON_PLUGIN_API_VERSION 2)
-file(READ "${TRITON_WHEEL_INCLUDE_DIR}/triton/Tools/PluginUtils.h" _plugin_utils_h)
+file(READ "${TRITON_SRC_INCLUDE_DIR}/triton/Tools/PluginUtils.h" _plugin_utils_h)
 if(_plugin_utils_h MATCHES "#define TRITON_PLUGIN_API_VERSION ([0-9]+)")
   set(TRITON_PLUGIN_API_VERSION "${CMAKE_MATCH_1}")
 endif()
 message(STATUS "Host TRITON_PLUGIN_API_VERSION=${TRITON_PLUGIN_API_VERSION}")
-message(STATUS "Ascend plugin: OpInfo path (no HostExtend / ascend_ir.cc / nanobind)")
+message(STATUS "Ascend plugin: TRITON_PLUGIN_PATHS + OpInfo (no extend_with)")
 
 # Force community-only sources (NO ascend_ir.cc, NO AscendExtendIrModule, NO nanobind).
 set(_ascend_plugin_sources AscendPassPlugin.cpp AscendOpInfo.cpp)
@@ -177,7 +210,7 @@ target_include_directories(libtriton_ascend PRIVATE
   ${CMAKE_BINARY_DIR}/gen_compat
   ${ASCEND_ROOT}/AscendNPU-IR/bishengir/include
   ${CMAKE_BINARY_DIR}/bishengir/include
-  ${TRITON_WHEEL_INCLUDE_DIR}/python/src
+  ${TRITON_SRC_ROOT}
   ${Python_INCLUDE_DIRS}
 )
 # Pass / OpInfo TUs: no-EH/RTTI (community OpInfo, no nanobind).

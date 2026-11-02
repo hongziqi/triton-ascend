@@ -45,9 +45,8 @@ llvm-project/
 llvm-project-*/
 .llvm-project/
 
-# Host Triton is installed from PyPI / conda — do not vendor a full clone.
-# (Legacy dual-tree experiments may leave this directory around.)
-third_party/triton/
+# Host Triton wheel has no C++ headers on 3.7.1; third_party/triton is a
+# git submodule (pinned to v3.7.1) providing PluginUtils.h / Dialect / ir.h.
 
 # AscendNPU-IR is a git submodule: track the gitlink, ignore local patch dirt
 # left after build-time `git apply` (re-applied from patch/ on each build).

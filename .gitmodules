@@ -1,5 +1,10 @@
 [submodule "AscendNPU-IR"]
 	path = AscendNPU-IR
 	url = https://gitcode.com/Ascend/AscendNPU-IR.git
-	# Pin used by triton-ascend main for LLVM 24 / npuir_adapter_to_llvm_24.patch
-	# (aea934a66646e837c54fea11e87db54d42eb3221). Update together with the patch.
+	# Pin for LLVM 23 / npuir_adapter_to_llvm_23.patch
+	# (bb13ef6120526aa3df6f950006af5ec0e585d2f6). Update together with the patch.
+[submodule "third_party/triton"]
+	path = third_party/triton
+	url = https://github.com/triton-lang/triton.git
+	# Community Triton v3.7.1 — provides C++ headers (PluginUtils.h, Dialects, ir.h)
+	# that the 3.7.1 wheel does not ship. Host runtime still comes from pip.

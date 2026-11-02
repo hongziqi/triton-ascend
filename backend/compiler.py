@@ -103,13 +103,9 @@ from triton.runtime.cache import get_dump_manager
 def register_ascend_plugin_dialects() -> None:
     """Ensure the Ascend plugin is loaded (idempotent).
 
-    Plugin load happens in ``triton_ascend.__init__`` via community APIs::
-
-        passes.plugin.extend_with(so)   # PassInfo → passes.plugin.add_*
-        ir.extend_dialects_with(so)     # DialectInfo queued for load_dialects
-        ir.builder.extend_with(so)      # OpInfo → builder.create_<name>
-
-    HostExtend / ``extend_module_with`` is not used.
+    Triton 3.7 loads the plugin from ``TRITON_PLUGIN_PATHS`` when ``libtriton``
+    is first imported (no ``extend_with``). ``register_ascend_native`` only
+    verifies that ``passes.plugin.add_*`` / ``create_*`` are present.
     """
     if triton_ascend is None:
         raise ImportError("triton_ascend is not installed")

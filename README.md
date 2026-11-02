@@ -1,12 +1,8 @@
-# triton-ascend-plugin-1-3（社区 Plugin ABI / OpInfo）
+# triton-ascend-plugin-3.7-1-3（Triton 3.7.1 / `TRITON_PLUGIN_PATHS`）
 
-树外 Ascend 后端插件：产出 **`libtriton_ascend.so`**，对接社区 Triton（Plugin ABI **v2**）。
+树外 Ascend 后端插件：产出 **`libtriton_ascend.so`**，对接社区 Triton **3.7.1**（Plugin ABI **v2**，环境变量加载）。
 
-- `passes.plugin.extend_with(so)` — PassInfo
-- `ir.extend_dialects_with(so)` — DialectInfo
-- `ir.builder.extend_with(so)` — OpInfo → `create_*`
-
-细节：[`PLUGINIZATION_1_3.md`](PLUGINIZATION_1_3.md)、[`standalone/README.md`](standalone/README.md)。
+与 3.9 / `extend_with` 穿刺的差异见 [`PLUGINIZATION_1_3.md`](PLUGINIZATION_1_3.md)。
 
 ---
 
@@ -14,86 +10,83 @@
 
 ```text
 .
-├── AscendNPU-IR/          # git submodule（干净 HEAD；构建时打 adapter patch）
+├── AscendNPU-IR/          # git submodule（bb13ef612；构建时打 llvm23 adapter）
+├── third_party/triton/    # git submodule（v3.7.1；提供 C++ 头，wheel 无 include）
 ├── backend/               # Python backend + triton_hotpatch
 ├── language/              # cann DSL / kernels
 ├── include/ lib/          # Ascend C++ passes / dialects
 ├── standalone/            # 插件 CMake：编出 libtriton_ascend.so
 ├── patch/
-│   ├── llvm_patch_b010a18.patch      # 一次性打进 llvm-project
-│   └── npuir_adapter_to_llvm_24.patch # 每次构建打进 AscendNPU-IR
+│   ├── triton-llvm_patch_1f126a6.patch  # Ascend MLIR 补丁（对齐宿主 3.7.1 LLVM）
+│   └── npuir_adapter_to_llvm_23.patch
 ├── scripts/apply_npuir_patch.py
-├── _C/                    # 构建产物（gitignore）
-└── unittest/
+├── _autoload_plugin.py    # 由 .pth 在解释器启动时设置 TRITON_PLUGIN_PATHS
+└── _C/                    # 构建产物
 ```
 
 ## 穿刺依赖（LLVM 必须一致）
 
-```text
-        LLVM_SYSPATH（同一棵 install）
-                 │
-     ┌───────────┴───────────┐
-     ▼                       ▼
- 宿主 triton wheel      triton-ascend 插件
- libtriton.so  ◄DT_NEEDED─  libtriton_ascend.so
-```
-
-| 项 | 当前穿刺结论 |
+| 项 | 值 |
 |------|------|
-| LLVM commit | 社区 Triton **3.9.0** → **`b010a18d`**（LLVM 24） |
-| Ascend LLVM patch | `patch/llvm_patch_b010a18.patch`（一次性打进 llvm-project） |
-| NPUIR adapter | `patch/npuir_adapter_to_llvm_24.patch`（**每次构建**打进 submodule） |
-| 本机 install 前缀 | `/home/coder/bin/llvm-project-3.9-b010a18-patch` |
-| 宿主 | PyPI **`triton==3.9.0`**（ABI v2） |
-| AscendNPU-IR pin | `aea934a66646e837c54fea11e87db54d42eb3221` |
+| 宿主 | `triton==3.7.1`（PyPI / `1f126a6`） |
+| LLVM 源码 | `~/origin/triton-llvm-project-3.7.1-1f126a6-patch` @ `1f126a6` + `triton-llvm_patch_1f126a6.patch` |
+| 本机 install | `LLVM_INSTALL_PREFIX_3_7_1_PATCH=/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch` |
+| 加载 | `TRITON_PLUGIN_PATHS`（无 `extend_with`） |
+| 头文件 | `third_party/triton` submodule（v3.7.1） |
 
-## 构建 patched LLVM
+**重要：** 插件必须用与宿主 **同一 LLVM commit**（`1f126a6`）构建；仅打 Ascend 的 MLIR 文本/折叠补丁。跨 commit（例如插件 `ac5dc54`、宿主 `1f126a6`）会在 `TritonToLinalg` 因 TypeID/promised-interface 混用而 SIGSEGV。
+
+### 编译 LLVM（一次性）
 
 ```bash
-git clone git@github.com:llvm/llvm-project.git
-mv llvm-project llvm-project-3.9-b010a18-patch
-cd llvm-project-3.9-b010a18-patch
-git checkout b010a18d2b648cab83c83967ff26b8fde11acdc6
-export LLVM_INSTALL_PREFIX_3_9_PATCH=/path/to/bin/llvm-project-3.9-b010a18-patch
-git apply /path/to/triton-ascend/patch/llvm_patch_b010a18.patch
-
+export LLVM_INSTALL_PREFIX_3_7_1_PATCH=/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch
+cd ~/origin/triton-llvm-project-3.7.1-1f126a6-patch
+git apply --whitespace=nowarn \
+  ~/workspace/main/triton-ascend-plugin-3.7-1-3/patch/triton-llvm_patch_1f126a6.patch
 mkdir -p build && cd build
 cmake ../llvm -G Ninja \
   -DLLVM_ENABLE_ASSERTIONS=ON \
   -DLLVM_ENABLE_PROJECTS="mlir;llvm;lld" \
   -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
-  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_PREFIX_3_9_PATCH} \
-  -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_PREFIX_3_7_1_PATCH} \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
   -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
 ninja install
 ```
 
----
-
-## 宿主Triton + 插件Triton-Ascend安装
+## 构建与安装
 
 ```bash
-export LLVM_SYSPATH=/path/to/bin/llvm-project-3.9-b010a18-patch
-git clone https://github.com/hongziqi/triton-ascend.git
-cd triton-ascend
-pip install 'triton==3.9.0'
+source ~/miniconda/etc/profile.d/conda.sh && conda activate plugin3.7
+export LLVM_SYSPATH=${LLVM_INSTALL_PREFIX_3_7_1_PATCH:-/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch}
+export LD=$LLVM_SYSPATH/bin/ld.lld
+cd ~/workspace/main/triton-ascend-plugin-3.7-1-3
+git submodule update --init AscendNPU-IR third_party/triton
 
-git submodule update --init AscendNPU-IR
-# tips: 使用  --no-build-isolation 加快无变更构建
-pip install -e .
+cmake -S standalone -B build/plugin \
+  -DLLVM_SYSPATH=$LLVM_SYSPATH \
+  -DASCEND_ROOT=$PWD \
+  -DSTANDALONE_OUTPUT_DIR=$PWD/_C \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build/plugin -j --target libtriton_ascend
+strip -g _C/libtriton_ascend.so
+pip install . --no-build-isolation
+# 若未自动写入 .pth：
+echo 'import triton_ascend._autoload_plugin' > $CONDA_PREFIX/lib/python3.11/site-packages/triton_ascend_plugin.pth
 ```
 
-验证：
+## 验证（插件 ABI）
+
+```python
+import triton, triton_ascend
+from triton._C.libtriton import ir, passes
+triton_ascend.register_ascend_native()
+assert hasattr(ir.builder, "create_extract_scalar")
+assert hasattr(passes.plugin, "add_triton_to_linalg")
+```
 
 ```bash
-rm -rf ~/.triton/cache ~/.triton/dump
-# TRITON_DEBUG=1 当前会检索triton-opt，上游并没有打包triton-opt,所以会失败（待修复）
-TRITON_DEBUG=0 pytest unittest/pytest_ut/test_add.py
+# 手动指定时必须在 import triton 之前：
+export TRITON_PLUGIN_PATHS=$PWD/_C/libtriton_ascend.so
 ```
-
-### 链接硬规则
-
-- Helper：`${LLVM_SYSPATH}/lib/lib*.a` + `--start-group`，禁止 MLIR CMake TARGET。
-- 四方言 → `ext_dialects_unique.o`（`link_ext_dialects.py`）。
-- 默认不链 AffineOps 薄抽取；仅 EXT 宿主缺 MaybeAlign 时：`-DTRITON_ASCEND_LINK_AFFINE_OPS_THIN=ON`。
-- `_C/` 只保留 `libtriton_ascend.so`。

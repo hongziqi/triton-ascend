@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
-"""``triton-ascend`` wheel — scheme 1 community plugin.
+"""``triton-ascend`` wheel — scheme 1 community plugin for Triton 3.7.1.
 
 The native artifact is ``libtriton_ascend.so``. It exports
-``tritonGetPluginInfo``, links the installed ``libtriton`` (and shared
-``libnanobind`` when the host is plugin API v3), and embeds missing MLIR
-dialect objects produced by ``standalone/link_ext_dialects.py``.
-Requires: ``LLVM_SYSPATH``, a host ``triton`` built with
+``tritonGetPluginInfo``, links the installed ``libtriton``, and embeds
+missing MLIR dialect objects produced by ``standalone/link_ext_dialects.py``.
+
+Triton 3.7 loads plugins from ``TRITON_PLUGIN_PATHS`` at ``libtriton`` import
+time (no ``extend_with``). Headers come from the ``third_party/triton``
+submodule because the 3.7.1 wheel does not ship them.
+
+Requires: ``LLVM_SYSPATH``, host ``triton==3.7.1`` built with
 ``TRITON_EXT_ENABLED=1``.
 """
 
@@ -28,6 +32,40 @@ _STANDALONE = _PKG_ROOT / "standalone"
 _BUILD_DIR = Path(
     os.environ.get("TRITON_ASCEND_BUILD_DIR", _PKG_ROOT / "build" / "plugin")
 )
+
+
+def _install_plugin_pth() -> None:
+    """Install a site ``.pth`` that sets ``TRITON_PLUGIN_PATHS`` at startup."""
+    import site
+
+    # After install the package lives in site-packages; during the same
+    # process ``import triton_ascend`` may still resolve to the source tree.
+    line = "import triton_ascend._autoload_plugin\n"
+    candidates: list[Path] = []
+    for site_dir in site.getsitepackages() + [site.getusersitepackages()]:
+        if not site_dir:
+            continue
+        if os.environ.get("CONDA_PREFIX") and not str(site_dir).startswith(
+            os.environ["CONDA_PREFIX"]
+        ):
+            continue
+        root = Path(site_dir)
+        if not root.is_dir():
+            continue
+        autoload = root / "triton_ascend" / "_autoload_plugin.py"
+        if autoload.is_file() or (_PKG_ROOT / "_autoload_plugin.py").is_file():
+            candidates.append(root / "triton_ascend_plugin.pth")
+    if not candidates:
+        print("[triton-ascend] WARNING: no site-packages for .pth")
+        return
+    for pth in candidates:
+        try:
+            pth.write_text(line)
+            print(f"[triton-ascend] wrote {pth}")
+            return
+        except OSError as e:
+            print(f"[triton-ascend] WARNING: could not write {pth}: {e}")
+    print("[triton-ascend] WARNING: no writable site-packages for .pth")
 
 
 def _install_language_into_triton() -> None:
@@ -115,7 +153,7 @@ class CMakeBuild(build_ext):
         out_c.mkdir(parents=True, exist_ok=True)
         cmake = _find_cmake()
 
-        # AscendNPU-IR is a submodule: keep HEAD clean and re-apply the LLVM-24
+        # AscendNPU-IR is a submodule: keep HEAD clean and re-apply the LLVM-23
         # adapter patch on every build (same contract as monorepo setup_ascend).
         subprocess.check_call(
             [sys.executable, str(_PKG_ROOT / "scripts" / "apply_npuir_patch.py")],
@@ -192,6 +230,10 @@ class _PostInstallMixin:
     def run(self):
         super().run()
         try:
+            _install_plugin_pth()
+        except Exception as e:
+            print(f"[triton-ascend] WARNING: plugin .pth install failed: {e}", file=sys.stderr)
+        try:
             _install_language_into_triton()
         except Exception as e:
             print(f"[triton-ascend] WARNING: language install failed: {e}", file=sys.stderr)
@@ -212,8 +254,8 @@ _EGG_BASE.mkdir(parents=True, exist_ok=True)
 
 setup(
     name="triton-ascend",
-    version=os.environ.get("TRITON_ASCEND_VERSION", "3.8.0"),
-    description="Ascend NPU backend plugin for community Triton",
+    version=os.environ.get("TRITON_ASCEND_VERSION", "3.7.1"),
+    description="Ascend NPU backend plugin for community Triton 3.7.1",
     # Runtime-only wheel: backend + language + _C.so. No community trees,
     # no AscendNPU-IR / lib / include / standalone sources.
     #
@@ -242,6 +284,7 @@ setup(
         "triton_ascend": [
             "language/cann/**/*.py",
             "language/kernels/**/*.py",
+            "_autoload_plugin.py",
             # Untagged build product under package root; tagged .so are leftovers.
             "_C/libtriton_ascend.so",
         ],

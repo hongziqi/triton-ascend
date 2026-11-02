@@ -107,7 +107,8 @@ def _install_semantic_overflow_patches() -> None:
             cond = self.or_(cond, self.not_(mask))
         if auto_overflow and hasattr(self.builder, "create_auto_overflow_assert"):
             self.builder.create_auto_overflow_assert(cond.handle, msg)
-            return self.make_tensor(None, tl.void)
+            wrap = getattr(self, "make_tensor", None) or self.tensor
+            return wrap(None, tl.void)
         return _orig_device_assert(self, cond, msg, mask)
 
     def binary_op_sanitize_overflow_impl(self, lhs, rhs, binary_op):
@@ -232,9 +233,9 @@ def _install_arange_relax() -> None:
         if ret_ty is None:
             ret_ty = tl.block_type(tl.int32, shape)
         ret_ty_ir = ret_ty.to_ir(self.builder)
-        return self.make_tensor(
-            self.builder.create_make_range(ret_ty_ir, start, end), ret_ty
-        )
+        # Triton 3.7 uses ``tensor``; 3.9+ renamed to ``make_tensor``.
+        wrap = getattr(self, "make_tensor", None) or self.tensor
+        return wrap(self.builder.create_make_range(ret_ty_ir, start, end), ret_ty)
 
     TritonSemantic.arange = arange
     TritonSemantic._ascend_arange_hotpatch = True
@@ -349,9 +350,15 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
-    _install_auto_overflow_assert_builder()
-    _install_semantic_overflow_patches()
-    _install_interpreter_overflow()
+    # Triton 3.7 AssertOp expects i1; Ascend overflow packing still emits i32
+    # conditions that fail TritonToLinalg. Skip overflow hotpatches on 3.7.
+    import triton as _triton
+
+    _is_37 = str(getattr(_triton, "__version__", "")).startswith("3.7")
+    if not _is_37:
+        _install_auto_overflow_assert_builder()
+        _install_semantic_overflow_patches()
+        _install_interpreter_overflow()
     _install_block_shape_relax()
     _install_arange_relax()
     _install_compiler_parse()

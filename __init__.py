@@ -1,16 +1,15 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
-"""Load the Ascend plugin into the host Triton context (community API).
+"""Load the Ascend plugin into the host Triton context (Triton 3.7 ABI).
 
-``libtriton_ascend.so`` exports ``tritonGetPluginInfo``. It does not own a
-private ``MLIRContext``. ``libtriton`` must already be imported, and the host
-wheel must be built with ``TRITON_EXT_ENABLED=1`` so MLIR symbols resolve when
-the plugin is dlopen'd.
+``libtriton_ascend.so`` exports ``tritonGetPluginInfo``. Triton 3.7 has no
+``extend_with``; plugins are loaded from ``TRITON_PLUGIN_PATHS`` when
+``libtriton`` is first imported. Ensure the env var is set *before*
+``import triton`` (the installed ``.pth`` / ``_autoload_plugin`` does this).
 
-Community load path (no HostExtend / ``extend_module_with``)::
+Verify path after import::
 
-    passes.plugin.extend_with(so)   # PassInfo → passes.plugin.add_*
-    ir.extend_dialects_with(so)     # DialectInfo queued for load_dialects
-    ir.builder.extend_with(so)      # OpInfo → builder.create_<name>
+    assert hasattr(passes.plugin, "add_triton_to_linalg")
+    assert hasattr(ir.builder, "create_extract_scalar")
 """
 
 from __future__ import annotations
@@ -39,8 +38,6 @@ def plugin_library() -> Path | None:
     c_dir = _package_dir() / "_C"
     if not c_dir.is_dir():
         return None
-    # Prefer the untagged build product. Do NOT pick by size: a stale
-    # libtriton_ascend.cpython-*.so can be larger and still be the wrong ABI.
     plain = c_dir / "libtriton_ascend.so"
     if plain.is_file():
         return plain
@@ -50,50 +47,51 @@ def plugin_library() -> Path | None:
     return max(matches, key=lambda p: p.stat().st_mtime)
 
 
+def _plugin_paths_contain(so: Path) -> bool:
+    env = os.environ.get("TRITON_PLUGIN_PATHS", "")
+    want = str(so.resolve())
+    return any(Path(p).resolve() == Path(want) for p in env.split(":") if p)
+
+
 def register_ascend_native() -> None:
-    """Load the Ascend plugin ``.so`` into the host (idempotent).
+    """Verify the Ascend plugin was loaded via ``TRITON_PLUGIN_PATHS`` (idempotent).
 
-    Community plugin entry points:
-
-    * ``passes.plugin.extend_with(so)`` — PassInfo → ``passes.plugin.add_*``
-    * ``ir.extend_dialects_with(so)`` — DialectInfo for later ``load_dialects``
-    * ``ir.builder.extend_with(so)`` — OpInfo → ``builder.create_<name>``
-
-    Deliberately does **not** call ``ir.extend_module_with`` (HostExtend).
+    Triton 3.7 binds PassInfo / OpInfo / DialectInfo at ``libtriton`` import
+    time. There is no ``extend_with``; calling this after import can only
+    check that the env-based load succeeded.
     """
     global _ASCEND_PLUGIN_LOADED, ir
     if _ASCEND_PLUGIN_LOADED:
         return
     libtriton = importlib.import_module("triton._C.libtriton")
     host_ir = libtriton.ir
-    # Avoid double-dlopen of another copy of libtriton_ascend.so (pytest may
-    # import this tree as a parent package in addition to the installed wheel).
     if getattr(libtriton, "_ascend_plugin_loaded", False):
         ir = host_ir
         _ASCEND_PLUGIN_LOADED = True
         return
+
     so = plugin_library()
-    if so is None:
-        raise FileNotFoundError(
-            "libtriton_ascend.so not found under triton_ascend/_C/. "
-            "Build standalone/ against a TRITON_EXT host."
-        )
-    so_s = str(so)
+    passes = libtriton.passes
+    plugin_mod = getattr(passes, "plugin", None)
+    has_pass = plugin_mod is not None and hasattr(plugin_mod, "add_triton_to_linalg")
+    has_op = hasattr(host_ir, "builder") and hasattr(
+        host_ir.builder, "create_extract_scalar"
+    )
 
-    libtriton.passes.plugin.extend_with(so_s)
-
-    if hasattr(host_ir, "extend_dialects_with"):
-        host_ir.extend_dialects_with(so_s)
-
-    if not hasattr(host_ir, "builder") or not hasattr(host_ir.builder, "extend_with"):
+    if not has_pass or not has_op:
+        so_hint = str(so) if so is not None else "<missing libtriton_ascend.so>"
+        in_env = _plugin_paths_contain(so) if so is not None else False
         raise RuntimeError(
-            "host missing ir.builder.extend_with; need a Triton wheel built "
-            "with TRITON_EXT_ENABLED=1 (community OpInfo path)"
+            "Ascend plugin was not loaded by host Triton 3.7.\n"
+            f"  so={so_hint}\n"
+            f"  TRITON_PLUGIN_PATHS contains so: {in_env}\n"
+            f"  has add_triton_to_linalg: {has_pass}\n"
+            f"  has create_extract_scalar: {has_op}\n"
+            "Set TRITON_PLUGIN_PATHS to the .so *before* importing triton "
+            "(or reinstall so the triton_ascend .pth runs at startup). "
+            "Host must be built with TRITON_EXT_ENABLED=1."
         )
-    host_ir.builder.extend_with(so_s)
 
-    # Point triton_ascend.ir at stock host ir for any legacy import sites that
-    # only need shared types / parse_attr / load_dialects.
     ir = host_ir
     sys.modules[__name__ + ".ir"] = host_ir
     libtriton._ascend_plugin_loaded = True
@@ -109,12 +107,7 @@ def _drop_none_module_sentinels(prefix: str) -> None:
 
 
 def _seed_backends_ascend_alias() -> None:
-    """Publish ``triton.backends.ascend`` before cann.libdevice imports utils.
-
-    Backend discovery imports ``triton_ascend.backend.*`` after this package
-    ``__init__`` returns; libdevice still needs the legacy alias during init.
-    Importing ``.backend`` here is safe: this module is already in sys.modules.
-    """
+    """Publish ``triton.backends.ascend`` before cann.libdevice imports utils."""
     if "triton.backends.ascend" in sys.modules:
         return
     backend = importlib.import_module(__name__ + ".backend")
@@ -122,11 +115,7 @@ def _seed_backends_ascend_alias() -> None:
 
 
 def _ensure_cann_language() -> None:
-    """Expose ``triton.language.extra.cann`` without copying it into the wheel.
-
-    ``libdevice`` and ``extension`` are loaded independently inside cann's
-    ``__init__``; a missing HostExtend affine API must not remove cann itself.
-    """
+    """Expose ``triton.language.extra.cann`` without copying it into the wheel."""
     _drop_none_module_sentinels("triton.language.extra.cann")
 
     existing = sys.modules.get("triton.language.extra.cann")
@@ -175,7 +164,6 @@ def _ensure_cann_language() -> None:
 def _triton_jit_ready() -> bool:
     """False while ``import triton`` (or ``runtime.jit``) is still initializing."""
     triton_mod = sys.modules.get("triton")
-    # ``must_use_result`` is assigned near the end of community triton/__init__.py.
     if triton_mod is None or not hasattr(triton_mod, "must_use_result"):
         return False
     jit = sys.modules.get("triton.runtime.jit")
@@ -199,12 +187,7 @@ def _install_hotpatch_safe() -> None:
 
 
 class _DeferredAscendSetupFinder:
-    """Finish Ascend setup after ``import triton`` completes.
-
-    Backend discovery imports this package *during* ``import triton``. Eagerly
-    executing cann/libdevice or hotpatch then circular-imports
-    ``triton.runtime.jit``. Defer until jit is importable.
-    """
+    """Finish Ascend setup after ``import triton`` completes."""
 
     _hotpatch_attempted = False
 
@@ -224,7 +207,6 @@ class _DeferredAscendSetupFinder:
         if fullname == "triton.language.extra.cann":
             mod = sys.modules.get(fullname)
             return getattr(mod, "__spec__", None) if mod is not None else None
-        # Submodules (libdevice, extension, …) resolve via package __path__.
         return None
 
 
@@ -235,22 +217,27 @@ def _install_cann_import_hook() -> None:
     _install_cann_import_hook._installed = True  # type: ignore[attr-defined]
 
 
+# Best-effort: if autoload did not run, still publish the path for the *next*
+# process. Too late for the current libtriton if already imported.
 try:
-    # Register plugin so create_* / triton_ascend.ir exist before any later
-    # cann.extension import (extension must not pull ir mid-init via package).
+    from ._autoload_plugin import ensure_plugin_path as _ensure_plugin_path
+
+    _ensure_plugin_path()
+except Exception:
+    pass
+
+try:
     register_ascend_native()
 except Exception as _ascend_exc:
     warnings.warn(
         f"triton_ascend plugin registration failed ({_ascend_exc!r}); "
-        "build standalone/ against a TRITON_EXT_ENABLED host.",
+        "export TRITON_PLUGIN_PATHS=<libtriton_ascend.so> before importing triton.",
         ImportWarning,
         stacklevel=1,
     )
 
 _install_cann_import_hook()
 
-# If triton is already fully imported (e.g. ``import triton_ascend`` after
-# ``import triton``), inject immediately; otherwise the meta_path hook waits.
 if _triton_jit_ready():
     try:
         _ensure_cann_language()

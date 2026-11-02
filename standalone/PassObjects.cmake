@@ -75,7 +75,8 @@ include_directories(
   "${ASCEND_ROOT}"
   "${ASCEND_ROOT}/include"
   "${CMAKE_BINARY_DIR}/include"
-  "${TRITON_WHEEL_INCLUDE_DIR}"
+  "${TRITON_SRC_INCLUDE_DIR}"
+  "${TRITON_SRC_ROOT}"
   "${BISHENGIR_MAIN_INCLUDE_DIR}"
   "${BISHENGIR_INCLUDE_DIR}"
 )
@@ -121,6 +122,21 @@ foreach(_pair
     "${CMAKE_BINARY_DIR}/bishengir/${_pair}")
 endforeach()
 
+# Generate Triton dialect .inc headers from third_party/triton (3.7.1 wheel
+# does not ship them). Outputs land under ${CMAKE_BINARY_DIR}/include/triton/...
+# so #include "triton/Dialect/.../*.inc" resolves. Do NOT compile TritonIR
+# objects into the plugin — TypeIDs stay in host libtriton.
+if(NOT TARGET TritonTableGen)
+  add_subdirectory(
+    "${TRITON_SRC_ROOT}/include/triton/Dialect/Triton"
+    "${CMAKE_BINARY_DIR}/include/triton/Dialect/Triton")
+endif()
+if(NOT TARGET TritonGPUTableGen)
+  add_subdirectory(
+    "${TRITON_SRC_ROOT}/include/triton/Dialect/TritonGPU"
+    "${CMAKE_BINARY_DIR}/include/triton/Dialect/TritonGPU")
+endif()
+
 set(TRITON_ASCEND_PASSES_IN_PLUGIN ON)
 set(TRITON_ASCEND_PLUGIN_ONLY ON)
 set(TRITON_ASCEND_STANDALONE_PLUGIN ON)
@@ -132,6 +148,22 @@ include("${ASCEND_ROOT}/cmake/AscendPasses.cmake")
 
 add_subdirectory("${ASCEND_ROOT}/include" "${CMAKE_BINARY_DIR}/include")
 add_subdirectory("${ASCEND_ROOT}/lib" "${CMAKE_BINARY_DIR}/lib")
+# Ascend TUs that include Triton headers need the generated .inc files first.
+set(_triton_hdr_deps)
+foreach(_t TritonTableGen TritonGPUTableGen TritonGPUAttrDefsIncGen
+           TritonGPUOpsEnumsIncGen TritonGPUCGAAttrIncGen
+           TritonGPUTypeInterfacesIncGen TritonGPUOpInterfacesIncGen
+           TritonTransformsIncGen)
+  if(TARGET ${_t})
+    list(APPEND _triton_hdr_deps ${_t})
+  endif()
+endforeach()
+foreach(_lib TritonAscendIR TritonStructuredIR TritonToLLVM TritonMemoryAccessCore
+             TritonMemoryAccessAnalysis)
+  if(TARGET ${_lib} AND _triton_hdr_deps)
+    add_dependencies(${_lib} ${_triton_hdr_deps})
+  endif()
+endforeach()
 message(STATUS "scheme 1 plugin: full Ascend passes in libtriton_ascend.so")
 
 function(triton_ascend_attach_plugin_objects dest)

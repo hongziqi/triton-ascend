@@ -6,9 +6,9 @@
 
 namespace mlir::triton::ascend {
 
-/// Community PluginInfo.ops table for ``ir.builder.extend_with``.
-/// Each OpInfo.name is without the ``create_`` prefix (host binds
-/// ``create_<name>(list[Value])``). operands[0] is the result slot.
+/// Community PluginInfo.ops table for Triton 3.7 ``TRITON_PLUGIN_PATHS``.
+/// Each OpInfo.name must include the ``create_`` prefix (3.7 binds the
+/// name as-is; 3.9+ auto-prefixes). operands[0] is the result slot.
 mlir::triton::plugin::OpInfo *getAscendOpInfoTable(size_t &numOps);
 
 } // namespace mlir::triton::ascend

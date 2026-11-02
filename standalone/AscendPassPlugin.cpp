@@ -1,7 +1,7 @@
 // Ascend MLIR plugin entry (tritonGetPluginInfo).
 // Registers dialects, OpInfo, and Ascend lowering PassInfo so
-// passes.plugin.extend_with creates add_* methods (e.g. add_graph_optimize).
-// Community path: PluginInfo.extend is always null (no HostExtend).
+// TRITON_PLUGIN_PATHS binds PassInfo.name as passes.plugin.<name> (include add_ prefix on 3.7) (e.g. add_graph_optimize).
+// Triton 3.7 Plugin ABI v2 via TRITON_PLUGIN_PATHS (no extend_with / HostExtend).
 
 #include "ArgParser.h"
 #include "AscendOpInfo.h"
@@ -161,28 +161,28 @@ static void registerNoOp() {}
 
 TRITON_PLUGIN_API mlir::triton::plugin::PluginInfo *tritonGetPluginInfo() {
   static mlir::triton::plugin::PassInfo passes[] = {
-      {"graph_optimize", kPluginVersion, addGraphOptimize, registerNoOp},
-      {"triton_control_flow_opt", kPluginVersion, addTritonControlFlowOpt,
+      {"add_graph_optimize", kPluginVersion, addGraphOptimize, registerNoOp},
+      {"add_triton_control_flow_opt", kPluginVersion, addTritonControlFlowOpt,
        registerNoOp},
-      {"triton_to_structure", kPluginVersion, addTritonToStructure,
+      {"add_triton_to_structure", kPluginVersion, addTritonToStructure,
        registerNoOp},
-      {"discrete_mask_access_conversion", kPluginVersion,
+      {"add_discrete_mask_access_conversion", kPluginVersion,
        addDiscreteMaskAccessConversion, registerNoOp},
-      {"triton_to_annotation", kPluginVersion, addTritonToAnnotation,
+      {"add_triton_to_annotation", kPluginVersion, addTritonToAnnotation,
        registerNoOp},
-      {"triton_to_unstructure", kPluginVersion, addTritonToUnstructure,
+      {"add_triton_to_unstructure", kPluginVersion, addTritonToUnstructure,
        registerNoOp},
-      {"triton_to_hivm", kPluginVersion, addTritonToHivm, registerNoOp},
-      {"triton_to_hfusion", kPluginVersion, addTritonToHfusion, registerNoOp},
-      {"triton_to_llvm", kPluginVersion, addTritonToLlvm, registerNoOp},
-      {"bubble_up_operation", kPluginVersion, addBubbleUpOperation,
+      {"add_triton_to_hivm", kPluginVersion, addTritonToHivm, registerNoOp},
+      {"add_triton_to_hfusion", kPluginVersion, addTritonToHfusion, registerNoOp},
+      {"add_triton_to_llvm", kPluginVersion, addTritonToLlvm, registerNoOp},
+      {"add_bubble_up_operation", kPluginVersion, addBubbleUpOperation,
        registerNoOp},
-      {"triton_to_linalg", kPluginVersion, addTritonToLinalg, registerNoOp},
-      {"merge_concat_load_buffer", kPluginVersion, addMergeConcatLoadBuffer,
+      {"add_triton_to_linalg", kPluginVersion, addTritonToLinalg, registerNoOp},
+      {"add_merge_concat_load_buffer", kPluginVersion, addMergeConcatLoadBuffer,
        registerNoOp},
-      {"dynamic_cv_pipeline", kPluginVersion, addDynamicCvPipeline,
+      {"add_dynamic_cv_pipeline", kPluginVersion, addDynamicCvPipeline,
        registerNoOp},
-      {"normalize_debug_line_locations", kPluginVersion,
+      {"add_normalize_debug_line_locations", kPluginVersion,
        addNormalizeDebugLineLocations, registerNoOp},
   };
 
@@ -205,9 +205,6 @@ TRITON_PLUGIN_API mlir::triton::plugin::PluginInfo *tritonGetPluginInfo() {
       ops,
       numOps,
       TRITON_VERSION,
-#if TRITON_PLUGIN_API_VERSION >= 3
-      /*extend=*/nullptr,
-#endif
   };
   return &info;
 }

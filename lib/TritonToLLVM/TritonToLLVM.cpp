@@ -257,14 +257,8 @@ struct BarrierOpConversion : OpRewritePattern<triton::gpu::BarrierOp> {
 
   LogicalResult matchAndRewrite(triton::gpu::BarrierOp op,
                                 PatternRewriter &rewriter) const final {
-    auto barrier = rewriter.replaceOpWithNewOp<mlir::gpu::BarrierOp>(op);
-    // The newer LLVM's gpu.barrier carries a default `scope` attribute
-    // (#gpu.barrier_scope<workgroup>). The AscendNPU-IR fork's gpu dialect
-    // predates that attribute, so the printed IR would fail to parse there
-    // ("unknown attribute `barrier_scope` in dialect `gpu`").
-    // In the current LLVM `scope` is an inherent property, not a discardable
-    // attribute, so removeAttr() is a no-op; clear the property instead.
-    barrier.setScopeAttr(nullptr);
+    // Triton 3.7 / LLVM 23: plain gpu.barrier (no scope property to clear).
+    rewriter.replaceOpWithNewOp<mlir::gpu::BarrierOp>(op);
     return success();
   }
 };
