@@ -21,31 +21,50 @@ PASS 源码来自 triton-ascend **main**（仍保留 `tt.make_tensor_ptr` 等 3.
 └── _autoload_plugin.py
 ```
 
-## LLVM
-
-| 项 | 值 |
-|------|------|
-| 宿主 | `triton==3.7.1`（`1f126a6`） |
-| 本机 install | `LLVM_INSTALL_PREFIX_3_7_1_PATCH=/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch` |
-| 加载 | `TRITON_PLUGIN_PATHS` |
-| 虚拟环境 | `plugin3.7` |
-
-LLVM 补丁打在上述 install 对应的源码树上，不进本仓库的编译。
-
-## 构建
+### 编译 LLVM（一次性）
 
 ```bash
-source ~/miniconda/etc/profile.d/conda.sh && conda activate plugin3.7
+export LLVM_INSTALL_PREFIX_3_7_1_PATCH=/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch
+git clone git@github.com:triton-lang/llvm-project.git
+mv llvm-project triton-llvm-project-3.7.1-1f126a6-patch
+cd triton-llvm-project-3.7.1-1f126a6-patch
+# 需要 apply triton-ascend仓库的patch文件
+git apply --whitespace=nowarn \
+  triton-ascend/patch/triton-llvm_patch_1f126a6.patch
+
+mkdir -p build && cd build
+cmake ../llvm -G Ninja \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DLLVM_ENABLE_PROJECTS="mlir;llvm;lld" \
+  -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
+  -DCMAKE_INSTALL_PREFIX=${LLVM_INSTALL_PREFIX_3_7_1_PATCH} \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+ninja install
+```
+
+## 构建与安装
+
+```bash
 export LLVM_SYSPATH=${LLVM_INSTALL_PREFIX_3_7_1_PATCH:-/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch}
-cd ~/workspace/main/triton-ascend-main-adapter-plugin-3.7
+git clone -b main-plugin-adapter-3.7 https://github.com/hongziqi/triton-ascend.git
+cd triton-ascend
 git submodule update --init AscendNPU-IR third_party/triton
+
 pip install -e . --no-build-isolation
 ```
 
-`pip` 默认会吞掉构建子进程 stdout，终端上常只剩一行 `Building editable ...`。本仓库的 `setup.py` 会：
+## 验证（插件 ABI）
 
-- 把 cmake 进度打到 **`/dev/tty`**（即使非 `-v` 也能看到 `[ xx%]`）
-- 完整日志写到 `build/plugin/logs/cmake-configure.log` / `cmake-build.log`（可用 `tail -f`）
-- 若 `CMakeCache` 里的 `LLVM_DIR` 与当前 `LLVM_SYSPATH` 不一致，自动清掉旧 build 目录
-
-需要 pip 原样回显全部输出时：`pip install -v -e . --no-build-isolation`。
+```python
+import triton, triton_ascend
+from triton._C.libtriton import ir, passes
+triton_ascend.register_ascend_native()
+assert hasattr(ir.builder, "create_extract_scalar")
+assert hasattr(passes.plugin, "add_triton_to_linalg")
+```
+验证 test_add:
+```bash
+pytest unittest/pytest_ut/test_add.py
+```
