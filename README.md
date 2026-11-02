@@ -47,11 +47,11 @@ ninja install
 ## 构建与安装
 
 ```bash
-export LLVM_SYSPATH=${LLVM_INSTALL_PREFIX_3_7_1_PATCH:-/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch}
+export LLVM_SYSPATH=${LLVM_INSTALL_PREFIX_3_7_1_PATCH}
 git clone -b main-plugin-adapter-3.7 https://github.com/hongziqi/triton-ascend.git
 cd triton-ascend
-git submodule update --init AscendNPU-IR third_party/triton
-
+git submodule update --init --depth 1 --progress AscendNPU-IR third_party/triton
+pip install triton==3.7.1
 pip install -e . --no-build-isolation
 ```
 
