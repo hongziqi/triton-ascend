@@ -15,6 +15,7 @@ Verify path after import::
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import os
 import sys
 import warnings
@@ -114,6 +115,26 @@ def _seed_backends_ascend_alias() -> None:
     sys.modules.setdefault("triton.backends.ascend", backend)
 
 
+def _inject_namespace_package(fullname: str, src: Path) -> object | None:
+    """Load ``src`` as ``fullname`` with submodule_search_locations (pkg layout)."""
+    if not src.is_dir() or not (src / "__init__.py").is_file():
+        return None
+    existing = sys.modules.get(fullname)
+    if existing is not None:
+        return existing
+    spec = importlib.util.spec_from_file_location(
+        fullname,
+        src / "__init__.py",
+        submodule_search_locations=[str(src)],
+    )
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[fullname] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _ensure_cann_language() -> None:
     """Expose ``triton.language.extra.cann`` without copying it into the wheel."""
     _drop_none_module_sentinels("triton.language.extra.cann")
@@ -134,17 +155,10 @@ def _ensure_cann_language() -> None:
     try:
         _seed_backends_ascend_alias()
         extra = importlib.import_module("triton.language.extra")
-        spec = importlib.util.spec_from_file_location(
-            "triton.language.extra.cann",
-            src / "__init__.py",
-            submodule_search_locations=[str(src)],
-        )
-        if spec is None or spec.loader is None:
+        mod = _inject_namespace_package("triton.language.extra.cann", src)
+        if mod is None:
             return
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules["triton.language.extra.cann"] = mod
         extra.cann = mod  # type: ignore[attr-defined]
-        spec.loader.exec_module(mod)
     except Exception as exc:
         sys.modules.pop("triton.language.extra.cann", None)
         _drop_none_module_sentinels("triton.language.extra.cann")
@@ -156,6 +170,64 @@ def _ensure_cann_language() -> None:
             pass
         warnings.warn(
             f"triton.language.extra.cann injection failed ({exc!r})",
+            ImportWarning,
+            stacklevel=2,
+        )
+
+
+def _ensure_buffer_language() -> None:
+    """Expose former invasive ``triton.extension.buffer`` from the plugin tree.
+
+    Monorepo Ascend shipped buffer DSL under site-packages ``triton/extension/``.
+    Scheme-1 keeps that code in ``language/extension/buffer`` and publishes it
+    via ``sys.modules`` (same pattern as cann), without patching the host wheel.
+    """
+    _drop_none_module_sentinels("triton.extension")
+    _drop_none_module_sentinels("triton.extension.buffer")
+
+    if sys.modules.get("triton.extension.buffer.language") is not None:
+        return
+
+    root = _package_dir() / "language" / "extension"
+    buf = root / "buffer"
+    if not buf.is_dir():
+        return
+    try:
+        # Parent packages: triton.extension → triton.extension.buffer → language
+        ext_pkg = sys.modules.get("triton.extension")
+        if ext_pkg is None:
+            import types
+
+            ext_pkg = types.ModuleType("triton.extension")
+            ext_pkg.__path__ = []  # type: ignore[attr-defined]
+            sys.modules["triton.extension"] = ext_pkg
+            try:
+                triton_mod = importlib.import_module("triton")
+                if not hasattr(triton_mod, "extension"):
+                    triton_mod.extension = ext_pkg  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+        buf_mod = _inject_namespace_package("triton.extension.buffer", buf)
+        if buf_mod is None:
+            return
+        lang = _inject_namespace_package(
+            "triton.extension.buffer.language", buf / "language"
+        )
+        if lang is None:
+            return
+        # Re-export common names on the buffer package for convenience.
+        if not hasattr(buf_mod, "language"):
+            buf_mod.language = lang  # type: ignore[attr-defined]
+    except Exception as exc:
+        for key in (
+            "triton.extension.buffer.language",
+            "triton.extension.buffer",
+        ):
+            sys.modules.pop(key, None)
+            _drop_none_module_sentinels(key)
+        warnings.warn(
+            f"triton.extension.buffer injection failed ({exc!r})",
             ImportWarning,
             stacklevel=2,
         )
@@ -196,11 +268,20 @@ class _DeferredAscendSetupFinder:
         cann_request = fullname == "triton.language.extra.cann" or fullname.startswith(
             "triton.language.extra.cann."
         )
+        buffer_request = fullname == "triton.extension.buffer" or fullname.startswith(
+            "triton.extension.buffer."
+        ) or fullname == "triton.extension"
         if not _triton_jit_ready():
             return None
         if not cls._hotpatch_attempted:
             cls._hotpatch_attempted = True
             _install_hotpatch_safe()
+        if buffer_request:
+            _ensure_buffer_language()
+            mod = sys.modules.get(fullname)
+            if mod is not None:
+                return getattr(mod, "__spec__", None)
+            return None
         if not cann_request:
             return None
         _ensure_cann_language()
@@ -247,6 +328,14 @@ if _triton_jit_ready():
             ImportWarning,
             stacklevel=1,
         )
+    try:
+        _ensure_buffer_language()
+    except Exception as _buf_exc:
+        warnings.warn(
+            f"triton_ascend buffer language setup failed ({_buf_exc!r})",
+            ImportWarning,
+            stacklevel=1,
+        )
     _install_hotpatch_safe()
 
 
@@ -255,4 +344,5 @@ __all__ = [
     "plugin_library",
     "ir",
     "_ensure_cann_language",
+    "_ensure_buffer_language",
 ]

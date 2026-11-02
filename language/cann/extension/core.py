@@ -179,16 +179,14 @@ class ascend_address_space_base(bl.address_space):
         super().__init__()
         self.real_address_space = address_space_value
 
-    def to_ir(self, builder: ir.builder) -> ir.attribute:
-        # Address-space attributes are not ops. OpInfo only binds create_*.
-        # Host 3.7 ir.builder has no get_target_attribute.
+    def to_ir(self, builder: ir.builder):
+        # Address-space attributes are not ops. Hotpatch provides
+        # get_target_attribute → HIVM enum i32 for OpInfo packing; HostExtend
+        # returned a real Attribute.
         getter = getattr(builder, "get_target_attribute", None)
-        if getter is None:
-            raise AttributeError(
-                "ir.builder has no get_target_attribute; "
-                "HIVM address_space attrs are not part of the OpInfo create_* table"
-            )
-        return getter(self.real_address_space)
+        if getter is not None:
+            return getter(self.real_address_space)
+        return int(self.real_address_space.value)
 
 
 class ascend_address_space_group:

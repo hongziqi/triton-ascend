@@ -403,6 +403,11 @@ def _make_attrs(op, builder, is_macro):
 
 
 def _to_result(res, res_types):
+    # Stock OpInfo recovery returns a single Value (or None); monorepo returned a list.
+    if res is None:
+        res = []
+    elif not isinstance(res, (list, tuple)):
+        res = [res]
     assert (len(res) == len(res_types))
     n_res = len(res)
     if n_res == 0:
@@ -410,6 +415,126 @@ def _to_result(res, res_types):
     if n_res == 1:
         return tl.tensor(res[0], res_types[0])
     return tl.tuple(tl.tensor(res[i], res_types[i]) for i in range(n_res))
+
+
+def _pack_i32_list(builder, values):
+    from .opinfo import pack_i32
+    out = [pack_i32(builder, len(values))]
+    out.extend(pack_i32(builder, int(v)) for v in values)
+    return out
+
+
+def _pack_optional_string(builder, text):
+    from .opinfo import pack_i32, pack_string
+    if text is None:
+        return [pack_i32(builder, 0)]
+    return [pack_i32(builder, 1)] + pack_string(builder, str(text))
+
+
+def _pack_custom_attrs(builder, op, is_macro, num_operands):
+    """Encode HIVM custom-op attrs as OpInfo i32/string Values (no Attribute objects)."""
+    from pathlib import Path
+    from .opinfo import pack_i32
+    from .affine_map_soft import AffineMapDesc
+
+    packed = []
+    packed.append(pack_i32(builder, int(op.core.value)))
+    if op.core != core.CORE.CUBE:
+        packed.append(pack_i32(builder, int(op.mode.value)))
+    else:
+        packed.append(pack_i32(builder, -1))
+    if is_macro:
+        pipe_in, pipe_out = op.pipe
+        packed.append(pack_i32(builder, int(pipe_in.value)))
+        packed.append(pack_i32(builder, int(pipe_out.value)))
+    else:
+        packed.append(pack_i32(builder, int(op.pipe.value)))
+        packed.append(pack_i32(builder, -1))
+
+    symbol = getattr(op, "symbol", None)
+    packed += _pack_optional_string(builder, symbol)
+
+    bitcode = getattr(op, "bitcode", None)
+    if bitcode is not None:
+        bitcode = str(Path(bitcode).absolute())
+    packed += _pack_optional_string(builder, bitcode)
+
+    for key in ("source", "compile", "extra_attr"):
+        packed += _pack_optional_string(builder, getattr(op, key, None))
+
+    if hasattr(op, "iterator_types"):
+        packed += _pack_i32_list(builder, [it.value for it in op.iterator_types])
+    else:
+        packed.append(pack_i32(builder, 0))
+
+    maps = list(getattr(op, "indexing_map", None) or [])
+    packed.append(pack_i32(builder, len(maps)))
+    for m in maps:
+        if not isinstance(m, AffineMapDesc):
+            raise TypeError(
+                "indexing_map entries must be soft AffineMapDesc "
+                f"(got {type(m)!r}); HostExtend AffineMap is not OpInfo-packable"
+            )
+        packed.append(pack_i32(builder, int(m.kind)))
+        packed.extend(pack_i32(builder, int(x)) for x in m.to_opinfo_ints())
+
+    def _resolve_arg_index(arg):
+        if isinstance(arg, int):
+            return int(arg)
+        if isinstance(arg, str) and hasattr(op, "signature"):
+            param_names = list(op.signature.parameters.keys())
+            if arg in param_names:
+                return param_names.index(arg)
+        raise AssertionError(f"arg key {arg!r} should be string or int")
+
+    aligns = []
+    if hasattr(op, "align_dim"):
+        for arg, align_val in op.align_dim.items():
+            aligns.append((_resolve_arg_index(arg), int(align_val)))
+    packed.append(pack_i32(builder, len(aligns)))
+    for idx, val in aligns:
+        packed.append(pack_i32(builder, idx))
+        packed.append(pack_i32(builder, val))
+
+    # extra_buffers: type carriers + sizes (always both length prefixes)
+    from .opinfo import pack_value_vector
+    extra = getattr(op, "extra_buffers", None)
+    carriers = []
+    sizes = []
+    if extra is not None:
+        if isinstance(extra, tuple) and len(extra) == 2 and not isinstance(
+                extra[0], (list, tuple)):
+            extra = [extra]
+        for ty, sz in extra:
+            ir_ty = ty.to_ir(builder) if hasattr(ty, "to_ir") else ty
+            carriers.append(builder.create_poison(ir_ty))
+            sizes.append(int(sz))
+    packed += pack_value_vector(builder, carriers)
+    packed += _pack_i32_list(builder, sizes)
+
+    # CUBE-only arg attrs: data_layout / address_space
+    layouts = []
+    spaces = []
+    if op.core == core.CORE.CUBE:
+        if hasattr(op, "data_layout"):
+            for arg, layout in op.data_layout.items():
+                layout_value = layout.value if isinstance(layout, core.DataLayout) else layout
+                layouts.append((_resolve_arg_index(arg), int(layout_value)))
+        if hasattr(op, "address_space"):
+            for arg, space in op.address_space.items():
+                space_value = space.value if isinstance(space, core.AddressSpace) else space
+                spaces.append((_resolve_arg_index(arg), int(space_value)))
+    packed.append(pack_i32(builder, len(layouts)))
+    for idx, val in layouts:
+        packed.append(pack_i32(builder, idx))
+        packed.append(pack_i32(builder, val))
+    packed.append(pack_i32(builder, len(spaces)))
+    for idx, val in spaces:
+        packed.append(pack_i32(builder, idx))
+        packed.append(pack_i32(builder, val))
+
+    packed.append(pack_i32(builder, int(num_operands)))
+    return packed
 
 
 def _init_op(op_class, *args, **kwargs):
@@ -448,11 +573,15 @@ def custom_semantic(name: str, *args, _semantic=None, **kwargs):
     outputs = _to_operands(outs, _semantic)
     inputs = _args_to_operands(op, _semantic, args, kwargs)
     builder = _semantic.builder
-    # OpInfo create_custom_* packs name + inputs + outputs. HIVM attributes
-    # (pipe / core / address space) are not part of that value vector.
+    # OpInfo: name + ins + outs + packed HIVM attrs (enums/strings/maps as i32).
     from .opinfo import call, pack_string, pack_value_vector
-    packed = (pack_string(builder, name) + pack_value_vector(builder, inputs) +
-              pack_value_vector(builder, outputs))
+    num_operands = len(inputs) + len(outputs)
+    packed = (
+        pack_string(builder, name)
+        + pack_value_vector(builder, inputs)
+        + pack_value_vector(builder, outputs)
+        + _pack_custom_attrs(builder, op, is_macro, num_operands)
+    )
     res = call(builder, "custom_macro_op" if is_macro else "custom_op", packed)
     # Results with same types as outputs.
     res_types = [out.type for out in outs]

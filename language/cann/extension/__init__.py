@@ -19,13 +19,17 @@ affine_dim_expr = getattr(_ascend_ir, "affine_dim_expr", None)
 affine_symbol_expr = getattr(_ascend_ir, "affine_symbol_expr", None)
 affine_binary_op_expr = getattr(_ascend_ir, "affine_binary_op_expr", None)
 affine_map = getattr(_ascend_ir, "affine_map", None)
+if affine_map is None:
+    from .affine_map_soft import AffineMap as AffineMap  # noqa: F811
+    from .affine_map_soft import affine_map as affine_map  # noqa: F811
+else:
+    AffineMap = affine_map
 
 AffineExpr = affine_expr
 AffineConstantExpr = affine_constant_expr
 AffineDimExpr = affine_dim_expr
 AffineSymbolExpr = affine_symbol_expr
 AffineBinaryOpExpr = affine_binary_op_expr
-AffineMap = affine_map
 
 from .core import (
     ascend_address_space,

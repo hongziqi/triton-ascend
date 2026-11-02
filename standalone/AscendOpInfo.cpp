@@ -18,15 +18,19 @@
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/UB/IR/UBOps.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
+#include <atomic>
 #include <optional>
 #include <string>
 #include <vector>
@@ -39,6 +43,30 @@ namespace {
 // ---------------------------------------------------------------------------
 // Packing helpers
 // ---------------------------------------------------------------------------
+
+/// Stock community Triton OpInfo bindings are `create_*(list) -> None` and do
+/// **not** prepend a result slot or return args[0]. Ascend packing still uses
+/// ops[0] as the result slot (Python prepends a placeholder). To hand the
+/// produced Value back to Python without patching libtriton, tag the defining
+/// op and record the seq on the parent ModuleOp for recovery via module.walk.
+static void setOpResult(TritonOpBuilder &b, std::vector<Value> &ops,
+                        Value result) {
+  // Local vector only (stock host discards it). Tag IR so Python can recover.
+  if (!ops.empty())
+    ops[0] = result;
+  if (!result)
+    return;
+  Operation *def = result.getDefiningOp();
+  if (!def)
+    return;
+  static std::atomic<int64_t> seq{0};
+  int64_t id = ++seq;
+  OpBuilder &builder = b.getBuilder();
+  def->setAttr("ascend.opinfo_seq", builder.getI64IntegerAttr(id));
+  if (auto mod = def->getParentOfType<ModuleOp>())
+    mod->setAttr("ascend.last_opinfo_seq", builder.getI64IntegerAttr(id));
+}
+
 
 static std::optional<int64_t> extractConstantInt(Value v) {
   if (!v)
@@ -205,7 +233,7 @@ static void addExtractScalar(TritonOpBuilder &b, std::vector<Value> &ops) {
   SmallVector<Value> indices;
   for (size_t i = 2; i < ops.size(); ++i)
     indices.push_back(toIndex(b, ops[i]));
-  ops[0] = b.create<tensor::ExtractOp>(src, indices);
+  setOpResult(b, ops, b.create<tensor::ExtractOp>(src, indices));
 }
 
 // create_extract_slice(ful, offs[], sizes[], strides[])
@@ -241,9 +269,10 @@ static void addExtractSlice(TritonOpBuilder &b, std::vector<Value> &ops) {
   }
   auto retTy = RankedTensorType::get(
       retSizes, cast<RankedTensorType>(ful.getType()).getElementType());
-  ops[0] = b.create<tensor::ExtractSliceOp>(retTy, ful, offsets, sizes, strides,
+  setOpResult(b, ops,
+      b.create<tensor::ExtractSliceOp>(retTy, ful, offsets, sizes, strides,
                                             staticOffsets, staticSizes,
-                                            staticStrides);
+                                            staticStrides));
 }
 
 // create_insert_slice(ful, sub, offs[], sizes[], strides[])
@@ -275,9 +304,10 @@ static void addInsertSlice(TritonOpBuilder &b, std::vector<Value> &ops) {
     strides.push_back(b.create<arith::ConstantIndexOp>(s));
     staticStrides.push_back(ShapedType::kDynamic);
   }
-  ops[0] = b.create<tensor::InsertSliceOp>(sub, ful, offsets, sizes, strides,
+  setOpResult(b, ops,
+      b.create<tensor::InsertSliceOp>(sub, ful, offsets, sizes, strides,
                                            staticOffsets, staticSizes,
-                                           staticStrides);
+                                           staticStrides));
 }
 
 // create_custom_op_for_inter_core_sync(op_name, mode_or_sender, id) → void
@@ -343,7 +373,7 @@ static void addIndexSelectSimd(TritonOpBuilder &b, std::vector<Value> &ops) {
   auto op = builder.create<triton::ascend::IndexSelectSimdOp>(
       loc, retTensorType, src, index, dimAttr, srcShapeIndex, srcOffsetIndex,
       readShapeAttr);
-  ops[0] = op.getResult();
+  setOpResult(b, ops, op.getResult());
 }
 
 // create_index_put(ptr, index, value, dim, indexBoundary,
@@ -402,9 +432,10 @@ static void addGatherOutToUb(TritonOpBuilder &b, std::vector<Value> &ops) {
                                                  *boundOpt);
   auto dimVal = b.create<arith::ConstantIntOp>(b.getBuilder().getI32Type(),
                                                static_cast<int32_t>(*dimOpt));
-  ops[0] = b.create<triton::ascend::GatherOutToUbOp>(
+  setOpResult(b, ops,
+      b.create<triton::ascend::GatherOutToUbOp>(
       resType, src, index, boundVal, dimVal, srcStride, endOffset, startOffset,
-      other);
+      other));
 }
 
 // create_scatter_ub_to_out(...) → void
@@ -452,10 +483,11 @@ static void addConv1d(TritonOpBuilder &b, std::vector<Value> &ops) {
   auto &builder = b.getBuilder();
   // Null bias: use empty Value when defining op is absent / null typed.
   Value biasValue = bias;
-  ops[0] = b.create<triton::ascend::Conv1dOp>(
+  setOpResult(b, ops,
+      b.create<triton::ascend::Conv1dOp>(
       outputType, input, weight, biasValue, builder.getI64IntegerAttr(*stride),
       builder.getI64IntegerAttr(*padding), builder.getI64IntegerAttr(*dilation),
-      builder.getI64IntegerAttr(*groups));
+      builder.getI64IntegerAttr(*groups)));
 }
 
 // create_dot(a, b, fractal_a, fractal_b, fractal_c)
@@ -468,9 +500,10 @@ static void addDot(TritonOpBuilder &b, std::vector<Value> &ops) {
   bool fb = extractConstantBool(ops[4]);
   bool fc = extractConstantBool(ops[5]);
   auto &builder = b.getBuilder();
-  ops[0] = b.create<triton::ascend::DotOp>(
+  setOpResult(b, ops,
+      b.create<triton::ascend::DotOp>(
       a, bb, builder.getBoolAttr(fa), builder.getBoolAttr(fb),
-      builder.getBoolAttr(fc));
+      builder.getBoolAttr(fc)));
 }
 
 // create_sort(src, dim, descending)
@@ -487,7 +520,7 @@ static void addSort(TritonOpBuilder &b, std::vector<Value> &ops) {
   auto op = builder.create<triton::ascend::SortOp>(
       loc, src, builder.getI64IntegerAttr(*dim),
       builder.getBoolAttr(descending));
-  ops[0] = op->getResult(0);
+  setOpResult(b, ops, op->getResult(0));
 }
 
 // create_flip(src, dim)
@@ -502,14 +535,14 @@ static void addFlip(TritonOpBuilder &b, std::vector<Value> &ops) {
   auto loc = b.getLastLoc();
   auto op = builder.create<triton::ascend::FlipOp>(
       loc, src, builder.getI64IntegerAttr(*dim));
-  ops[0] = op->getResult(0);
+  setOpResult(b, ops, op->getResult(0));
 }
 
 // create_tanh(val)
 static void addTanh(TritonOpBuilder &b, std::vector<Value> &ops) {
   if (ops.size() < 2)
     return;
-  ops[0] = b.create<math::TanhOp>(ops[1]);
+  setOpResult(b, ops, b.create<math::TanhOp>(ops[1]));
 }
 
 // create_annotation(ptr, key_string, i64_attr_value) — Attribute simplified
@@ -575,17 +608,23 @@ static void addFixpipe(TritonOpBuilder &b, std::vector<Value> &ops) {
       ctx, static_cast<hivm::FixpipePreReluMode>(*preR));
   auto channelSplit = BoolAttr::get(ctx, false);
   if (needCreateDst) {
-    ops[0] = b.create<hivm::FixpipeOp>(TypeRange{dstValue.getType()}, src,
+    setOpResult(b, ops,
+        b.create<hivm::FixpipeOp>(TypeRange{dstValue.getType()}, src,
                                        dstValue, dmaAttr, dualAttr, nullptr,
                                        preQAttr, preRAttr, channelSplit)
-                 .getResult(0);
+                 .getResult(0));
   } else {
     b.create<hivm::FixpipeOp>(TypeRange{}, src, dstValue, dmaAttr, dualAttr,
                               nullptr, preQAttr, preRAttr, channelSplit);
   }
 }
 
-// create_annotation_mark / create_debug_barrier(ptr, key, i64)
+// create_annotation_mark / create_debug_barrier
+// Packing: ptr, key_str, kind_i32, payload...
+//   kind 0 = unit attr (no payload)
+//   kind 1 = i64 attr (one i32/i64 constant)
+//   kind 2 = str array attr (len + packed strings)
+// Legacy: ptr, key_str, i64  (treated as kind 1 when remaining is a single int)
 static void addAnnotationMarkLike(TritonOpBuilder &b, std::vector<Value> &ops) {
   size_t idx = 1;
   if (idx >= ops.size())
@@ -594,13 +633,51 @@ static void addAnnotationMarkLike(TritonOpBuilder &b, std::vector<Value> &ops) {
   std::string key;
   if (!decodeString(ops, idx, key))
     return;
-  auto annotationOp = b.create<annotation::MarkOp>(ptr);
-  if (idx < ops.size()) {
-    if (auto v = extractConstantInt(ops[idx])) {
-      annotationOp->setAttr(b.getBuilder().getStringAttr(key),
-                            b.getBuilder().getI64IntegerAttr(*v));
+  auto &builder = b.getBuilder();
+  auto *ctx = builder.getContext();
+  Attribute attr;
+  if (idx >= ops.size()) {
+    attr = UnitAttr::get(ctx);
+  } else if (auto kind = extractConstantInt(ops[idx])) {
+    // Heuristic: if next value looks like a kind tag (0/1/2) and more payload
+    // follows, treat as new packing; else legacy i64 attr value.
+    bool looksLikeKind = (*kind >= 0 && *kind <= 2) && (idx + 1 < ops.size() || *kind == 0);
+    if (looksLikeKind && *kind == 0) {
+      ++idx;
+      attr = UnitAttr::get(ctx);
+    } else if (looksLikeKind && *kind == 1) {
+      ++idx;
+      auto v = idx < ops.size() ? extractConstantInt(ops[idx++]) : std::nullopt;
+      if (!v)
+        return;
+      attr = builder.getI64IntegerAttr(*v);
+    } else if (looksLikeKind && *kind == 2) {
+      ++idx;
+      auto lenOpt = idx < ops.size() ? extractConstantInt(ops[idx++]) : std::nullopt;
+      if (!lenOpt || *lenOpt < 0)
+        return;
+      SmallVector<StringRef> strs;
+      std::vector<std::string> storage;
+      storage.reserve(static_cast<size_t>(*lenOpt));
+      for (int64_t i = 0; i < *lenOpt; ++i) {
+        std::string s;
+        if (!decodeString(ops, idx, s))
+          return;
+        storage.push_back(std::move(s));
+      }
+      for (const auto &s : storage)
+        strs.push_back(s);
+      attr = builder.getStrArrayAttr(strs);
+    } else {
+      // Legacy: single i64 attribute value.
+      attr = builder.getI64IntegerAttr(*kind);
+      ++idx;
     }
+  } else {
+    return;
   }
+  auto annotationOp = b.create<annotation::MarkOp>(ptr);
+  annotationOp->setAttr(builder.getStringAttr(key), attr);
 }
 
 static void addAnnotationMark(TritonOpBuilder &b, std::vector<Value> &ops) {
@@ -609,6 +686,154 @@ static void addAnnotationMark(TritonOpBuilder &b, std::vector<Value> &ops) {
 
 static void addDebugBarrier(TritonOpBuilder &b, std::vector<Value> &ops) {
   addAnnotationMarkLike(b, ops);
+}
+
+// ---------------------------------------------------------------------------
+// Buffer language ops (formerly buffer_ir.cc / AscendNPUIROpBuilder helpers)
+// ---------------------------------------------------------------------------
+
+static Attribute memorySpaceFromI32(MLIRContext *ctx, int64_t space) {
+  if (space < 0)
+    return Attribute();
+  return hivm::AddressSpaceAttr::get(ctx,
+                                     static_cast<hivm::AddressSpace>(space));
+}
+
+static Type elementTypeOf(Value v) {
+  Type ty = v.getType();
+  if (auto ranked = dyn_cast<RankedTensorType>(ty))
+    return ranked.getElementType();
+  if (auto memref = dyn_cast<MemRefType>(ty))
+    return memref.getElementType();
+  return ty;
+}
+
+// create_buffer_ty_carrier(shape_ints, elem_carrier, space_i32, strides_ints)
+// → poison Value of MemRefType (Python reads .get_type()).
+static void addBufferTyCarrier(TritonOpBuilder &b, std::vector<Value> &ops) {
+  size_t idx = 1;
+  SmallVector<int64_t> shape;
+  if (!decodeIntList(ops, idx, shape) || idx >= ops.size())
+    return;
+  Value elemCarrier = ops[idx++];
+  auto spaceOpt = idx < ops.size() ? extractConstantInt(ops[idx++]) : std::nullopt;
+  SmallVector<int64_t> strides;
+  if (idx < ops.size())
+    (void)decodeIntList(ops, idx, strides);
+
+  auto *ctx = b.getBuilder().getContext();
+  Type elemTy = elementTypeOf(elemCarrier);
+  Attribute spaceAttr =
+      memorySpaceFromI32(ctx, spaceOpt ? *spaceOpt : int64_t{-1});
+  MemRefType memrefTy;
+  if (strides.empty()) {
+    memrefTy = MemRefType::get(shape, elemTy, MemRefLayoutAttrInterface{},
+                               spaceAttr);
+  } else {
+    auto layout =
+        StridedLayoutAttr::get(ctx, ShapedType::kDynamic, strides);
+    memrefTy = MemRefType::get(shape, elemTy, layout, spaceAttr);
+  }
+  setOpResult(b, ops, b.getBuilder().create<ub::PoisonOp>(b.getLastLoc(), memrefTy));
+}
+
+// create_alloc(type_carrier) → memref.alloc
+static void addAlloc(TritonOpBuilder &b, std::vector<Value> &ops) {
+  if (ops.size() < 2)
+    return;
+  auto memrefTy = dyn_cast<MemRefType>(ops[1].getType());
+  if (!memrefTy)
+    return;
+  setOpResult(b, ops, b.create<memref::AllocOp>(memrefTy));
+}
+
+// create_to_buffer(src, space_i32) → memref (+ optional memory_space_cast)
+static void addToBuffer(TritonOpBuilder &b, std::vector<Value> &ops) {
+  if (ops.size() < 2)
+    return;
+  Value src = ops[1];
+  auto tensorType = dyn_cast<RankedTensorType>(src.getType());
+  if (!tensorType)
+    return;
+  auto spaceOpt = ops.size() >= 3 ? extractConstantInt(ops[2]) : std::nullopt;
+  auto *ctx = b.getBuilder().getContext();
+  auto memrefType = MemRefType::get(tensorType.getShape(),
+                                    tensorType.getElementType(),
+                                    MemRefLayoutAttrInterface{});
+  Value memref = b.create<bufferization::ToMemrefOp>(memrefType, src);
+  Attribute spaceAttr =
+      memorySpaceFromI32(ctx, spaceOpt ? *spaceOpt : int64_t{-1});
+  if (spaceAttr) {
+    auto castTy =
+        MemRefType::get(memrefType.getShape(), memrefType.getElementType(),
+                        memrefType.getLayout(), spaceAttr);
+    memref = b.create<memref::MemorySpaceCastOp>(castTy, memref);
+  }
+  setOpResult(b, ops, memref);
+}
+
+// create_to_tensor(src, writable_i32) → tensor
+static void addToTensor(TritonOpBuilder &b, std::vector<Value> &ops) {
+  if (ops.size() < 2)
+    return;
+  Value src = ops[1];
+  bool writable = ops.size() >= 3 ? extractConstantBool(ops[2], true) : true;
+  auto memrefType = dyn_cast<MemRefType>(src.getType());
+  if (!memrefType)
+    return;
+  auto *ctx = b.getBuilder().getContext();
+  auto tensorType = RankedTensorType::get(memrefType.getShape(),
+                                          memrefType.getElementType());
+  Value memrefVal = src;
+  if (memrefType.getMemorySpace()) {
+    auto targetType =
+        MemRefType::get(memrefType.getShape(), memrefType.getElementType(),
+                        memrefType.getLayout());
+    memrefVal = b.create<memref::MemorySpaceCastOp>(targetType, src);
+  }
+  UnitAttr restrictAttr = UnitAttr::get(ctx);
+  UnitAttr writableAttr = writable ? UnitAttr::get(ctx) : UnitAttr();
+  setOpResult(b, ops, b.create<bufferization::ToTensorOp>(tensorType, memrefVal, restrictAttr, writableAttr));
+}
+
+// create_subview(src, offsets[], sizes_ints[], strides_ints[])
+static void addSubview(TritonOpBuilder &b, std::vector<Value> &ops) {
+  size_t idx = 1;
+  if (idx >= ops.size())
+    return;
+  Value source = ops[idx++];
+  SmallVector<Value> offsets;
+  SmallVector<int64_t> sizes, strides;
+  if (!decodeValueList(ops, idx, offsets) || !decodeIntList(ops, idx, sizes) ||
+      !decodeIntList(ops, idx, strides))
+    return;
+  auto sourceType = dyn_cast<MemRefType>(source.getType());
+  if (!sourceType)
+    return;
+  int64_t rank = sourceType.getRank();
+  if (static_cast<int64_t>(offsets.size()) != rank ||
+      static_cast<int64_t>(sizes.size()) != rank ||
+      static_cast<int64_t>(strides.size()) != rank)
+    return;
+
+  auto &builder = b.getBuilder();
+  auto *ctx = builder.getContext();
+  SmallVector<OpFoldResult> mixedOffsets;
+  mixedOffsets.reserve(offsets.size());
+  Type indexType = builder.getIndexType();
+  for (Value offset : offsets) {
+    if (offset.getType() != indexType)
+      offset = b.create<arith::IndexCastOp>(indexType, offset);
+    mixedOffsets.push_back(offset);
+  }
+  SmallVector<OpFoldResult> mixedSizes;
+  SmallVector<OpFoldResult> mixedStrides;
+  for (int64_t i = 0; i < rank; ++i) {
+    mixedSizes.push_back(IntegerAttr::get(IntegerType::get(ctx, 64), sizes[i]));
+    mixedStrides.push_back(
+        IntegerAttr::get(IntegerType::get(ctx, 64), strides[i]));
+  }
+  setOpResult(b, ops, b.create<memref::SubViewOp>(source, mixedOffsets, mixedSizes, mixedStrides));
 }
 
 // create_bind_buffer(src, alloc) → void
@@ -621,8 +846,85 @@ static void addBindBuffer(TritonOpBuilder &b, std::vector<Value> &ops) {
                                ArrayAttr::get(ctx, bind));
 }
 
+// Soft affine_map kind tags (language/cann/extension/affine_map_soft.py).
+enum SoftAffineKind : int64_t {
+  kAffIdentity = 0,
+  kAffEmpty = 1,
+  kAffConstant = 2,
+  kAffPermutation = 3,
+  kAffMinorIdentity = 4,
+};
+
+static std::optional<AffineMap> decodeSoftAffineMap(MLIRContext *ctx,
+                                                    const std::vector<Value> &ops,
+                                                    size_t &idx) {
+  auto kindOpt = extractConstantInt(ops[idx++]);
+  if (!kindOpt)
+    return std::nullopt;
+  switch (*kindOpt) {
+  case kAffIdentity: {
+    auto n = extractConstantInt(ops[idx++]);
+    if (!n || *n < 0)
+      return std::nullopt;
+    return AffineMap::getMultiDimIdentityMap(static_cast<unsigned>(*n), ctx);
+  }
+  case kAffEmpty:
+    return AffineMap::get(0, 0, {}, ctx);
+  case kAffConstant: {
+    auto v = extractConstantInt(ops[idx++]);
+    if (!v)
+      return std::nullopt;
+    return AffineMap::getConstantMap(*v, ctx);
+  }
+  case kAffPermutation: {
+    SmallVector<unsigned> perm;
+    auto len = extractConstantInt(ops[idx++]);
+    if (!len || *len < 0)
+      return std::nullopt;
+    for (int64_t i = 0; i < *len; ++i) {
+      auto e = extractConstantInt(ops[idx++]);
+      if (!e)
+        return std::nullopt;
+      perm.push_back(static_cast<unsigned>(*e));
+    }
+    return AffineMap::getPermutationMap(perm, ctx);
+  }
+  case kAffMinorIdentity: {
+    auto dims = extractConstantInt(ops[idx++]);
+    auto results = extractConstantInt(ops[idx++]);
+    if (!dims || !results || *dims < 0 || *results < 0)
+      return std::nullopt;
+    return AffineMap::getMinorIdentityMap(static_cast<unsigned>(*dims),
+                                          static_cast<unsigned>(*results), ctx);
+  }
+  default:
+    return std::nullopt;
+  }
+}
+
+static bool decodeOptionalString(const std::vector<Value> &ops, size_t &idx,
+                                 std::optional<std::string> &out) {
+  if (idx >= ops.size())
+    return false;
+  auto present = extractConstantInt(ops[idx++]);
+  if (!present)
+    return false;
+  if (*present == 0) {
+    out = std::nullopt;
+    return true;
+  }
+  std::string s;
+  if (!decodeString(ops, idx, s))
+    return false;
+  out = std::move(s);
+  return true;
+}
+
 // create_custom_op / create_custom_macro_op
-// Packing: name_str, ins[], outs[]  (attrs omitted → empty)
+// Packing: name_str, ins[], outs[], then:
+//   core_i32, mode_i32(-1 omit), pipe_i32, pipe_out_i32(-1 if non-macro),
+//   opt symbol/bitcode/source/compile/extra_attr strings,
+//   iterator_types[], indexing_maps[], align_dim pairs[], num_operands_i32
 static void addCustomHivmOp(TritonOpBuilder &b, std::vector<Value> &ops,
                             bool macro) {
   size_t idx = 1;
@@ -632,19 +934,182 @@ static void addCustomHivmOp(TritonOpBuilder &b, std::vector<Value> &ops,
   SmallVector<Value> ins, outs;
   if (!decodeValueList(ops, idx, ins) || !decodeValueList(ops, idx, outs))
     return;
+
+  auto &builder = b.getBuilder();
+  auto *ctx = builder.getContext();
   TypeRange resTypes(outs);
+  Operation *rawOp = nullptr;
   if (macro) {
     auto op = b.create<hivm::CustomMacroOp>(resTypes, name, ValueRange(ins),
                                             ValueRange(outs), ValueRange{},
                                             ValueRange{});
-    if (!op->getResults().empty())
-      ops[0] = op->getResult(0);
+    rawOp = op.getOperation();
   } else {
     auto op = b.create<hivm::CustomOp>(resTypes, name, ValueRange(ins),
                                        ValueRange(outs), ValueRange{});
-    if (!op->getResults().empty())
-      ops[0] = op->getResult(0);
+    rawOp = op.getOperation();
   }
+
+  // ---- optional packed attrs (older callers may omit) ----
+  if (idx < ops.size()) {
+    auto coreOpt = extractConstantInt(ops[idx++]);
+    auto modeOpt = idx < ops.size() ? extractConstantInt(ops[idx++]) : std::nullopt;
+    auto pipeOpt = idx < ops.size() ? extractConstantInt(ops[idx++]) : std::nullopt;
+    auto pipeOutOpt =
+        idx < ops.size() ? extractConstantInt(ops[idx++]) : std::nullopt;
+
+    if (coreOpt) {
+      rawOp->setAttr(hivm::TCoreTypeAttr::name,
+                     hivm::TCoreTypeAttr::get(
+                         ctx, static_cast<hivm::TCoreType>(*coreOpt)));
+    }
+    if (modeOpt && *modeOpt >= 0) {
+      rawOp->setAttr(hivm::VFModeAttr::name,
+                     hivm::VFModeAttr::get(ctx, static_cast<hivm::VFMode>(*modeOpt)));
+    }
+    if (macro) {
+      if (pipeOpt && *pipeOpt >= 0)
+        cast<hivm::CustomMacroOp>(rawOp).setInPipe(static_cast<hivm::PIPE>(*pipeOpt));
+      if (pipeOutOpt && *pipeOutOpt >= 0)
+        cast<hivm::CustomMacroOp>(rawOp).setOutPipe(
+            static_cast<hivm::PIPE>(*pipeOutOpt));
+    } else if (pipeOpt && *pipeOpt >= 0) {
+      cast<hivm::CustomOp>(rawOp).setPipe(static_cast<hivm::PIPE>(*pipeOpt));
+    }
+
+    std::optional<std::string> symbol, bitcode, source, compile, extraAttr;
+    if (!decodeOptionalString(ops, idx, symbol) ||
+        !decodeOptionalString(ops, idx, bitcode) ||
+        !decodeOptionalString(ops, idx, source) ||
+        !decodeOptionalString(ops, idx, compile) ||
+        !decodeOptionalString(ops, idx, extraAttr)) {
+      // Truncated packing — keep op with whatever attrs we set.
+    } else {
+      if (symbol)
+        rawOp->setAttr("symbol", builder.getStringAttr(*symbol));
+      if (bitcode)
+        rawOp->setAttr("bitcode", builder.getStringAttr(*bitcode));
+      if (source)
+        rawOp->setAttr("source", builder.getStringAttr(*source));
+      if (compile)
+        rawOp->setAttr("compile", builder.getStringAttr(*compile));
+      if (extraAttr)
+        rawOp->setAttr("extra_attr", builder.getStringAttr(*extraAttr));
+
+      SmallVector<int64_t> iterTypes;
+      if (decodeIntList(ops, idx, iterTypes) && !iterTypes.empty()) {
+        SmallVector<Attribute> attrs;
+        attrs.reserve(iterTypes.size());
+        for (int64_t t : iterTypes)
+          attrs.push_back(hivm::IteratorTypeAttr::get(
+              ctx, static_cast<hivm::IteratorType>(t)));
+        rawOp->setAttr(hivm::CustomOp::kIteratorTypesName,
+                       builder.getArrayAttr(attrs));
+      }
+
+      if (idx < ops.size()) {
+        auto nMaps = extractConstantInt(ops[idx++]);
+        if (nMaps && *nMaps >= 0) {
+          SmallVector<Attribute> mapAttrs;
+          mapAttrs.reserve(static_cast<size_t>(*nMaps));
+          bool ok = true;
+          for (int64_t i = 0; i < *nMaps; ++i) {
+            auto map = decodeSoftAffineMap(ctx, ops, idx);
+            if (!map) {
+              ok = false;
+              break;
+            }
+            mapAttrs.push_back(AffineMapAttr::get(*map));
+          }
+          if (ok)
+            rawOp->setAttr(hivm::CustomOp::kIndexingMapName,
+                           builder.getArrayAttr(mapAttrs));
+        }
+      }
+
+      auto decodeIndexValuePairs =
+          [&](SmallVectorImpl<std::pair<int64_t, int64_t>> &out) {
+            out.clear();
+            if (idx >= ops.size())
+              return;
+            auto n = extractConstantInt(ops[idx++]);
+            if (!n || *n < 0)
+              return;
+            for (int64_t i = 0; i < *n; ++i) {
+              auto aIdx = extractConstantInt(ops[idx++]);
+              auto aVal = extractConstantInt(ops[idx++]);
+              if (!aIdx || !aVal)
+                break;
+              out.emplace_back(*aIdx, *aVal);
+            }
+          };
+
+      SmallVector<std::pair<int64_t, int64_t>> aligns;
+      decodeIndexValuePairs(aligns);
+
+      // extra_buffers: value carriers[] + sizes[]
+      SmallVector<Value> extraCarriers;
+      SmallVector<int64_t> extraSizes;
+      if (idx < ops.size()) {
+        (void)decodeValueList(ops, idx, extraCarriers);
+        (void)decodeIntList(ops, idx, extraSizes);
+      }
+      if (!extraCarriers.empty() &&
+          extraCarriers.size() == extraSizes.size()) {
+        SmallVector<Type> types;
+        types.reserve(extraCarriers.size());
+        for (Value c : extraCarriers)
+          types.push_back(c.getType());
+        rawOp->setAttr(hivm::CustomOp::kExtraBuffersTypesName,
+                       builder.getTypeArrayAttr(types));
+        rawOp->setAttr(hivm::CustomOp::kExtraBuffersSizesName,
+                       builder.getI64ArrayAttr(extraSizes));
+      }
+
+      SmallVector<std::pair<int64_t, int64_t>> layouts;
+      SmallVector<std::pair<int64_t, int64_t>> spaces;
+      decodeIndexValuePairs(layouts);
+      decodeIndexValuePairs(spaces);
+
+      int64_t numOperands = static_cast<int64_t>(rawOp->getNumOperands());
+      if (idx < ops.size()) {
+        if (auto n = extractConstantInt(ops[idx++]))
+          numOperands = *n;
+      }
+      if (numOperands < 0)
+        numOperands = rawOp->getNumOperands();
+
+      SmallVector<SmallVector<NamedAttribute>> namedPerOperand(
+          static_cast<size_t>(numOperands));
+      auto addNamed = [&](int64_t aIdx, StringRef key, Attribute val) {
+        if (aIdx < 0 || aIdx >= numOperands)
+          return;
+        namedPerOperand[static_cast<size_t>(aIdx)].push_back(
+            NamedAttribute(builder.getStringAttr(key), val));
+      };
+      for (auto [aIdx, aVal] : aligns)
+        addNamed(aIdx, hivm::CustomOp::kAlignDimName,
+                 builder.getI64IntegerAttr(aVal));
+      for (auto [aIdx, aVal] : layouts)
+        addNamed(aIdx, "data_layout",
+                 hivm::DataLayoutAttr::get(
+                     ctx, static_cast<hivm::DataLayout>(aVal)));
+      for (auto [aIdx, aVal] : spaces)
+        addNamed(aIdx, "address_space",
+                 hivm::AddressSpaceAttr::get(
+                     ctx, static_cast<hivm::AddressSpace>(aVal)));
+
+      SmallVector<Attribute> dictAttrs;
+      dictAttrs.reserve(static_cast<size_t>(numOperands));
+      for (auto &nameds : namedPerOperand)
+        dictAttrs.push_back(builder.getDictionaryAttr(nameds));
+      rawOp->setAttr(hivm::CustomOp::kArgAttrsName,
+                     builder.getArrayAttr(dictAttrs));
+    }
+  }
+
+  if (!rawOp->getResults().empty())
+    setOpResult(b, ops, rawOp->getResult(0));
 }
 
 static void addCustomOp(TritonOpBuilder &b, std::vector<Value> &ops) {
@@ -665,7 +1130,7 @@ static void addScopeOp(TritonOpBuilder &b, std::vector<Value> &ops) {
   auto scopeOp = b.create<scope::ScopeOp>(TypeRange(resultTypes));
   // Return the op's first result if any; else leave result slot empty.
   if (!scopeOp->getResults().empty())
-    ops[0] = scopeOp->getResult(0);
+    setOpResult(b, ops, scopeOp->getResult(0));
 }
 
 // scope_return(operands...)
@@ -729,7 +1194,7 @@ static void addGetSubVecId(TritonOpBuilder &b, std::vector<Value> &ops) {
     moduleOp->setAttr("hivm.disable_auto_tile_and_bind_subblock",
                       UnitAttr::get(b.getBuilder().getContext()));
   }
-  ops[0] = subBlockIdxOp;
+  setOpResult(b, ops, subBlockIdxOp);
 }
 
 // create_copy_buffer(src, dst) → void
@@ -743,8 +1208,7 @@ static void addCopyBuffer(TritonOpBuilder &b, std::vector<Value> &ops) {
 static void addCopyTensor(TritonOpBuilder &b, std::vector<Value> &ops) {
   if (ops.size() < 3)
     return;
-  ops[0] = b.create<hivm::CopyOp>(TypeRange{ops[2].getType()}, ops[1], ops[2])
-               .getResult(0);
+  setOpResult(b, ops, b.create<hivm::CopyOp>(TypeRange{ops[2].getType()}, ops[1], ops[2]) .getResult(0));
 }
 
 // create_convert_layout(src, type_carrier)
@@ -754,11 +1218,12 @@ static void addConvertLayout(TritonOpBuilder &b, std::vector<Value> &ops) {
   Value src = ops[1];
   Type memrefType = ops[2].getType();
   auto *ctx = b.getBuilder().getContext();
-  ops[0] = b.create<hivm::ConvertLayoutOp>(
+  setOpResult(b, ops,
+      b.create<hivm::ConvertLayoutOp>(
                  memrefType, src,
                  hivm::DataLayoutAttr::get(ctx, hivm::DataLayout::ND),
                  hivm::DataLayoutAttr::get(ctx, hivm::DataLayout::ND))
-               .getResult();
+               .getResult());
 }
 
 /// Triton 3.7 ``tt.assert`` ODS requires I1 / tensor<*xi1>. Coerce wider
@@ -842,6 +1307,12 @@ mlir::triton::plugin::OpInfo *getAscendOpInfoTable(size_t &numOps) {
       {"create_copy_tensor", addCopyTensor},
       {"create_convert_layout", addConvertLayout},
       {"create_auto_overflow_assert", addAutoOverflowAssert},
+      // Buffer language (ex-buffer_ir.cc) via OpInfo
+      {"create_buffer_ty_carrier", addBufferTyCarrier},
+      {"create_alloc", addAlloc},
+      {"create_to_buffer", addToBuffer},
+      {"create_to_tensor", addToTensor},
+      {"create_subview", addSubview},
   };
   numOps = sizeof(kOps) / sizeof(kOps[0]);
   return kOps;

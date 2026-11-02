@@ -7,7 +7,8 @@ import triton.language.extra.cann.extension as al
 from triton.compiler.compiler import ASTSource
 from triton.compiler.code_generator import ast_to_ttir
 from triton._C.libtriton import ir
-from triton._C.libtriton.ascend import ir as ascend_ir
+# Community libtriton has no .ascend submodule; scheme-1 exposes IR via triton_ascend.
+from triton_ascend import ir as ascend_ir
 from triton.backends.ascend.compiler import NPUOptions, ttir_to_linalg
 import pytest
 

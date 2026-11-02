@@ -21,7 +21,10 @@ Inventory vs ``triton-ascend-*.patch`` (Python / recoverable bits)
 | ``CodeGenerator`` ``hacc.target``            | Yes | stock ``parse_attr`` (no HostExtend) |
 | ``dtype_guard``                              | Best-effort | if ``dtype_guard.py`` is packaged |
 | ``ir.cc`` HF32 enum / Traits.cpp PoT         | **No** | needs host rebuild / LLVM; not recoverable in Python |
+| ``ir.cc`` OpInfo prepend + ``return args[0]`` | Yes (Python) | ``opinfo_result``: prepend + ``module.walk`` recover; **do not** patch community ``ir.cc`` |
 | ``code_generator`` cann dispatch imports     | Partial | language injected via ``triton_ascend`` / ``setup_unified_builder`` |
+| ``triton.extension.buffer`` language         | Yes | injected via ``_ensure_buffer_language``; builder helpers in ``buffer_builder_hotpatch`` |
+| BufferOpBuilder ``alloc``/``to_buffer``/…  | Yes | OpInfo + ``buffer_builder_hotpatch`` (no HostExtend nanobind) |
 | ``math.py`` / ``standard.py`` / ``jit`` bits | Deferred | add here when a failing case needs them |
 
 Call ``install()`` from ``_apply_ascend_patch`` (and prefer once at plugin import).
@@ -350,6 +353,13 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+    # OpInfo result recovery first so later wrappers see prepend+return behaviour.
+    try:
+        from .opinfo_result import install_opinfo_result_recovery
+
+        install_opinfo_result_recovery()
+    except Exception as e:  # pragma: no cover
+        _LOG.warning("opinfo result recovery failed: %s", e)
     # Overflow hotpatches are required on 3.7 as well: stock sanitize_overflow
     # emits plain tt.assert without tt.auto_overflow_assert, and DeviceAssertConverter
     # only erases asserts that carry that attr. OpInfo must create i1 conditions
@@ -363,5 +373,11 @@ def install() -> None:
     _install_dot_hf32_guard()
     _install_hacc_target_on_codegen()
     _install_dtype_guard()
+    try:
+        from .buffer_builder_hotpatch import install_buffer_builder_methods
+
+        install_buffer_builder_methods()
+    except Exception as e:  # pragma: no cover
+        _LOG.warning("buffer builder hotpatch failed: %s", e)
     _INSTALLED = True
     _LOG.info("Ascend Triton hot-patches installed")

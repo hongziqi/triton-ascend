@@ -2,28 +2,19 @@
 """Pack Python arguments for community OpInfo ``builder.create_*(list[Value])``.
 
 Triton 3.7 binds each ``OpInfo.name`` onto ``ir.builder`` as
-``create_<name>(self, Sequence[Value]) -> None``. The callback writes the
-result into ``operands[0]``; the host binder does not return that slot.
+``create_<name>(self, Sequence[Value]) -> None``. Ascend packing uses
+``ops[0]`` as the result slot; stock hosts neither prepend that slot nor return
+``args[0]``. ``triton_ascend.backend.opinfo_result`` wraps Ascend ``create_*``
+to prepend + recover the Value via module attrs (no community ``ir.cc`` edit).
+
 Strings are ``i32`` length plus ``i32`` char codes (``AscendOpInfo::decodeString``).
 """
 
 from __future__ import annotations
 
-try:
-    import triton.extension.buffer.language as bl
-except ModuleNotFoundError:
-    class _AddressSpace:
-        def to_ir(self, builder):
-            raise NotImplementedError("address_space.to_ir")
-
-    class _Buffer:
-        pass
-
-    class _BufferLanguage:
-        address_space = _AddressSpace
-        buffer = _Buffer
-
-    bl = _BufferLanguage()
+# Injected by triton_ascend._ensure_buffer_language (hotpatch); do not
+# invade site-packages/triton/extension/.
+import triton.extension.buffer.language as bl
 
 
 def pack_i32(builder, value):
@@ -51,6 +42,9 @@ def pack_value_vector(builder, values):
 
 
 def call(builder, name, args):
-    """Invoke ``builder.create_<name>`` with the OpInfo value vector."""
+    """Invoke ``builder.create_<name>``; return recovered Value when present.
+
+    Relies on ``install_opinfo_result_recovery`` (prepend + module.walk).
+    """
     fn = getattr(builder, f"create_{name}")
     return fn(list(args))

@@ -469,6 +469,7 @@ setup(
     package_data={
         "triton_ascend": [
             "language/cann/**/*.py",
+            "language/extension/buffer/**/*.py",
             "language/kernels/**/*.py",
             "language/tla/**/*.py",
             "_autoload_plugin.py",
@@ -482,7 +483,7 @@ setup(
     ext_modules=[CMakeExtension("triton_ascend._C.libtriton_ascend")],
     cmdclass={"build_ext": CMakeBuild, "install": Install, "develop": Develop},
     python_requires=">=3.9",
-    install_requires=["triton"],
+    install_requires=["triton==3.7.1"],
     entry_points={
         "triton.backends": [
             "ascend = triton_ascend.backend",
