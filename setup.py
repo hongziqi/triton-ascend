@@ -561,7 +561,15 @@ setup(
             # Untagged build product under package root; tagged .so are leftovers.
             "_C/libtriton_ascend.so",
         ],
-        "triton_ascend.backend": ["npu_utils.cpp"],
+        "triton_ascend.backend": [
+            # JIT-compiled into npu_utils / launcher shared objects at runtime.
+            "npu_utils.cpp",
+            "name.conf",
+            "launcher_src/*.cpp",
+            "launcher_src/*.h",
+            # Linked by bishengir-compile via --link-aicore-bitcode=
+            "lib/*.bc",
+        ],
     },
     # Extension name places the .so at triton_ascend/_C/… without needing a
     # Python package named triton_ascend._C. CMakeBuild stages the same path.

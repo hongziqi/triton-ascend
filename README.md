@@ -1,10 +1,13 @@
-# triton-ascend main adapter（Triton 3.7.1 / `TRITON_PLUGIN_PATHS`）
+# triton-ascend 独立插件化 Triton 3.7.1 / `TRITON_PLUGIN_PATHS`）
+> 树外独立插件方案，基于社区原生 Triton 3.7.1，通过 Triton 官方插件机制接入昇腾后端，不再 fork 维护 Triton 主仓。
 
-树外 Ascend 后端插件：产出 **`libtriton_ascend.so`**，对接社区 Triton **3.7.1**。
+本仓库产出独立插件库 `libtriton_ascend.so`，对接上游社区 Triton **3.7.1**。
 
-PASS 源码来自 triton-ascend **main**（仍保留 `tt.make_tensor_ptr` 等 3.7 op）。插件接入只在 `standalone/`：重定义 `add_triton_library` 为 object library，不改写各 pass 的实现。
-
-社区 Triton 源码不再 fork 进本仓库。头文件来自 submodule `third_party/triton`（v3.7.1）。对社区 Python 的修改走 `backend/triton_hotpatch.py`。AscendNPU-IR 保持干净 commit，构建时热打 `patch/npuir_adapter_to_llvm_23.patch`。
+- 插件接入逻辑收敛在 `standalone/`，**不改动原有 Pass 业务实现**；
+- 不再维护一份 fork 的 Triton 源码，Triton C++ 头文件通过 `third_party/triton` submodule（v3.7.1）引入
+> PS：社区Triton 3.9.0版本支持导出 C++ 头文件，triton的第三方引入后续升级后可移除
+- Python 侧对上游 Triton 的适配补丁统一放在 `backend/triton_hotpatch.py`；
+- AscendNPU-IR 编译阶段自动应用 `patch/npuir_adapter_to_llvm_23.patch` 做 LLVM23 语法适配。
 
 ## 仓库布局
 
@@ -69,8 +72,7 @@ ninja install
 export LLVM_SYSPATH=${LLVM_INSTALL_PREFIX_3_7_1_PATCH}
 git clone -b main-plugin-adapter-3.7 https://github.com/hongziqi/triton-ascend.git
 cd triton-ascend
-git submodule update --init --depth 1 --progress \
-  third_party/AscendNPU-IR third_party/triton
+git submodule update --init --depth 1 --progress
 
 pip install triton==3.7.1
 
@@ -97,5 +99,6 @@ assert hasattr(passes.plugin, "add_triton_to_linalg")
 ```
 
 ```bash
-pytest tutorials/01-vector-add.py
+export TRITON_PLUGIN_PATHS="$(python -c 'import triton_ascend; print(triton_ascend.plugin_library())')"
+python tutorials/01-vector-add.py
 ```
