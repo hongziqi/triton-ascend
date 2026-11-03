@@ -18,11 +18,9 @@ Requires: ``LLVM_SYSPATH``, host ``triton==3.7.1`` built with
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from setuptools import Extension, setup
@@ -35,7 +33,10 @@ _STANDALONE = _PKG_ROOT / "standalone"
 _BUILD_DIR = Path(
     os.environ.get("TRITON_ASCEND_BUILD_DIR", _PKG_ROOT / "build" / "plugin")
 )
-_CMAKE_PCT_RE = re.compile(r"\[\s*(\d+)%\]")
+
+# Clear pip's in-place spinner before each tty line (``|/-\\`` otherwise
+# glues onto cmake output and looks like misaligned progress).
+_TTY_CLEAR = "\r\033[K"
 
 
 def _progress(msg: str) -> None:
@@ -53,7 +54,7 @@ def _progress(msg: str) -> None:
         pass
     try:
         with open("/dev/tty", "w", encoding="utf-8", errors="replace") as tty:
-            tty.write(line)
+            tty.write(_TTY_CLEAR + line)
             tty.flush()
     except OSError:
         pass
@@ -66,16 +67,17 @@ def _run_logged(
     log_path: Path,
     label: str,
     cwd: str | None = None,
-    progress_throttle_s: float = 1.0,
 ) -> None:
-    """Run a command, tee full output to ``log_path``, and surface progress live."""
+    """Run cmake/ninja and stream every line live (3.6-style), tee to ``log_path``.
+
+    Unlike a throttled percentage summary, this shows ``Building CXX object …``
+    / ``[N/M]`` lines as they happen, then packaging continues after the build.
+    """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     _progress(f"[triton-ascend] {label}")
     _progress(f"[triton-ascend]   cmd: {' '.join(cmd)}")
-    _progress(f"[triton-ascend]   log: {log_path}  (tail -f to follow)")
+    _progress(f"[triton-ascend]   log: {log_path}")
 
-    last_pct = -1
-    last_emit = 0.0
     tail: list[str] = []
     with log_path.open("w", encoding="utf-8", errors="replace") as logf:
         logf.write(f"# {label}\n# {' '.join(cmd)}\n\n")
@@ -93,36 +95,12 @@ def _run_logged(
         for raw in proc.stdout:
             logf.write(raw)
             logf.flush()
+            # Preserve cmake/ninja lines as-is (same feel as ``setup.py install``).
             line = raw.rstrip("\n")
             tail.append(line)
-            if len(tail) > 80:
-                del tail[: len(tail) - 80]
-            m = _CMAKE_PCT_RE.search(line)
-            now = time.monotonic()
-            if m:
-                pct = int(m.group(1))
-                if pct != last_pct and (now - last_emit) >= progress_throttle_s:
-                    # Keep one short line so -j192 spam stays readable.
-                    snippet = line.strip()
-                    if len(snippet) > 120:
-                        snippet = snippet[:117] + "..."
-                    _progress(f"[triton-ascend] [{pct:3d}%] {snippet}")
-                    last_pct = pct
-                    last_emit = now
-            elif any(
-                key in line
-                for key in (
-                    "Configuring done",
-                    "Generating done",
-                    "Build files have been written",
-                    "Linking CXX",
-                    "Built target libtriton_ascend",
-                    "error:",
-                    "fatal error:",
-                )
-            ):
-                _progress(f"[triton-ascend] {line.strip()}")
-                last_emit = now
+            if len(tail) > 120:
+                del tail[: len(tail) - 120]
+            _progress(line)
         rc = proc.wait()
     if rc != 0:
         _progress(f"[triton-ascend] FAILED: {label} (exit {rc})")
@@ -133,31 +111,50 @@ def _run_logged(
     _progress(f"[triton-ascend] done: {label}")
 
 
-def _invalidate_stale_cmake_cache(build_dir: Path, llvm: str) -> None:
-    """Drop CMakeCache when LLVM_DIR no longer matches ``LLVM_SYSPATH``.
+def _preferred_cmake_generator() -> list[str]:
+    """Prefer Ninja for ``[N/M] Building CXX …`` lines (matches monorepo 3.6 UX)."""
+    override = os.environ.get("CMAKE_GENERATOR", "").strip()
+    if override:
+        return ["-G", override]
+    if shutil.which("ninja"):
+        return ["-G", "Ninja"]
+    return []
+
+
+def _invalidate_stale_cmake_cache(
+    build_dir: Path, llvm: str, *, want_generator: str | None = None
+) -> None:
+    """Drop CMakeCache when LLVM_DIR or generator no longer match.
 
     Re-running cmake -B reuses a cached LLVM_DIR/MLIR_DIR; a leftover 3.9
     cache with a 3.7.1 ``LLVM_SYSPATH`` silently builds against the wrong tree.
+    Switching Makefile → Ninja also requires a clean tree.
     """
     cache = build_dir / "CMakeCache.txt"
     if not cache.is_file():
         return
     llvm_resolved = str(Path(llvm).resolve())
     cached_llvm_dir = ""
+    cached_generator = ""
     for line in cache.read_text(errors="replace").splitlines():
         if line.startswith("LLVM_DIR:"):
             # LLVM_DIR:PATH=/path/to/.../lib/cmake/llvm
             cached_llvm_dir = line.split("=", 1)[-1].strip()
-            break
-    if not cached_llvm_dir:
-        return
-    if cached_llvm_dir.startswith(llvm_resolved + "/") or cached_llvm_dir.startswith(
-        llvm.rstrip("/") + "/"
+        elif line.startswith("CMAKE_GENERATOR:"):
+            cached_generator = line.split("=", 1)[-1].strip()
+    reasons: list[str] = []
+    if cached_llvm_dir and not (
+        cached_llvm_dir.startswith(llvm_resolved + "/")
+        or cached_llvm_dir.startswith(llvm.rstrip("/") + "/")
     ):
+        reasons.append(f"LLVM_DIR={cached_llvm_dir} (want under {llvm})")
+    if want_generator and cached_generator and cached_generator != want_generator:
+        reasons.append(f"generator={cached_generator!r} (want {want_generator!r})")
+    if not reasons:
         return
     _progress(
-        f"[triton-ascend] stale CMake cache LLVM_DIR={cached_llvm_dir} "
-        f"(want under {llvm}); removing {build_dir}"
+        f"[triton-ascend] stale CMake cache ({'; '.join(reasons)}); "
+        f"removing {build_dir}"
     )
     shutil.rmtree(build_dir, ignore_errors=True)
 
@@ -388,7 +385,11 @@ class CMakeBuild(build_ext):
                 "LLVM_SYSPATH must be set (same LLVM used to build host triton)"
             )
 
-        _invalidate_stale_cmake_cache(_BUILD_DIR, llvm)
+        gen_args = _preferred_cmake_generator()
+        want_generator = gen_args[1] if len(gen_args) == 2 else None
+        _invalidate_stale_cmake_cache(
+            _BUILD_DIR, llvm, want_generator=want_generator
+        )
         _BUILD_DIR.mkdir(parents=True, exist_ok=True)
         out_c = _PKG_ROOT / "_C"
         out_c.mkdir(parents=True, exist_ok=True)
@@ -402,6 +403,7 @@ class CMakeBuild(build_ext):
         apply_npuir_patch()
 
         cmake_args = [
+            *gen_args,
             f"-DLLVM_SYSPATH={llvm}",
             f"-DASCEND_ROOT={_PKG_ROOT}",
             f"-DSTANDALONE_OUTPUT_DIR={out_c}",
@@ -413,10 +415,14 @@ class CMakeBuild(build_ext):
         _progress(f"[triton-ascend] plugin build={_BUILD_DIR}")
         _progress(f"[triton-ascend] LLVM_SYSPATH={llvm}")
         _progress(f"[triton-ascend] cmake={cmake}")
+        _progress(
+            f"[triton-ascend] generator={want_generator or 'default'}"
+        )
         _progress("[triton-ascend] scheme 1: host libtriton + missing dialect .o")
         _progress(
-            "[triton-ascend] tip: pip hides cmake by default; progress goes to "
-            f"/dev/tty + {log_dir}/ (or use: pip install -v -e . --no-build-isolation)"
+            "[triton-ascend] streaming cmake/ninja to the terminal "
+            f"(full log: {log_dir}/). Tip: PIP_PROGRESS_BAR=off or pip -v "
+            "avoids spinner overlap."
         )
 
         # pip's default build isolation injects a temporary PYTHONPATH that only
