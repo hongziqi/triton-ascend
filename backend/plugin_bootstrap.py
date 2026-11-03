@@ -23,6 +23,15 @@ def _package_dir() -> Path:
 
 
 def plugin_library() -> Path | None:
+    """Return the Ascend plugin ``.so`` next to this install (editable or wheel).
+
+    Editable: ``<repo>/_C/libtriton_ascend.so``
+    Wheel: ``site-packages/triton_ascend/_C/libtriton_ascend.so``
+
+    Does **not** read ``TRITON_PLUGIN_PATHS`` (that env may be stale after
+    reinstall). Override only via ``TRITON_ASCEND_EXTENSION`` /
+    ``TRITON_ASCEND_PASS_PLUGIN``.
+    """
     env = os.environ.get("TRITON_ASCEND_EXTENSION") or os.environ.get(
         "TRITON_ASCEND_PASS_PLUGIN"
     )
@@ -42,17 +51,38 @@ def plugin_library() -> Path | None:
 
 
 def ensure_plugin_path() -> Path | None:
-    """Prepend ``libtriton_ascend.so`` to ``TRITON_PLUGIN_PATHS`` if present."""
+    """Publish ``plugin_library()`` into ``TRITON_PLUGIN_PATHS``.
+
+    Drops env entries whose files no longer exist. Host Triton 3.7 aborts if
+    *any* path in ``TRITON_PLUGIN_PATHS`` fails to ``dlopen`` — a leftover
+    site-packages path after ``pip install -e`` is a common footgun.
+    """
     so = plugin_library()
-    if so is None:
-        return None
-    path = str(so.resolve())
     existing = os.environ.get("TRITON_PLUGIN_PATHS", "")
-    parts = [p for p in existing.split(":") if p]
-    if path not in parts:
-        os.environ["TRITON_PLUGIN_PATHS"] = (
-            path if not parts else path + ":" + ":".join(parts)
-        )
+    kept: list[str] = []
+    seen: set[str] = set()
+    for raw in existing.split(":"):
+        if not raw:
+            continue
+        try:
+            resolved = str(Path(raw).resolve())
+        except OSError:
+            continue
+        if resolved in seen or not Path(resolved).is_file():
+            continue
+        seen.add(resolved)
+        kept.append(resolved)
+
+    if so is not None:
+        path = str(so.resolve())
+        if path not in seen:
+            kept.insert(0, path)
+
+    if kept:
+        os.environ["TRITON_PLUGIN_PATHS"] = ":".join(kept)
+    elif "TRITON_PLUGIN_PATHS" in os.environ:
+        del os.environ["TRITON_PLUGIN_PATHS"]
+
     return so
 
 
@@ -87,7 +117,6 @@ def check_triton_version() -> str | None:
         )
         return None
 
-    # Accept 3.7.1 and local builds that still report 3.7.1*.
     if not str(ver).startswith(_REQUIRED_TRITON):
         warnings.warn(
             f"[triton-ascend] unsupported triton version {ver!r}; "
@@ -104,27 +133,19 @@ def _libtriton_already_imported() -> bool:
 
 
 def bootstrap_ascend_plugin() -> Path | None:
-    """Version check + set ``TRITON_PLUGIN_PATHS`` (idempotent).
+    """Scrub/set plugin path, then version-check (idempotent).
 
-    Preferred call sites (earliest wins):
-
-    1. ``export TRITON_PLUGIN_PATHS=...`` before starting Python (see README)
-    2. ``import triton_ascend`` before ``import triton``
-    3. Backend discovery (``triton.backends`` entry point)
-
-    Note: stock Triton 3.7.1 imports ``libtriton`` from ``runtime.autotuner``
-    *before* backend discovery, so (3) alone is often too late unless (1)/(2)
-    already set the env.
+    ``ensure_plugin_path`` must run before any ``import triton``: stock 3.7.1
+    loads plugins from ``TRITON_PLUGIN_PATHS`` at first ``libtriton`` import.
     """
     global _BOOTSTRAPPED
+    already = _libtriton_already_imported()
+    so = ensure_plugin_path()
     if not _BOOTSTRAPPED:
         check_triton_version()
         _BOOTSTRAPPED = True
 
-    already = _libtriton_already_imported()
-    so = ensure_plugin_path()
     if already and so is not None:
-        # Path set after libtriton init cannot load the plugin (pluginsLoaded).
         try:
             libtriton = sys.modules.get("triton._C.libtriton")
             plugin_mod = getattr(getattr(libtriton, "passes", None), "plugin", None)
