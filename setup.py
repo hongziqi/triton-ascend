@@ -7,8 +7,9 @@ The native artifact is ``libtriton_ascend.so``. It exports
 missing MLIR dialect objects produced by ``standalone/link_ext_dialects.py``.
 
 Triton 3.7 loads plugins from ``TRITON_PLUGIN_PATHS`` at ``libtriton`` import
-time (no ``extend_with``). Headers come from the ``third_party/triton``
-submodule because the 3.7.1 wheel does not ship them.
+time (no ``extend_with``, no site ``.pth``). Set that env before importing
+triton (see README). Headers come from ``third_party/triton`` because the
+3.7.1 wheel does not ship them.
 
 Requires: ``LLVM_SYSPATH``, host ``triton==3.7.1`` built with
 ``TRITON_EXT_ENABLED=1``.
@@ -161,14 +162,120 @@ def _invalidate_stale_cmake_cache(build_dir: Path, llvm: str) -> None:
     shutil.rmtree(build_dir, ignore_errors=True)
 
 
-def _install_plugin_pth() -> None:
-    """Install a site ``.pth`` that sets ``TRITON_PLUGIN_PATHS`` at startup."""
+
+def _npuir_patch_files(patch_path: Path) -> list[str]:
+    files: list[str] = []
+    with open(patch_path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if line.startswith("diff --git a/"):
+                target = line.split(" b/", 1)[-1].rstrip("\n")
+                if target != "/dev/null":
+                    files.append(target)
+    return files
+
+
+def _normalize_npuir_crlf(files: list[str], *, cwd: Path) -> None:
+    """CRLF working trees reject LF patches; CMake/tblgen accept LF."""
+    for rel in files:
+        path = cwd / rel
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
+        if b"\r\n" in data:
+            path.write_bytes(data.replace(b"\r\n", b"\n"))
+
+
+def apply_npuir_patch(
+    *,
+    npuir_dir: Path | None = None,
+    patch_path: Path | None = None,
+) -> None:
+    """Apply AscendNPU-IR LLVM-23 adaptations (idempotent per clean checkout).
+
+    Keeps the AscendNPU-IR submodule tree clean at HEAD and re-applies
+    ``patch/npuir_adapter_to_llvm_23.patch`` before every plugin build.
+    Also invoked as ``python setup.py apply_npuir_patch`` from CMake.
+    """
+    if npuir_dir is None:
+        npuir_dir = _PKG_ROOT / "third_party" / "AscendNPU-IR"
+    if patch_path is None:
+        patch_path = _PKG_ROOT / "patch" / "npuir_adapter_to_llvm_23.patch"
+    if not patch_path.is_file():
+        raise RuntimeError(f"patch not found: {patch_path}")
+    if not npuir_dir.is_dir():
+        raise RuntimeError(
+            f"AscendNPU-IR not found at {npuir_dir}. "
+            "Init the submodule: git submodule update --init --progress "
+            "third_party/AscendNPU-IR"
+        )
+    if not (npuir_dir / ".git").exists():
+        raise RuntimeError(
+            f"{npuir_dir} is not a git checkout; AscendNPU-IR must be a submodule "
+            "so the adapter patch can be applied cleanly at build time."
+        )
+
+    patch_files = _npuir_patch_files(patch_path)
+    if not patch_files:
+        raise RuntimeError(f"patch has no file sections: {patch_path}")
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "--"] + patch_files,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        cwd=str(npuir_dir),
+        text=True,
+    ).stdout.splitlines()
+    if tracked:
+        subprocess.run(
+            ["git", "checkout", "-f", "--"] + tracked,
+            check=True,
+            cwd=str(npuir_dir),
+        )
+
+    patch_abs = str(patch_path.resolve())
+    already = subprocess.run(
+        ["git", "apply", "--reverse", "--check", patch_abs],
+        cwd=str(npuir_dir),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if already.returncode == 0:
+        print(f"[triton-ascend] {patch_path.name} already applied → {npuir_dir}")
+        return
+
+    apply = subprocess.run(
+        ["git", "apply", "--whitespace=nowarn", patch_abs],
+        cwd=str(npuir_dir),
+        capture_output=True,
+        text=True,
+    )
+    if apply.returncode != 0:
+        if tracked:
+            _normalize_npuir_crlf(tracked, cwd=npuir_dir)
+        apply = subprocess.run(
+            ["git", "apply", "--whitespace=nowarn", patch_abs],
+            cwd=str(npuir_dir),
+            capture_output=True,
+            text=True,
+        )
+    if apply.returncode != 0:
+        raise RuntimeError(
+            f"git apply failed for {patch_path.name}: {apply.stderr or apply.stdout}"
+        )
+    print(f"[triton-ascend] applied {patch_path.name} → {npuir_dir}")
+
+
+def _remove_stale_plugin_pth() -> None:
+    """Delete ``triton_ascend_plugin.pth`` left by older installs.
+
+    Site ``.pth`` autoload is intentionally gone; set ``TRITON_PLUGIN_PATHS``
+    before importing triton (see README).
+    """
     import site
 
-    # After install the package lives in site-packages; during the same
-    # process ``import triton_ascend`` may still resolve to the source tree.
-    line = "import triton_ascend._autoload_plugin\n"
-    candidates: list[Path] = []
+    names = ("triton_ascend_plugin.pth",)
+    roots: list[Path] = []
     for site_dir in site.getsitepackages() + [site.getusersitepackages()]:
         if not site_dir:
             continue
@@ -176,23 +283,17 @@ def _install_plugin_pth() -> None:
             os.environ["CONDA_PREFIX"]
         ):
             continue
-        root = Path(site_dir)
-        if not root.is_dir():
-            continue
-        autoload = root / "triton_ascend" / "_autoload_plugin.py"
-        if autoload.is_file() or (_PKG_ROOT / "_autoload_plugin.py").is_file():
-            candidates.append(root / "triton_ascend_plugin.pth")
-    if not candidates:
-        print("[triton-ascend] WARNING: no site-packages for .pth")
-        return
-    for pth in candidates:
-        try:
-            pth.write_text(line)
-            print(f"[triton-ascend] wrote {pth}")
-            return
-        except OSError as e:
-            print(f"[triton-ascend] WARNING: could not write {pth}: {e}")
-    print("[triton-ascend] WARNING: no writable site-packages for .pth")
+        roots.append(Path(site_dir))
+    for root in roots:
+        for name in names:
+            pth = root / name
+            if not pth.is_file():
+                continue
+            try:
+                pth.unlink()
+                print(f"[triton-ascend] removed stale {pth}")
+            except OSError as e:
+                print(f"[triton-ascend] WARNING: could not remove {pth}: {e}")
 
 
 def _install_language_into_triton() -> None:
@@ -267,17 +368,8 @@ def _find_cmake() -> str:
 class CMakeBuild(build_ext):
     def run(self) -> None:
         super().run()
-        # PEP 660 ``pip install -e .`` builds an editable wheel and does NOT
-        # invoke setuptools ``develop`` / ``install`` cmdclass hooks. The Ascend
-        # ``.pth`` that sets TRITON_PLUGIN_PATHS before ``import triton`` must
-        # therefore be written from ``build_ext``, which still runs.
-        try:
-            _install_plugin_pth()
-        except Exception as e:
-            print(
-                f"[triton-ascend] WARNING: plugin .pth install failed: {e}",
-                file=sys.stderr,
-            )
+        # PEP 660 ``pip install -e .`` may skip install/develop hooks.
+        _remove_stale_plugin_pth()
         try:
             _install_language_into_triton()
         except Exception as e:
@@ -307,10 +399,7 @@ class CMakeBuild(build_ext):
         # AscendNPU-IR is a submodule: keep HEAD clean and re-apply the LLVM-23
         # adapter patch on every build (same contract as monorepo setup_ascend).
         _progress("[triton-ascend] applying AscendNPU-IR llvm23 adapter patch")
-        subprocess.check_call(
-            [sys.executable, str(_PKG_ROOT / "scripts" / "apply_npuir_patch.py")],
-            cwd=str(_PKG_ROOT),
-        )
+        apply_npuir_patch()
 
         cmake_args = [
             f"-DLLVM_SYSPATH={llvm}",
@@ -393,14 +482,6 @@ class CMakeBuild(build_ext):
                 except OSError:
                     pass
         _progress(f"[triton-ascend] native -> {ext_path}")
-        # PEP 660 ``pip install -e .`` builds the editable wheel via build_ext but
-        # does *not* run setuptools ``develop``/``install`` cmdclass hooks. Write
-        # the site ``.pth`` here so TRITON_PLUGIN_PATHS is set before libtriton
-        # loads on the next interpreter start.
-        try:
-            _install_plugin_pth()
-        except Exception as e:
-            _progress(f"[triton-ascend] WARNING: plugin .pth install failed: {e}")
         try:
             _install_language_into_triton()
         except Exception as e:
@@ -410,11 +491,7 @@ class CMakeBuild(build_ext):
 class _PostInstallMixin:
     def run(self):
         super().run()
-        # Keep for classic ``python setup.py develop`` / non-editable install.
-        try:
-            _install_plugin_pth()
-        except Exception as e:
-            print(f"[triton-ascend] WARNING: plugin .pth install failed: {e}", file=sys.stderr)
+        _remove_stale_plugin_pth()
         try:
             _install_language_into_triton()
         except Exception as e:
@@ -433,6 +510,15 @@ class Develop(_PostInstallMixin, develop):
 # Location=<source tree> and confuse uninstall/reinstall.
 _EGG_BASE = _PKG_ROOT / "build" / "egg-info"
 _EGG_BASE.mkdir(parents=True, exist_ok=True)
+
+# CMake / manual: python setup.py apply_npuir_patch
+if __name__ == "__main__" and len(sys.argv) >= 2 and sys.argv[1] == "apply_npuir_patch":
+    try:
+        apply_npuir_patch()
+    except (RuntimeError, subprocess.CalledProcessError) as e:
+        print(f"[triton-ascend] ERROR: {e}", file=sys.stderr)
+        raise SystemExit(1) from e
+    raise SystemExit(0)
 
 setup(
     name="triton-ascend",
@@ -472,7 +558,6 @@ setup(
             "language/extension/buffer/**/*.py",
             "language/kernels/**/*.py",
             "language/tla/**/*.py",
-            "_autoload_plugin.py",
             # Untagged build product under package root; tagged .so are leftovers.
             "_C/libtriton_ascend.so",
         ],

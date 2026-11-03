@@ -1,7 +1,7 @@
 # Ascend + BiShengIR objects for the scheme-1 plugin.
 # Triton dialect sources are not compiled here. Their TypeIDs stay in libtriton.
 
-set(BISHENGIR_SRC_DIR "${ASCEND_ROOT}/AscendNPU-IR/bishengir")
+set(BISHENGIR_SRC_DIR "${ASCEND_ROOT}/third_party/AscendNPU-IR/bishengir")
 set(BISHENGIR_MAIN_INCLUDE_DIR "${BISHENGIR_SRC_DIR}/include")
 set(BISHENGIR_BINARY_DIR "${CMAKE_BINARY_DIR}/bishengir")
 set(BISHENGIR_INCLUDE_DIR "${BISHENGIR_BINARY_DIR}/include")

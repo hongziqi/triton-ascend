@@ -51,8 +51,8 @@ llvm-project-*/
 
 # AscendNPU-IR is a git submodule: track the gitlink, ignore local patch dirt
 # left after build-time `git apply` (re-applied from patch/ on each build).
-AscendNPU-IR/**/*.orig
-AscendNPU-IR/**/*.rej
+third_party/AscendNPU-IR/**/*.orig
+third_party/AscendNPU-IR/**/*.rej
 
 # Test / dump noise
 *.log

@@ -35,6 +35,13 @@ from types import ModuleType
 from typing import Any, Dict, Optional, Tuple, Union
 from .debug_line_rewriter import rewrite_debug_line
 
+# Triton 3.7 loads plugins from TRITON_PLUGIN_PATHS at first libtriton import.
+# Entry-point discovery imports this module; set the env *before* importing
+# libtriton (no site .pth). Parent ``backend/__init__.py`` also bootstraps.
+from .plugin_bootstrap import bootstrap_ascend_plugin
+
+bootstrap_ascend_plugin()
+
 from triton import knobs
 from triton._C.libtriton import ir, passes
 

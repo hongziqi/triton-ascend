@@ -26,6 +26,13 @@ import sys
 # triton.backends.ascend (utils, driver, compiler).
 sys.modules.setdefault("triton.backends.ascend", sys.modules[__name__])
 
+# Triton discovers this package via ``triton.backends`` entry points. Set
+# ``TRITON_PLUGIN_PATHS`` and warn on wrong host version *here*, before
+# ``backend.compiler`` imports ``libtriton`` (no site ``.pth``).
+from .plugin_bootstrap import bootstrap_ascend_plugin
+
+bootstrap_ascend_plugin()
+
 from .testing import do_bench_npu
 
 

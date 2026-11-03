@@ -18,6 +18,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+# Triton 3.7.1 loads libtriton in runtime.autotuner before backend discovery.
+# Set TRITON_PLUGIN_PATHS before any triton import (no site .pth).
+try:
+    import triton_ascend  # noqa: F401  — ensure_plugin_path at package import
+
+    triton_ascend.ensure_plugin_path()
+except Exception:
+    pass
+
 import pytest
 import torch
 

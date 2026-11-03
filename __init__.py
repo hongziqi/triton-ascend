@@ -1,12 +1,11 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
-"""Load the Ascend plugin into the host Triton context (Triton 3.7 ABI).
+"""Ascend plugin for community Triton 3.7.1 (``TRITON_PLUGIN_PATHS`` ABI).
 
-``libtriton_ascend.so`` exports ``tritonGetPluginInfo``. Triton 3.7 has no
-``extend_with``; plugins are loaded from ``TRITON_PLUGIN_PATHS`` when
-``libtriton`` is first imported. Ensure the env var is set *before*
-``import triton`` (the installed ``.pth`` / ``_autoload_plugin`` does this).
+Plugin loading is initialized when Triton discovers the ``triton.backends``
+entry point ``ascend = triton_ascend.backend`` (see ``backend/plugin_bootstrap.py``).
+There is no site ``.pth`` autoload.
 
-Verify path after import::
+Verify after ``import triton``::
 
     assert hasattr(passes.plugin, "add_triton_to_linalg")
     assert hasattr(ir.builder, "create_extract_scalar")
@@ -30,22 +29,15 @@ def _package_dir() -> Path:
 
 
 def plugin_library() -> Path | None:
-    env = os.environ.get("TRITON_ASCEND_EXTENSION") or os.environ.get(
-        "TRITON_ASCEND_PASS_PLUGIN"
-    )
-    if env:
-        path = Path(env)
-        return path if path.is_file() else None
-    c_dir = _package_dir() / "_C"
-    if not c_dir.is_dir():
-        return None
-    plain = c_dir / "libtriton_ascend.so"
-    if plain.is_file():
-        return plain
-    matches = [p for p in c_dir.glob("libtriton_ascend*.so") if p.is_file()]
-    if not matches:
-        return None
-    return max(matches, key=lambda p: p.stat().st_mtime)
+    from .backend.plugin_bootstrap import plugin_library as _plugin_library
+
+    return _plugin_library()
+
+
+def ensure_plugin_path() -> Path | None:
+    from .backend.plugin_bootstrap import ensure_plugin_path as _ensure
+
+    return _ensure()
 
 
 def _plugin_paths_contain(so: Path) -> bool:
@@ -64,6 +56,8 @@ def register_ascend_native() -> None:
     global _ASCEND_PLUGIN_LOADED, ir
     if _ASCEND_PLUGIN_LOADED:
         return
+    # Ensure env is set in case the caller imported this package before backends.
+    ensure_plugin_path()
     libtriton = importlib.import_module("triton._C.libtriton")
     host_ir = libtriton.ir
     if getattr(libtriton, "_ascend_plugin_loaded", False):
@@ -88,9 +82,11 @@ def register_ascend_native() -> None:
             f"  TRITON_PLUGIN_PATHS contains so: {in_env}\n"
             f"  has add_triton_to_linalg: {has_pass}\n"
             f"  has create_extract_scalar: {has_op}\n"
-            "Set TRITON_PLUGIN_PATHS to the .so *before* importing triton "
-            "(or reinstall so the triton_ascend .pth runs at startup). "
-            "Host must be built with TRITON_EXT_ENABLED=1."
+            "The plugin path must be set before the first ``import`` of "
+            "``triton._C.libtriton``. Triton discovers Ascend via the "
+            "``triton.backends`` entry point and ``backend.plugin_bootstrap`` "
+            "sets ``TRITON_PLUGIN_PATHS`` at that time. "
+            "Host must be ``triton==3.7.1`` built with TRITON_EXT_ENABLED=1."
         )
 
     ir = host_ir
@@ -328,24 +324,14 @@ def _install_cann_import_hook() -> None:
     _install_cann_import_hook._installed = True  # type: ignore[attr-defined]
 
 
-# Best-effort: if autoload did not run, still publish the path for the *next*
-# process. Too late for the current libtriton if already imported.
+# Lightweight: publish TRITON_PLUGIN_PATHS without importing libtriton.
+# Prefer exporting TRITON_PLUGIN_PATHS (see README) or ``import triton_ascend``
+# *before* ``import triton`` — stock 3.7.1 loads libtriton in runtime.autotuner
+# before backend discovery.
 try:
-    from ._autoload_plugin import ensure_plugin_path as _ensure_plugin_path
-
-    _ensure_plugin_path()
+    ensure_plugin_path()
 except Exception:
     pass
-
-try:
-    register_ascend_native()
-except Exception as _ascend_exc:
-    warnings.warn(
-        f"triton_ascend plugin registration failed ({_ascend_exc!r}); "
-        "export TRITON_PLUGIN_PATHS=<libtriton_ascend.so> before importing triton.",
-        ImportWarning,
-        stacklevel=1,
-    )
 
 _install_cann_import_hook()
 
@@ -374,6 +360,7 @@ if _triton_jit_ready():
 __all__ = [
     "register_ascend_native",
     "plugin_library",
+    "ensure_plugin_path",
     "ir",
     "_ensure_cann_language",
     "_ensure_buffer_language",

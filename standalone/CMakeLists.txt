@@ -24,13 +24,13 @@ set(STANDALONE_OUTPUT_DIR "${ASCEND_ROOT}/_C" CACHE PATH "Where to place libtrit
 
 find_package(Python 3.9 REQUIRED COMPONENTS Interpreter Development.Module)
 
-# AscendNPU-IR submodule stays clean at HEAD; adapter patch is applied at configure.
-set(_APPLY_NPUIR_PATCH "${ASCEND_ROOT}/scripts/apply_npuir_patch.py")
-if(NOT EXISTS "${_APPLY_NPUIR_PATCH}")
-  message(FATAL_ERROR "Missing ${_APPLY_NPUIR_PATCH}")
+# AscendNPU-IR submodule stays clean at HEAD; adapter patch is applied at configure
+# via setup.py (same helper used by pip build_ext).
+if(NOT EXISTS "${ASCEND_ROOT}/setup.py")
+  message(FATAL_ERROR "Missing ${ASCEND_ROOT}/setup.py")
 endif()
 execute_process(
-  COMMAND "${Python_EXECUTABLE}" "${_APPLY_NPUIR_PATCH}"
+  COMMAND "${Python_EXECUTABLE}" "${ASCEND_ROOT}/setup.py" apply_npuir_patch
   WORKING_DIRECTORY "${ASCEND_ROOT}"
   RESULT_VARIABLE _npuir_patch_rc
   ERROR_VARIABLE _npuir_patch_err
@@ -222,7 +222,7 @@ target_include_directories(libtriton_ascend PRIVATE
   ${CMAKE_BINARY_DIR}/include
   ${CMAKE_BINARY_DIR}/include_compat
   ${CMAKE_BINARY_DIR}/gen_compat
-  ${ASCEND_ROOT}/AscendNPU-IR/bishengir/include
+  ${ASCEND_ROOT}/third_party/AscendNPU-IR/bishengir/include
   ${CMAKE_BINARY_DIR}/bishengir/include
   ${TRITON_SRC_ROOT}
   ${Python_INCLUDE_DIRS}
