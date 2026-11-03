@@ -46,13 +46,16 @@ import triton
 ### 编译 LLVM（一次性）
 
 ```bash
+# 拉取 LLVM patch
+wget https://raw.githubusercontent.com/hongziqi/triton-ascend/main-plugin-adapter-3.7/patch/triton-llvm_patch_1f126a6.patch
+# 定义 LLVM 安装路径
 export LLVM_INSTALL_PREFIX_3_7_1_PATCH=/home/coder/bin/triton-llvm-project-3.7.1-1f126a6-patch
+# 编译 LLVM patch 版本
 git clone git@github.com:triton-lang/llvm-project.git
-mv llvm-project triton-llvm-project-3.7.1-1f126a6-patch
-cd triton-llvm-project-3.7.1-1f126a6-patch
+cd llvm-project
+git checkout 1f126a6dea50d185c0781743a667390037ae88bd
 # 需要 apply triton-ascend仓库的patch文件
-git apply --whitespace=nowarn \
-  triton-ascend/patch/triton-llvm_patch_1f126a6.patch
+git apply --whitespace=nowarn ../triton-llvm_patch_1f126a6.patch
 
 mkdir -p build && cd build
 cmake ../llvm -G Ninja \
@@ -74,7 +77,7 @@ git clone -b main-plugin-adapter-3.7 https://github.com/hongziqi/triton-ascend.g
 cd triton-ascend
 git submodule update --init --depth 1 --progress
 
-pip install triton==3.7.1
+pip install triton==3.7.1 -i https://mirrors.huaweicloud.com/repository/pypi/simple --trusted-host mirrors.huaweicloud.com
 
 # 可编辑安装
 pip install -e . --no-build-isolation
@@ -88,7 +91,13 @@ export TRITON_PLUGIN_PATHS="$(python -c 'import triton_ascend; print(triton_asce
 ```
 
 ## 验证（插件 ABI）
+1. 直接验证向量加法：
+```bash
+export TRITON_PLUGIN_PATHS="$(python -c 'import triton_ascend; print(triton_ascend.plugin_library())')"
+python tutorials/01-vector-add.py
+```
 
+2. 或执行一下python脚本，验证plugin的pass和op是否导入成功：
 ```python
 import triton
 from triton._C.libtriton import ir, passes
@@ -96,9 +105,4 @@ import triton_ascend
 triton_ascend.register_ascend_native()
 assert hasattr(ir.builder, "create_extract_scalar")
 assert hasattr(passes.plugin, "add_triton_to_linalg")
-```
-
-```bash
-export TRITON_PLUGIN_PATHS="$(python -c 'import triton_ascend; print(triton_ascend.plugin_library())')"
-python tutorials/01-vector-add.py
 ```
