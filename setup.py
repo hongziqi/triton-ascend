@@ -423,12 +423,20 @@ class CMakeBuild(build_ext):
         # has setuptools. CMake then runs Python_EXECUTABLE to `import triton`
         # and fails with ModuleNotFoundError even though the host env has it.
         # Prefer: pip install -e . --no-build-isolation
+        #
+        # Also clear TRITON_PLUGIN_PATHS: a previous install may have exported a
+        # path to libtriton_ascend.so that is being rebuilt/removed. Host Triton
+        # loads that env at import time and aborts cmake configure with
+        # "Failed to load plugin".
         cmake_env = os.environ.copy()
         for key in (
             "PYTHONPATH",
             "PYTHONHOME",
             "_PYPROJECT_HOOKS_BACKEND_PATH",
             "PEP517_BUILD_BACKEND",
+            "TRITON_PLUGIN_PATHS",
+            "TRITON_ASCEND_EXTENSION",
+            "TRITON_ASCEND_PASS_PLUGIN",
         ):
             cmake_env.pop(key, None)
 

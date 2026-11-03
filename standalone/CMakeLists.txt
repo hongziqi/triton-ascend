@@ -43,9 +43,14 @@ if(_npuir_patch_out)
   message(STATUS "${_npuir_patch_out}")
 endif()
 
-# Clear pip build-isolation PYTHONPATH so host site-packages (triton) is visible.
+# Clear pip isolation + plugin env so host site-packages (triton) is visible and
+# a stale TRITON_PLUGIN_PATHS (pointing at a .so being rebuilt) cannot abort
+# ``import triton`` with "Failed to load plugin".
 execute_process(
-  COMMAND "${CMAKE_COMMAND}" -E env --unset=PYTHONPATH --unset=PYTHONHOME
+  COMMAND "${CMAKE_COMMAND}" -E env
+          --unset=PYTHONPATH --unset=PYTHONHOME
+          --unset=TRITON_PLUGIN_PATHS
+          --unset=TRITON_ASCEND_EXTENSION --unset=TRITON_ASCEND_PASS_PLUGIN
           "${Python_EXECUTABLE}" -c
           "import triton, pathlib; print(pathlib.Path(triton.__file__).resolve().parent)"
   OUTPUT_VARIABLE TRITON_WHEEL_DIR
@@ -76,7 +81,10 @@ set(TRITON_SRC_PYTHON_DIR "${TRITON_SRC_ROOT}/python/src")
 
 # Generate Version.h to match the installed host (partial release check).
 execute_process(
-  COMMAND "${CMAKE_COMMAND}" -E env --unset=PYTHONPATH --unset=PYTHONHOME
+  COMMAND "${CMAKE_COMMAND}" -E env
+          --unset=PYTHONPATH --unset=PYTHONHOME
+          --unset=TRITON_PLUGIN_PATHS
+          --unset=TRITON_ASCEND_EXTENSION --unset=TRITON_ASCEND_PASS_PLUGIN
           "${Python_EXECUTABLE}" -c "import triton; print(triton.__version__)"
   OUTPUT_VARIABLE TRITON_HOST_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE
