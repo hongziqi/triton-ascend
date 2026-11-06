@@ -24,6 +24,7 @@
 #include "ascend/include/TritonToLinalg/BlockPtrAnalysis.h"
 #include "ascend/include/TritonToLinalg/MaskAnalysis.h"
 #include "ascend/include/TritonToLinalg/TritonToLinalgPass.h"
+#include "ascend/include/TritonToStructured/MemOpConverter.h"
 #include "ascend/include/Utils/DebugUtils.h"
 #include "ascend/include/Utils/InterleaveOptimization.h"
 #include "ascend/include/Utils/Utils.h"
@@ -1071,6 +1072,79 @@ AtomicCASConverter::matchAndRewrite(triton::AtomicCASOp op, OpAdaptor adaptor,
 
   Value cmpMemref =
       rewriter.create<bufferization::ToMemrefOp>(loc, dstType, cmp);
+
+  // Single-element CAS: expand to an explicit software CAS instead of the
+  // linalg.generic contract. The NPU compiler's software emulation of
+  // hivm.atomic_cas has two defects that deadlock spin-lock loops
+  // (test_atomic_cas, see atomic_cas_spinlock_deadlock_analysis.md):
+  //   1. it writes the stale old value back on a failed compare, which can
+  //      race with a release (atomic_xchg -> 0) on the same address and
+  //      resurrect the lock;
+  //   2. the loop condition scalar-reads the MTE2-filled UB slot through
+  //      the DCache and can stay stale forever, never observing the release.
+  // Doing the emulation here fixes both: the store is guarded by scf.if so
+  // a failed CAS writes nothing, and a DCCI before the scalar reads
+  // invalidates the DCache line. Multi-element CAS keeps the linalg.generic
+  // contract.
+  bool isSingleElement = dstOriType.getShape().size() == 1 &&
+                         dstOriType.getShape()[0] == 1;
+  if (isSingleElement &&
+      dstOriType.getElementType().isIntOrFloat()) {
+    // Ordered sync_block_lock; the NPU compiler hoists it around the
+    // enclosing spin loop so each block acquires it exactly once.
+    auto lockVar = MemOpConverter::createSyncBlockLockVar(rewriter, loc);
+    rewriter.create<hivm::SyncBlockLockOp>(loc, lockVar);
+
+    // Load the old value; the snapshot doubles as the returned old value.
+    auto allocType =
+        MemRefType::get(dstOriType.getShape(), dstOriType.getElementType());
+    auto alloc = rewriter.create<memref::AllocOp>(loc, allocType);
+    rewriter.create<memref::CopyOp>(loc, ptr, alloc);
+
+    // MTE2 writes UB bypassing the DCache; invalidate the line so the
+    // scalar reads below cannot hit a stale cached value.
+    rewriter.create<hivm::DCCIOp>(
+        loc,
+        hivm::DCCIModeAttr::get(rewriter.getContext(),
+                                hivm::DCCIMode::SINGLE_CACHE_LINE),
+        hivm::DataCacheKindAttr::get(rewriter.getContext(),
+                                     hivm::DataCacheKind::UB),
+        alloc);
+
+    auto c0 = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    auto oldScalar =
+        rewriter.create<memref::LoadOp>(loc, alloc, ValueRange{c0});
+    auto cmpScalar =
+        rewriter.create<memref::LoadOp>(loc, cmpMemref, ValueRange{c0});
+    Value cond;
+    if (mlir::isa<mlir::FloatType>(dstOriType.getElementType()))
+      cond = rewriter.create<arith::CmpFOp>(
+          loc, arith::CmpFPredicate::OEQ, oldScalar, cmpScalar);
+    else
+      cond = rewriter.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::eq, oldScalar, cmpScalar);
+
+    // Store the new value only when the compare succeeded.
+    auto ifOp = rewriter.create<scf::IfOp>(loc, TypeRange{}, cond, false);
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+      rewriter.create<hivm::StoreOp>(loc, TypeRange{}, inputMemref, dstMemref);
+    }
+
+    rewriter.create<hivm::SyncBlockUnlockOp>(loc, lockVar);
+
+    if (!op.getResult().use_empty()) {
+      auto tensorType =
+          RankedTensorType::get(type.getShape(), type.getElementType());
+      Value tensor = rewriter.create<bufferization::ToTensorOp>(
+          loc, tensorType, alloc, true /* restrict */, true /* writable */);
+      rewriter.replaceOp(op, tensor);
+    } else {
+      rewriter.eraseOp(op);
+    }
+    return success();
+  }
 
   // create element-wise map
   int64_t rank = type.getRank();
