@@ -761,9 +761,9 @@ def linalg_to_bin_enable_npu_compile_910_95(linalg: str, metadata, opt):
         Path(ttadapter_path).write_text(linalg)
         bin_file = os.path.join(tmpdir, "kernel")
         if _check_bishengir_api_change():
-            bin_file_with_ext = "kernel.o"
+            bin_file_with_ext = "kernel.npubin"
         else:
-            bin_file_with_ext = "kernel_reloc.o"
+            bin_file_with_ext = "kernel_reloc.npubin"
         bin_path = os.path.join(tmpdir, bin_file_with_ext)
         callback_path = os.path.join(tmpdir, "libkernel.so")
         _compile_option_list = get_common_bishengir_compile_options(metadata)
@@ -1007,9 +1007,9 @@ def linalg_to_bin_enable_npu_compile_A2_A3(linalg: str, metadata, opt):
         Path(ttadapter_path).write_text(linalg)
         bin_file = os.path.join(tmpdir, "kernel")
         if _check_bishengir_api_change():
-            bin_file_with_ext = "kernel.o"
+            bin_file_with_ext = "kernel.npubin"
         else:
-            bin_file_with_ext = "kernel_reloc.o"
+            bin_file_with_ext = "kernel_reloc.npubin"
         if _check_bishengir_is_regbased():
             bishengir_hivm_opt = "--reg-based=true"
         else:
@@ -1553,7 +1553,7 @@ def ttir_to_npubin(mod, metadata, opt):
         Path(src_path).write_text(ttir_code)
         # prepare output
         bin_file = os.path.join(tmpdir, "kernel")
-        bin_path = os.path.join(tmpdir, "kernel.o")
+        bin_path = os.path.join(tmpdir, "kernel.npubin")
         # build compile options
         _compile_option_list = get_common_bishengir_compile_options(metadata)
         if opt.is_pure_simt:
